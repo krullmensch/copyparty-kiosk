@@ -6,7 +6,8 @@ import {
   IpcChannels,
   ListResult,
   RemoteListResult,
-  TransferResult
+  TransferResult,
+  UploadProgress
 } from '../shared/types'
 
 const api = {
@@ -41,7 +42,12 @@ const api = {
       targetDir: string,
       items: { vpath: string; name: string }[]
     ): Promise<TransferResult> =>
-      ipcRenderer.invoke(IpcChannels.CppDownload, url, targetDir, items)
+      ipcRenderer.invoke(IpcChannels.CppDownload, url, targetDir, items),
+    onProgress: (cb: (p: UploadProgress) => void): (() => void) => {
+      const handler = (_: unknown, p: UploadProgress): void => cb(p)
+      ipcRenderer.on(IpcChannels.CppProgress, handler)
+      return () => ipcRenderer.off(IpcChannels.CppProgress, handler)
+    }
   }
 }
 

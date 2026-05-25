@@ -20,9 +20,19 @@ function toDriveInfo(d: drivelist.Drive): DriveInfo {
   }
 }
 
+function isBackupVolume(d: drivelist.Drive): boolean {
+  return d.mountpoints.some((m) => {
+    const label = m.label ?? ''
+    const tail = m.path.split(/[\\/]/).filter(Boolean).pop() ?? ''
+    return /^backup/i.test(label) || /^backup/i.test(tail)
+  })
+}
+
 async function snapshot(): Promise<DriveInfo[]> {
   const drives = await drivelist.list()
-  return drives.filter((d) => !d.isSystem && (d.isUSB || d.isRemovable)).map(toDriveInfo)
+  return drives
+    .filter((d) => !d.isSystem && (d.isUSB || d.isRemovable) && !isBackupVolume(d))
+    .map(toDriveInfo)
 }
 
 function diff(prev: Map<string, DriveInfo>, next: DriveInfo[]): {

@@ -36,7 +36,7 @@ function createWindow(): void {
 
   registerDrivesIpc(mainWindow)
   registerFsIpc()
-  registerCppIpc()
+  registerCppIpc(mainWindow)
 }
 
 app.whenReady().then(() => {

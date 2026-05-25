@@ -61,8 +61,22 @@ export const IpcChannels = {
   CppDisconnect: 'cpp:disconnect',
   CppConnections: 'cpp:connections',
   CppUpload: 'cpp:upload',
-  CppDownload: 'cpp:download'
+  CppDownload: 'cpp:download',
+  CppProgress: 'cpp:progress'
 } as const
+
+export type UploadProgress =
+  | { kind: 'hash'; name: string; bytesDone: number; bytesTotal: number }
+  | {
+      kind: 'upload'
+      name: string
+      bytesDone: number
+      bytesTotal: number
+      chunkIndex: number
+      chunkCount: number
+    }
+  | { kind: 'done'; name: string; bytesTotal: number }
+  | { kind: 'error'; name: string; message: string }
 
 export interface TransferResult {
   ok: boolean

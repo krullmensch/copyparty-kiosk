@@ -1,7 +1,6 @@
-import { ipcMain } from 'electron'
-import { createReadStream, createWriteStream } from 'node:fs'
-import { stat } from 'node:fs/promises'
-import { basename, join } from 'node:path'
+import { BrowserWindow, ipcMain } from 'electron'
+import { createWriteStream } from 'node:fs'
+import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import {
@@ -9,8 +8,10 @@ import {
   IpcChannels,
   RemoteEntry,
   RemoteListResult,
-  TransferResult
+  TransferResult,
+  UploadProgress
 } from '../../shared/types'
+import { uploadFile } from '../up2k'
 
 interface CookieJar {
   [serverUrl: string]: string
@@ -146,40 +147,28 @@ function disconnect(serverUrl: string): void {
   delete cookies[normalizeServer(serverUrl)]
 }
 
-async function uploadOne(server: string, targetVpath: string, localPath: string): Promise<void> {
-  const st = await stat(localPath)
-  if (st.isDirectory()) throw new Error(`directory upload not supported: ${localPath}`)
-  const stream = createReadStream(localPath)
-  const webStream = Readable.toWeb(stream) as unknown as ReadableStream<Uint8Array>
-  const file = new File([await new Response(webStream).blob()], basename(localPath), {
-    type: 'application/octet-stream'
-  })
-  const form = new FormData()
-  form.append('act', 'bput')
-  form.append('f', file, basename(localPath))
-
-  const vp = targetVpath.endsWith('/') ? targetVpath : `${targetVpath}/`
-  const url = `${server}${vp}`
-  const headers: Record<string, string> = {}
-  const cookie = cookies[server]
-  if (cookie) headers['Cookie'] = cookie
-  const res = await fetch(url, { method: 'POST', headers, body: form })
-  if (!res.ok) throw new Error(`upload ${basename(localPath)}: HTTP ${res.status}`)
-}
-
 async function upload(
   serverUrl: string,
   targetVpath: string,
-  localPaths: string[]
+  localPaths: string[],
+  emit: (p: UploadProgress) => void
 ): Promise<TransferResult> {
   const server = normalizeServer(serverUrl)
   let done = 0
   for (const p of localPaths) {
     try {
-      await uploadOne(server, targetVpath, p)
+      await uploadFile({
+        server,
+        targetVpath,
+        filePath: p,
+        cookie: cookies[server],
+        onProgress: emit
+      })
       done++
     } catch (err) {
-      return { ok: false, done, total: localPaths.length, message: (err as Error).message }
+      const msg = (err as Error).message
+      emit({ kind: 'error', name: p, message: msg })
+      return { ok: false, done, total: localPaths.length, message: msg }
     }
   }
   return { ok: true, done, total: localPaths.length }
@@ -223,7 +212,12 @@ async function download(
   return { ok: true, done, total: items.length }
 }
 
-export function registerCppIpc(): void {
+export function registerCppIpc(mainWindow: BrowserWindow): void {
+  const emitProgress = (p: UploadProgress): void => {
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(IpcChannels.CppProgress, p)
+    }
+  }
   ipcMain.handle(
     IpcChannels.CppConnect,
     async (_, url: string, password?: string): Promise<ConnectResult> => {
@@ -242,7 +236,7 @@ export function registerCppIpc(): void {
   ipcMain.handle(
     IpcChannels.CppUpload,
     async (_, url: string, targetVpath: string, localPaths: string[]) =>
-      upload(url, targetVpath, localPaths)
+      upload(url, targetVpath, localPaths, emitProgress)
   )
   ipcMain.handle(
     IpcChannels.CppDownload,

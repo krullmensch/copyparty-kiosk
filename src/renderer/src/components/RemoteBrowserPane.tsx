@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ArrowUp, File as FileIcon, Folder, LogOut, RotateCw } from 'lucide-react'
-import { toast } from 'sonner'
+import { gooeyToast as toast } from 'goey-toast'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useRemoteListing } from '../hooks/useRemoteListing'
