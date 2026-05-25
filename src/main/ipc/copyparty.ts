@@ -1,0 +1,252 @@
+import { ipcMain } from 'electron'
+import { createReadStream, createWriteStream } from 'node:fs'
+import { stat } from 'node:fs/promises'
+import { basename, join } from 'node:path'
+import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
+import {
+  ConnectResult,
+  IpcChannels,
+  RemoteEntry,
+  RemoteListResult,
+  TransferResult
+} from '../../shared/types'
+
+interface CookieJar {
+  [serverUrl: string]: string
+}
+
+const cookies: CookieJar = {}
+
+function normalizeServer(url: string): string {
+  return url.replace(/\/+$/, '')
+}
+
+function buildHeaders(server: string): HeadersInit {
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  const cookie = cookies[server]
+  if (cookie) headers['Cookie'] = cookie
+  return headers
+}
+
+function captureCookies(server: string, res: Response): void {
+  const setCookie = res.headers.get('set-cookie')
+  if (!setCookie) return
+  const pairs = setCookie.split(/,\s*(?=[A-Za-z]+=)/)
+  const existing = cookies[server] ? cookies[server].split('; ') : []
+  const map = new Map<string, string>()
+  for (const c of existing) {
+    const [k, v] = c.split('=')
+    if (k) map.set(k, v ?? '')
+  }
+  for (const raw of pairs) {
+    const part = raw.split(';')[0]
+    const eq = part.indexOf('=')
+    if (eq < 0) continue
+    map.set(part.slice(0, eq).trim(), part.slice(eq + 1).trim())
+  }
+  cookies[server] = [...map.entries()].map(([k, v]) => `${k}=${v}`).join('; ')
+}
+
+async function connect(serverUrl: string, password?: string): Promise<ConnectResult> {
+  const server = normalizeServer(serverUrl)
+  if (!password) {
+    // try anonymous probe
+    const res = await fetch(`${server}/?ls`, { headers: buildHeaders(server) })
+    return { ok: res.ok, status: res.status }
+  }
+  const body = new URLSearchParams({ cppwd: password }).toString()
+  const res = await fetch(`${server}/?login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+    redirect: 'manual'
+  })
+  captureCookies(server, res)
+  // copyparty returns 200 on bad pw too, but no cookie. Verify by probing ?ls
+  const probe = await fetch(`${server}/?ls`, { headers: buildHeaders(server) })
+  if (!probe.ok) {
+    return { ok: false, status: probe.status, message: 'login probe failed' }
+  }
+  try {
+    const j = (await probe.json()) as { acct?: string }
+    return { ok: true, status: 200, acct: j.acct }
+  } catch {
+    return { ok: true, status: 200 }
+  }
+}
+
+interface CppLsRaw {
+  href: string
+  name?: string
+  sz?: number
+  ts?: number
+  tags?: Record<string, unknown>
+}
+
+interface CppLsResponse {
+  dirs?: CppLsRaw[]
+  files?: CppLsRaw[]
+  acct?: string
+  perms?: string[]
+  srvinf?: string
+}
+
+function nameFromHref(href: string): string {
+  const stripped = href.replace(/\/$/, '')
+  const last = stripped.split('/').pop() ?? stripped
+  try {
+    return decodeURIComponent(last)
+  } catch {
+    return last
+  }
+}
+
+async function list(serverUrl: string, vpath: string): Promise<RemoteListResult> {
+  const server = normalizeServer(serverUrl)
+  const vp = vpath.startsWith('/') ? vpath : `/${vpath}`
+  const url = `${server}${vp}${vp.endsWith('/') ? '' : '/'}?ls`
+  const res = await fetch(url, { headers: buildHeaders(server) })
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`)
+  }
+  const json = (await res.json()) as CppLsResponse
+
+  const dirs: RemoteEntry[] = (json.dirs ?? []).map((d) => ({
+    name: d.name ?? nameFromHref(d.href),
+    href: d.href,
+    size: 0,
+    ts: (d.ts ?? 0) * 1000,
+    isDirectory: true,
+    tags: d.tags
+  }))
+  const files: RemoteEntry[] = (json.files ?? []).map((f) => ({
+    name: f.name ?? nameFromHref(f.href),
+    href: f.href,
+    size: f.sz ?? 0,
+    ts: (f.ts ?? 0) * 1000,
+    isDirectory: false,
+    tags: f.tags
+  }))
+
+  const cleanVp = vp.replace(/\/$/, '') || '/'
+  const parent = cleanVp === '/' ? null : cleanVp.split('/').slice(0, -1).join('/') || '/'
+
+  return {
+    vpath: cleanVp,
+    parent,
+    entries: [...dirs, ...files],
+    perms: json.perms ?? [],
+    acct: json.acct,
+    srvinf: json.srvinf
+  }
+}
+
+function disconnect(serverUrl: string): void {
+  delete cookies[normalizeServer(serverUrl)]
+}
+
+async function uploadOne(server: string, targetVpath: string, localPath: string): Promise<void> {
+  const st = await stat(localPath)
+  if (st.isDirectory()) throw new Error(`directory upload not supported: ${localPath}`)
+  const stream = createReadStream(localPath)
+  const webStream = Readable.toWeb(stream) as unknown as ReadableStream<Uint8Array>
+  const file = new File([await new Response(webStream).blob()], basename(localPath), {
+    type: 'application/octet-stream'
+  })
+  const form = new FormData()
+  form.append('act', 'bput')
+  form.append('f', file, basename(localPath))
+
+  const vp = targetVpath.endsWith('/') ? targetVpath : `${targetVpath}/`
+  const url = `${server}${vp}`
+  const headers: Record<string, string> = {}
+  const cookie = cookies[server]
+  if (cookie) headers['Cookie'] = cookie
+  const res = await fetch(url, { method: 'POST', headers, body: form })
+  if (!res.ok) throw new Error(`upload ${basename(localPath)}: HTTP ${res.status}`)
+}
+
+async function upload(
+  serverUrl: string,
+  targetVpath: string,
+  localPaths: string[]
+): Promise<TransferResult> {
+  const server = normalizeServer(serverUrl)
+  let done = 0
+  for (const p of localPaths) {
+    try {
+      await uploadOne(server, targetVpath, p)
+      done++
+    } catch (err) {
+      return { ok: false, done, total: localPaths.length, message: (err as Error).message }
+    }
+  }
+  return { ok: true, done, total: localPaths.length }
+}
+
+async function downloadOne(
+  server: string,
+  sourceVpath: string,
+  targetDir: string,
+  name: string
+): Promise<void> {
+  const url = `${server}${sourceVpath}`
+  const headers: Record<string, string> = {}
+  const cookie = cookies[server]
+  if (cookie) headers['Cookie'] = cookie
+  const res = await fetch(url, { headers })
+  if (!res.ok) throw new Error(`download ${name}: HTTP ${res.status}`)
+  if (!res.body) throw new Error(`download ${name}: empty body`)
+  const target = join(targetDir, name)
+  await pipeline(
+    Readable.fromWeb(res.body as unknown as import('node:stream/web').ReadableStream),
+    createWriteStream(target)
+  )
+}
+
+async function download(
+  serverUrl: string,
+  targetDir: string,
+  items: { vpath: string; name: string }[]
+): Promise<TransferResult> {
+  const server = normalizeServer(serverUrl)
+  let done = 0
+  for (const item of items) {
+    try {
+      await downloadOne(server, item.vpath, targetDir, item.name)
+      done++
+    } catch (err) {
+      return { ok: false, done, total: items.length, message: (err as Error).message }
+    }
+  }
+  return { ok: true, done, total: items.length }
+}
+
+export function registerCppIpc(): void {
+  ipcMain.handle(
+    IpcChannels.CppConnect,
+    async (_, url: string, password?: string): Promise<ConnectResult> => {
+      try {
+        return await connect(url, password)
+      } catch (err) {
+        return { ok: false, status: 0, message: (err as Error).message }
+      }
+    }
+  )
+  ipcMain.handle(IpcChannels.CppList, async (_, url: string, vpath: string) => list(url, vpath))
+  ipcMain.handle(IpcChannels.CppDisconnect, async (_, url: string) => {
+    disconnect(url)
+  })
+  ipcMain.handle(IpcChannels.CppConnections, async () => Object.keys(cookies))
+  ipcMain.handle(
+    IpcChannels.CppUpload,
+    async (_, url: string, targetVpath: string, localPaths: string[]) =>
+      upload(url, targetVpath, localPaths)
+  )
+  ipcMain.handle(
+    IpcChannels.CppDownload,
+    async (_, url: string, targetDir: string, items: { vpath: string; name: string }[]) =>
+      download(url, targetDir, items)
+  )
+}
