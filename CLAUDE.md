@@ -1,10 +1,20 @@
 # CLAUDE.md — copyparty-kiosk
 
-Einstiegspunkt für neue Chats. Dies ist das **Kiosk-Frontend-Projekt** für Marvins Bachelor-Projekt. Das Backend (copyparty) lebt in einem separaten Repo.
+Einstiegspunkt für neue Chats. Kiosk-Frontend-Projekt für Marvins Bachelor-Projekt. Backend (copyparty) lebt im separaten Repo nebenan.
+
+**GitHub:** https://github.com/krullmensch/copyparty-kiosk (private)
 
 ## Projekt in einem Satz
 
-Kiosk-Filemanager für Linux: Electron-App, die lokale USB-Sticks und externe Laufwerke nativ erkennt und in einem Split-Screen-UI parallel zu Remote-VFS-Volumes (via copyparty) anzeigt — Drag&Drop und Operationen funktionieren nahtlos zwischen beiden Welten.
+Kiosk-Filemanager für Linux: Electron-App, erkennt lokale USB-Sticks und externe Laufwerke nativ, zeigt sie im Split-Screen-UI parallel zu Remote-VFS-Volumes (via copyparty). Drag&Drop und Operationen funktionieren nahtlos zwischen beiden Welten.
+
+## Re-Entry-Prompt (für neue Chats kopieren)
+
+```
+Lies CLAUDE.md hier und README.md.
+Companion-Docs in ../copyparty/docs-frontend/.
+Ich arbeite weiter an [konkretes Thema].
+```
 
 ## Wo was lebt
 
@@ -14,53 +24,100 @@ Kiosk-Filemanager für Linux: Electron-App, die lokale USB-Sticks und externe La
 │   ├── copyparty/              ← Python-Backend (NICHT anfassen)
 │   ├── bin/u2c.py              ← up2k-Referenzclient (TS-Port-Vorlage)
 │   ├── docs/up2k.txt           ← Protokoll-Spec
-│   ├── docs-frontend/          ← komplette Recherche-Doku
-│   │   ├── 01-overview.md      ← copyparty-Frontend heute
-│   │   ├── 02-entrypoints.md   ← Templates + Jinja2-Vars
-│   │   ├── 03-modules.md       ← was jede JS-Datei tut
-│   │   ├── 04-backend-api.md   ← HTTP-API + up2k-Protokoll
-│   │   ├── 05-state-and-features.md ← State/i18n/Theming
-│   │   ├── 06-rewrite-feasibility.md ← Strategie + Aufwand
-│   │   ├── 07-killer-features.md ← was bleibt, was geht
-│   │   ├── 08-kiosk-usb-setup.md ← Architektur für DIESES Projekt
-│   │   └── 09-electron-stack.md ← Toolchain, Pakete, Boilerplate
-│   └── CLAUDE.md               ← Recherche-Kontext
+│   └── docs-frontend/          ← Recherche-Doku (01–09)
 │
-└── copyparty-kiosk/            ← DU BIST HIER (das neue Kiosk-Frontend)
-    ├── src/
-    │   ├── main/               ← Electron Main-Process (Node.js)
-    │   ├── preload/            ← contextBridge IPC
-    │   └── renderer/           ← React-Frontend
-    ├── electron.vite.config.ts
-    ├── electron-builder.yml
-    ├── package.json
+└── copyparty-kiosk/            ← DU BIST HIER
+    ├── src/main/               ← Electron Main (Node.js)
+    │   └── ipc/                ← drives.ts, fs.ts, copyparty.ts
+    ├── src/preload/            ← contextBridge IPC
+    ├── src/renderer/           ← React-Frontend
+    │   └── src/
+    │       ├── App.tsx
+    │       ├── components/     ← Panes + RemoteLoginForm + ui/
+    │       ├── hooks/          ← useDrives, useListing, useRemoteListing, useSelection
+    │       └── lib/            ← format.ts, utils.ts (cn)
+    ├── src/shared/             ← types.ts, dragdrop.ts (für main + renderer)
+    ├── README.md               ← detaillierter Status + API-Surface
     └── CLAUDE.md               ← diese Datei
 ```
 
-**Beim Arbeiten hier:** wenn du Architektur-/Feature-/API-Fragen hast, schau in `../copyparty/docs-frontend/`. Wenn du copyparty-Quellcode brauchst (z.B. up2k-Logik portieren), liegt der in `../copyparty/copyparty/` und `../copyparty/bin/u2c.py`.
+## Was funktioniert (Stand 2026-05-25)
+
+- ✅ Electron 39 + React 19 + TS via electron-vite 5
+- ✅ Tailwind v4 + shadcn/ui (new-york, neutral) — Button, Input, Label, ScrollArea, Sonner installiert
+- ✅ USB/removable Detection (`drivelist`, 2s Polling, filtert nicht-USB/non-removable)
+- ✅ Sidebar mit Home + Drive-Liste
+- ✅ Lokale Pane (browse, ↑/parent, reload, hidden toggle, double-click navigate)
+- ✅ Remote Pane (copyparty login, browse, vpath nav, disconnect)
+- ✅ Cookie-Auth im Main-Process (`Map<server, cookieString>`)
+- ✅ Drag/Drop zwischen Panes:
+  - local→remote: multipart `act=bput` POST
+  - remote→local: HTTP stream via `pipeline(Readable.fromWeb → createWriteStream)`
+- ✅ Multi-Select (click single, shift-click range, cmd/ctrl-click toggle, clear on cwd change)
+- ✅ Sonner Toasts (richColors, top-right)
+- ✅ Dark Mode Toggle (`.dark` class on `<html>`)
+- ✅ Typecheck grün
+
+## Was noch fehlt (Roadmap, in Reihenfolge sinnvoll)
+
+1. **up2k-Client** — ~1-2 Wochen (größter Brocken)
+   - Web-Worker mit `hash-wasm` für SHA-512 pro Chunk
+   - Handshake-State-Machine (POST JSON → fehlende Chunks zurück)
+   - Chunked Parallel Upload mit `sprs`-Flag
+   - Resume nach Disconnect
+   - Subchunking für >96 MB (Cloudflare-Workaround)
+   - Referenz: `../copyparty/bin/u2c.py` (~1700 Zeilen, gut lesbar)
+   - Spec: `../copyparty/docs/up2k.txt` + `04-backend-api.md`
+
+2. **Race the Beam** — kommt fast gratis mit up2k (Range-GET auf wachsender Datei)
+
+3. **Unpost** — eigener Tab `🧯`, POST gegen Unpost-Endpoint (`-e2d` muss server-side an sein)
+
+4. **Drag-Search** — Hashen lokal + Server fragen "kennst du?" statt Upload
+
+5. **Directory Upload/Download** — rekursiv über `fs.readdir` + Loop
+
+6. **Conflict Resolution** — overwrite/rename/skip Dialog vor Drop
+
+7. **Progress UI** — pro Transfer, IPC `onProgress` Event-Stream vom Main
+
+8. **Kiosk-Mode** — `BrowserWindow.kiosk: true` in Production-Build, nicht in Dev
+
+9. **Norton-Hotkeys** — F5 copy, F6 move, F8 delete, F10 quit
+
+10. **Eject Button** — `udisksctl unmount` via `child_process` im Main
+
+11. **systemd-User-Service** + udev-Rule für USB-Auto-Mount (Deployment)
+
+12. **MediaSession API** — OS-Media-Controls für Audio (Lock-Screen-Play/Pause)
+
+13. **Live-Tail wachsender Files** — Range-Polling für `tail -f` im UI
 
 ## Stack (gesetzt)
 
 | Schicht | Tech |
 |---|---|
-| Boilerplate | `electron-vite` mit `react-ts`-Template |
-| Frontend | React 18 + TypeScript |
-| Build | Vite (über electron-vite) |
+| Boilerplate | `electron-vite` v5 mit `react-ts`-Template |
+| Frontend | React 19 + TypeScript 5.9 |
+| Build | Vite 7 (über electron-vite) |
 | Package-Manager | npm |
-| Desktop-Wrapper | Electron 32+ |
-| Server-State | TanStack Query |
-| UI-Lib | shadcn/ui + Radix + Tailwind |
-| USB-Detection | `drivelist` (Polling) → später optional `dbus-next` |
-| Lokales FS | Node `fs/promises` + `fs-extra` |
-| Upload | eigener up2k-TS-Client mit `hash-wasm` für SHA-512 |
-| Remote-Backend | copyparty (separater Prozess, bleibt unverändert) |
-| Distribution | electron-builder → AppImage + .deb |
-| Kiosk-Mode | Electron `kiosk: true` + systemd-User-Service |
-| USB-Auto-Mount | udev-Rule → `systemd-mount /media/<label>/` |
+| Desktop-Wrapper | Electron 39 |
+| Server-State | (noch nicht) — geplant TanStack Query |
+| UI-Lib | shadcn/ui v4 (new-york) + Radix + Tailwind v4 |
+| USB-Detection | `drivelist` (Polling 2s) |
+| Lokales FS | Node `fs/promises` (nicht fs-extra, nicht nötig bisher) |
+| HTTP-Client | nativer `fetch` im Main-Process |
+| Upload | aktuell multipart, **up2k kommt noch** mit `hash-wasm` |
+| Remote-Backend | copyparty (separater Prozess, unverändert) |
+| Distribution | electron-builder → AppImage + .deb (konfiguriert, ungetestet) |
+| Toasts | `sonner` |
+| Icons | `lucide-react` |
 
-**Bewusst NICHT verwendet:** Bun (Vite-Integration zu unreif für Electron), Tauri (Time-to-Done-Argument), Yarn/pnpm (npm reicht).
+**Bewusst NICHT verwendet:** Bun, Tauri, Yarn/pnpm, fs-extra (vorerst).
 
-## Architektur (Drei-Schicht-Hybrid)
+## Architektur
+
+Drei-Schicht-Hybrid:
 
 ```
 Renderer (React, sandboxed)
@@ -70,90 +127,46 @@ Main-Process (Node.js, privileged)
 copyparty (separater systemd-Service)
 ```
 
-- **Renderer:** UI-Komponenten, kein direkter System-Zugriff
-- **Main-Process:** USB-Watch, lokales FS, copyparty-HTTP-Client, Eject
-- **copyparty:** Remote-VFS, Multi-User, up2k-Server
+**Operationen-Router** existiert noch nicht als formaler Modul — aktuell hat jede Pane direkte Drop-Handler die `cpp.upload` oder `cpp.download` aufrufen. Bei Erweiterung (lokal↔lokal Move, Remote↔Remote `?move`) lohnt sich Refactor zu zentralem Router in `src/main/router.ts`. Vorher unnötig.
 
-**Split-Screen UX:** linke Pane = lokal/USB, rechte Pane = Remote-Volume. Operationen-Router im Main-Process dispatched per Source-Type:
+## IPC-Surface (Stand heute)
 
 ```ts
-type Source =
-  | { type: 'local'; path: string }
-  | { type: 'usb'; deviceId: string; mountPoint: string; path: string }
-  | { type: 'copyparty'; server: string; auth: AuthToken; vpath: string };
-
-copy(src: Source, dst: Source, items: string[])  // 4-Wege-Routing
+api.drives.list(): DriveInfo[]
+api.drives.onAdded(cb): unsubscribe
+api.drives.onRemoved(cb): unsubscribe
+api.fs.list(path): ListResult
+api.fs.home(): string
+api.cpp.connect(url, password?): ConnectResult
+api.cpp.list(url, vpath): RemoteListResult
+api.cpp.disconnect(url): void
+api.cpp.connections(): string[]
+api.cpp.upload(url, targetVpath, localPaths): TransferResult
+api.cpp.download(url, targetDir, items): TransferResult
 ```
 
-Details: `../copyparty/docs-frontend/08-kiosk-usb-setup.md`
+Drag-Payload (Custom MIME `application/x-cpp-kiosk`):
 
-## Killer-Features die mitkommen müssen (Priorität)
+```ts
+{ kind: 'local',  paths: string[] }
+{ kind: 'remote', server: string, vpaths: string[], names: string[] }
+```
 
-1. **up2k** — resumable, dedupliziert, kein Größenlimit (Hauptaufwand: ~1-2 Wochen)
-2. **Race the Beam** — Download während Upload (kommt fast gratis mit up2k)
-3. **Unpost** — eigene Uploads zurückholen
-4. **Drag-Search** — Datei droppen, hashen, "kennst du die?"
-5. **Incoming-Anzeige** — andere User-Uploads sichtbar
-6. **Live-Tail wachsender Files**
-7. **OS-Media-Controls** via MediaSession API
-8. **Per-Volume-Permissions im UI respektieren**
+## copyparty-Endpoints aktuell benutzt
 
-Bewusst weggelassen: 22 Sprachen (start mit DE/EN), Equalizer/DRC, OPDS, CBZ, Markdown-Editor, 10 Themes.
+- `POST /?login` form-urlencoded `cppwd=PW` — Cookie zurück
+- `GET <vpath>/?ls` — JSON `{ dirs, files, acct, perms, srvinf }`
+- `POST <vpath>/` multipart `act=bput`, Field `f` — single-file upload
+- `GET <vpath>` — Datei-Stream (Cookie-Header)
 
-Details: `../copyparty/docs-frontend/07-killer-features.md`
+**Noch nicht:** up2k-Handshake (`POST <vpath>/` JSON), Chunk-Upload mit `X-Up2k-Hash`/`X-Up2k-Wark`, `?delete`/`?move`/`?mk=dir`, `?th=w` Thumbnails, `?srch` Search, `?ru` Recent Uploads.
 
-## Was schon da ist
-
-- ✅ Electron-vite-Boilerplate mit React + TS
-- ✅ ESLint + Prettier konfiguriert
-- ✅ electron-builder konfiguriert für Win/Mac/Linux
-- ✅ Git-Repo initialisiert
-
-## Was als Nächstes ansteht
-
-In dieser Reihenfolge (siehe `../copyparty/docs-frontend/08-kiosk-usb-setup.md` für den 12-Wochen-Plan):
-
-1. **Wochen 1-2: Foundation**
-   - Tailwind + shadcn/ui einrichten (`npx shadcn@latest init`)
-   - Kiosk-Mode für BrowserWindow konfigurieren (im Build, nicht in Dev)
-   - systemd-User-Service für Auto-Start
-
-2. **Wochen 2-3: USB + lokales FS**
-   - `drivelist`-Polling im Main-Process
-   - IPC-Channel `drive:added` / `drive:removed`
-   - Linker Pane: lokales FS-Listing mit `fs.readdir`
-
-3. **Wochen 4-5: copyparty-Integration**
-   - Login-Screen (POST `?login`, Cookie `cppwd`)
-   - Rechte Pane: `?ls`-Response als Listing rendern
-   - TanStack Query als Cache-Layer
-
-4. **Wochen 5-6: Operationen-Router**
-   - 4-Wege-Copy/Move/Delete-Logik
-   - Drag&Drop zwischen Panes
-   - Norton-Commander-Hotkeys (F5/F6/F8/F10)
-
-5. **Wochen 7-9: up2k-Client**
-   - Hashing-Worker (Web-Worker mit `hash-wasm`)
-   - Handshake-State-Machine
-   - Chunked Parallel Upload mit Resume
-   - Subchunking für >96MB
-   - Unpost-UI
-
-6. **Wochen 10-11: Polish**
-   - Thumbnails (lokal + remote)
-   - Audio/Video-Preview mit MediaSession
-   - Eject-Button via `udisksctl unmount`
-   - Free-Space-Anzeige pro Drive
-
-7. **Woche 12: Bachelor-Arbeit schreiben**
-
-## Argumente für die Bachelor-Arbeit
+## Bachelor-Arbeit-Argumente
 
 In der Theorie-Section verteidigbar:
 
 1. **Browser-Sandbox vs. Native-Privileg** — warum reines Web nicht reicht
-2. **Drei-Schicht-Hybrid-Architektur** als Pattern für HW-Awareness
+2. **Drei-Schicht-Hybrid** als Pattern für HW-Awareness
 3. **Operationen-Routing** als Strategy-Pattern für heterogene I/O-Backends
 4. **Resumable-Uploads in Hostile-Networks** — up2k vs. naive Multipart
 5. **Capability-based Security via contextBridge + Sandbox-Mode**
@@ -161,24 +174,41 @@ In der Theorie-Section verteidigbar:
 ## Konventionen / Stil
 
 - **Antworten auf Deutsch** (Marvin fragt auf Deutsch)
-- **Keine Doku ungebeten schreiben** — nur wenn explizit verlangt
+- **Keine Doku ungebeten** — nur wenn explizit verlangt
 - **Code-Kommentare nur wo nicht-offensichtlich**
-- **Ehrliche Aufwandsschätzungen** statt Marketing-Optimismus
-- **copyparty-Upstream nicht patchen** — alles im eigenen App-Layer lösen
-- **Security-Defaults nicht weichkochen:** `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false` bleiben gesetzt
+- **Ehrliche Aufwandsschätzungen**, kein Marketing-Optimismus
+- **copyparty-Upstream nicht patchen** — alles im App-Layer lösen
+- **Security-Defaults nicht weichkochen:** `contextIsolation: true` bleibt. `sandbox: false` aktuell wegen drivelist (nativ); ggf. später trennen.
+- **Caveman-Mode aktiv** in dieser Session — kann mit `stop caveman` deaktiviert werden
 
-## Wichtige Skills/MCPs in dieser Session
+## Wichtige externe Files
 
-- `ui-ux-pro-max` — Design-Intelligence (67 Styles, 161 Palettes, shadcn-Integration)
-- `graphify` — falls Codebase-Fragen kommen, `../copyparty/graphify-out/graph.json` ist verfügbar
-- `claude-api` — falls API-Code mit Claude SDK gebaut wird (irrelevant für dieses Projekt)
+- `../copyparty/bin/u2c.py` — kanonischer up2k-Client (~1700 Zeilen Python, gut lesbar)
+- `../copyparty/docs/up2k.txt` — Protokoll-Spec
+- `../copyparty/copyparty/httpcli.py` — HTTP-API (groß, ~7800 Zeilen)
+- `../copyparty/docs-frontend/04-backend-api.md` — API-Cheatsheet
+- `../copyparty/docs-frontend/07-killer-features.md` — Feature-Priorität
+- `../copyparty/docs-frontend/08-kiosk-usb-setup.md` — Original-Architektur-Doku
+- `../copyparty/docs-frontend/09-electron-stack.md` — Stack-Rationale
 
-## Re-Entry-Prompt für neue Chats
+## Wichtige Skills/MCPs
 
+- `ui-ux-pro-max` — Design-Intelligence (Plugin Manager installiert)
+- `graphify` — falls Codebase-Fragen, `../copyparty/graphify-out/graph.json` da
+
+## Setup für neuen Rechner
+
+```bash
+git clone https://github.com/krullmensch/copyparty-kiosk
+cd copyparty-kiosk
+npm install
+npm run dev
 ```
-Lies CLAUDE.md hier und ../copyparty/docs-frontend/08-kiosk-usb-setup.md
-sowie ../copyparty/docs-frontend/09-electron-stack.md.
-Ich arbeite weiter an [konkretes Thema].
-```
 
-Damit hat der nächste Chat den vollen Kontext.
+copyparty muss separat laufen (z.B. `python -m copyparty` auf `:3923`).
+
+## Aktueller Stand am [HEUTE]
+
+Letzter Commit: `d393815` — initiales Scaffold mit allen oben markierten ✅ Features.
+
+Nächster sinnvoller Schritt: **up2k-Client portieren**. Brauchst dafür `hash-wasm` als npm-Dep, einen Web-Worker für Hashing, und Lesen von `bin/u2c.py` als Vorlage.
