@@ -8,10 +8,13 @@ import { registerCppIpc } from './ipc/copyparty'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    width: 1920,
+    height: 1080,
+    fullscreen: true,
+    frame: false,
     show: false,
     autoHideMenuBar: true,
+    backgroundColor: '#000000',
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
