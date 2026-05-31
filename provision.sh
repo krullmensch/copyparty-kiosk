@@ -101,10 +101,14 @@ sudo DEBIAN_FRONTEND=noninteractive apt install -y libasound2t64 2>/dev/null || 
     sudo DEBIAN_FRONTEND=noninteractive apt install -y libasound2 2>/dev/null || \
     warn "libasound2 nicht installierbar — Electron audio evtl. eingeschränkt"
 
-# ---- Xorg dummy config ----
-log "Schreibe Xorg dummy-Driver Config (headless display 1920x1080)"
+# ---- Xorg configs (template) ----
+log "Schreibe Xorg-Templates (headless dummy + Monitor-Mode)"
 sudo mkdir -p /etc/X11/xorg.conf.d
-sudo tee /etc/X11/xorg.conf.d/10-headless.conf > /dev/null <<'EOF'
+# alte feste headless-Config entfernen — wird durch boot-time-Pick ersetzt
+sudo rm -f /etc/X11/xorg.conf.d/10-headless.conf /etc/X11/xorg.conf.d/10-display.conf
+
+# Template 1: kein Monitor → dummy framebuffer (für VNC-only)
+tee "$HOME/xorg-headless.conf" > /dev/null <<'EOF'
 Section "Monitor"
     Identifier "Monitor0"
     HorizSync 28.0-80.0
@@ -131,6 +135,14 @@ Section "Screen"
 EndSection
 EOF
 
+# Template 2: Monitor angeschlossen → modesetting (Intel GPU), echte Ausgabe
+tee "$HOME/xorg-monitor.conf" > /dev/null <<'EOF'
+Section "Device"
+    Identifier "Card0"
+    Driver "modesetting"
+EndSection
+EOF
+
 # ---- Autologin tty1 ----
 log "Aktiviere Autologin auf tty1 für marvin"
 sudo mkdir -p /etc/systemd/system/getty@tty1.service.d
@@ -153,6 +165,12 @@ cat > ~/.bash_profile <<'EOF'
 if [ -f ~/.bashrc ]; then . ~/.bashrc; fi
 
 if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+    # Pick Xorg config based on whether a real monitor is plugged in
+    if grep -l "^connected$" /sys/class/drm/card*/status 2>/dev/null | grep -q . ; then
+        sudo cp -f "$HOME/xorg-monitor.conf" /etc/X11/xorg.conf.d/10-display.conf
+    else
+        sudo cp -f "$HOME/xorg-headless.conf" /etc/X11/xorg.conf.d/10-display.conf
+    fi
     exec startx -- vt1 &> /tmp/startx.log
 fi
 EOF

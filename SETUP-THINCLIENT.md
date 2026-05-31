@@ -137,9 +137,13 @@ ThinClient braucht **keine** WireGuard-Config — er ist Teil des Heim-LANs.
 
 ---
 
-## Phase 4 — X11 + Openbox + Xdummy + Autologin
+## Phase 4 — X11 + Openbox + Auto-Detect Display + Autologin
 
-Kein Monitor angeschlossen → X startet normal nicht. Lösung: `xserver-xorg-video-dummy` (virtueller Framebuffer).
+ThinClient soll **mit oder ohne Monitor** booten:
+- **Monitor angeschlossen:** X nutzt `modesetting` (Intel-GPU), App ist auf dem Bildschirm sichtbar. x11vnc spiegelt das Bild für Remote-Zugriff → echte Spiegelung, kein zweites Fenster.
+- **Kein Monitor:** X nutzt `xserver-xorg-video-dummy` (virtueller Framebuffer 1920×1080). Nur VNC zeigt die App.
+
+Detection läuft in `~/.bash_profile` direkt vor `startx`: liest `/sys/class/drm/card*/status`, kopiert passendes Template nach `/etc/X11/xorg.conf.d/10-display.conf`, dann `startx`.
 
 ### 4.1 Pakete
 ```bash
@@ -152,10 +156,11 @@ sudo DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
 
 **Wichtig:** `x11-xserver-utils` liefert `xset` — sonst failt Openbox-Autostart. `libasound2t64` (nicht `libasound2`) auf Debian 13.
 
-### 4.2 Dummy-Display
+### 4.2 Xorg-Templates (zwei Modi)
+
 ```bash
-sudo mkdir -p /etc/X11/xorg.conf.d
-sudo tee /etc/X11/xorg.conf.d/10-headless.conf > /dev/null <<'EOF'
+# Headless: virtueller Framebuffer
+tee ~/xorg-headless.conf > /dev/null <<'EOF'
 Section "Monitor"
     Identifier "Monitor0"
     HorizSync 28.0-80.0
@@ -181,7 +186,20 @@ Section "Screen"
     EndSubSection
 EndSection
 EOF
+
+# Monitor angeschlossen: modesetting (Intel-GPU)
+tee ~/xorg-monitor.conf > /dev/null <<'EOF'
+Section "Device"
+    Identifier "Card0"
+    Driver "modesetting"
+EndSection
+EOF
+
+sudo mkdir -p /etc/X11/xorg.conf.d
+sudo rm -f /etc/X11/xorg.conf.d/10-headless.conf /etc/X11/xorg.conf.d/10-display.conf
 ```
+
+Aktive Config wird beim Boot von `.bash_profile` gewählt (siehe 4.4).
 
 ### 4.3 Autologin tty1
 ```bash
@@ -206,6 +224,12 @@ cat > ~/.bash_profile <<'EOF'
 if [ -f ~/.bashrc ]; then . ~/.bashrc; fi
 
 if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+    # Pick Xorg config based on whether a real monitor is plugged in
+    if grep -l "^connected$" /sys/class/drm/card*/status 2>/dev/null | grep -q . ; then
+        sudo cp -f "$HOME/xorg-monitor.conf" /etc/X11/xorg.conf.d/10-display.conf
+    else
+        sudo cp -f "$HOME/xorg-headless.conf" /etc/X11/xorg.conf.d/10-display.conf
+    fi
     exec startx -- vt1 &> /tmp/startx.log
 fi
 EOF
