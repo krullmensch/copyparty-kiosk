@@ -64,6 +64,13 @@ async function connect(serverUrl: string, password?: string): Promise<ConnectRes
     redirect: 'manual'
   })
   captureCookies(server, res)
+  // copyparty's ?login endpoint does not emit Set-Cookie when sessions are
+  // disabled (--no-ses), and when sessions are on it still requires the
+  // password to be present as the cppwd cookie. Inject it ourselves so
+  // follow-up requests authenticate.
+  const existing = cookies[server] ? cookies[server].split('; ').filter((c) => !c.startsWith('cppwd=')) : []
+  existing.push(`cppwd=${encodeURIComponent(password)}`)
+  cookies[server] = existing.join('; ')
   // copyparty returns 200 on bad pw too, but no cookie. Verify by probing ?ls
   const probe = await fetch(`${server}/?ls`, { headers: buildHeaders(server) })
   if (!probe.ok) {
@@ -71,6 +78,10 @@ async function connect(serverUrl: string, password?: string): Promise<ConnectRes
   }
   try {
     const j = (await probe.json()) as { acct?: string }
+    if (!j.acct || j.acct === '*') {
+      delete cookies[server]
+      return { ok: false, status: 401, message: 'invalid password' }
+    }
     return { ok: true, status: 200, acct: j.acct }
   } catch {
     return { ok: true, status: 200 }
@@ -147,6 +158,25 @@ function disconnect(serverUrl: string): void {
   delete cookies[normalizeServer(serverUrl)]
 }
 
+async function thumb(serverUrl: string, vpath: string): Promise<string | null> {
+  const server = normalizeServer(serverUrl)
+  const vp = vpath.startsWith('/') ? vpath : `/${vpath}`
+  const url = `${server}${vp}?th=w`
+  const headers: Record<string, string> = {}
+  const cookie = cookies[server]
+  if (cookie) headers['Cookie'] = cookie
+  try {
+    const res = await fetch(url, { headers })
+    if (!res.ok) return null
+    const ct = res.headers.get('content-type') ?? 'image/webp'
+    if (!ct.startsWith('image/')) return null
+    const buf = Buffer.from(await res.arrayBuffer())
+    return `data:${ct};base64,${buf.toString('base64')}`
+  } catch {
+    return null
+  }
+}
+
 async function upload(
   serverUrl: string,
   targetVpath: string,
@@ -212,6 +242,50 @@ async function download(
   return { ok: true, done, total: items.length }
 }
 
+const SEARCH_LIMIT = 500
+
+interface CppSrchRaw {
+  rp?: string
+  href?: string
+  sz?: number
+  ts?: number
+}
+
+async function search(serverUrl: string, query: string): Promise<{ hits: import('../../shared/types').CppSearchHit[]; truncated: boolean }> {
+  const q = query.trim()
+  if (!q) return { hits: [], truncated: false }
+  const server = normalizeServer(serverUrl)
+  // copyparty search endpoint expects POST JSON to /?srch with {q: "name like *foo*"}
+  const body = JSON.stringify({ q: `name like *${q.replace(/\*/g, '')}*` })
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const cookie = cookies[server]
+  if (cookie) headers['Cookie'] = cookie
+  const res = await fetch(`${server}/?srch`, { method: 'POST', headers, body })
+  if (!res.ok) return { hits: [], truncated: false }
+  let arr: CppSrchRaw[] = []
+  try {
+    const j = (await res.json()) as { hits?: CppSrchRaw[] } | CppSrchRaw[]
+    arr = Array.isArray(j) ? j : (j.hits ?? [])
+  } catch {
+    return { hits: [], truncated: false }
+  }
+  const truncated = arr.length > SEARCH_LIMIT
+  const sliced = arr.slice(0, SEARCH_LIMIT)
+  const hits = sliced.map((r) => {
+    const rp = r.rp ?? r.href ?? ''
+    const vpath = rp.startsWith('/') ? rp : `/${rp}`
+    const name = nameFromHref(vpath)
+    return {
+      name,
+      vpath,
+      isDirectory: vpath.endsWith('/'),
+      size: r.sz ?? 0,
+      ts: (r.ts ?? 0) * 1000
+    }
+  })
+  return { hits, truncated }
+}
+
 export function registerCppIpc(mainWindow: BrowserWindow): void {
   const emitProgress = (p: UploadProgress): void => {
     if (!mainWindow.isDestroyed()) {
@@ -242,5 +316,11 @@ export function registerCppIpc(mainWindow: BrowserWindow): void {
     IpcChannels.CppDownload,
     async (_, url: string, targetDir: string, items: { vpath: string; name: string }[]) =>
       download(url, targetDir, items)
+  )
+  ipcMain.handle(IpcChannels.CppThumb, async (_, url: string, vpath: string) =>
+    thumb(url, vpath)
+  )
+  ipcMain.handle(IpcChannels.CppSearch, async (_, url: string, query: string) =>
+    search(url, query)
   )
 }

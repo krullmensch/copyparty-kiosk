@@ -2,7 +2,9 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import {
   ConnectResult,
+  CppSearchResult,
   DriveInfo,
+  FsSearchResult,
   IpcChannels,
   ListResult,
   RemoteListResult,
@@ -26,7 +28,10 @@ const api = {
   },
   fs: {
     list: (path: string): Promise<ListResult> => ipcRenderer.invoke(IpcChannels.FsList, path),
-    home: (): Promise<string> => ipcRenderer.invoke(IpcChannels.FsHome)
+    home: (): Promise<string> => ipcRenderer.invoke(IpcChannels.FsHome),
+    thumb: (path: string): Promise<string | null> => ipcRenderer.invoke(IpcChannels.FsThumb, path),
+    search: (root: string, query: string): Promise<FsSearchResult> =>
+      ipcRenderer.invoke(IpcChannels.FsSearch, root, query)
   },
   cpp: {
     connect: (url: string, password?: string): Promise<ConnectResult> =>
@@ -43,6 +48,10 @@ const api = {
       items: { vpath: string; name: string }[]
     ): Promise<TransferResult> =>
       ipcRenderer.invoke(IpcChannels.CppDownload, url, targetDir, items),
+    thumb: (url: string, vpath: string): Promise<string | null> =>
+      ipcRenderer.invoke(IpcChannels.CppThumb, url, vpath),
+    search: (url: string, query: string): Promise<CppSearchResult> =>
+      ipcRenderer.invoke(IpcChannels.CppSearch, url, query),
     onProgress: (cb: (p: UploadProgress) => void): (() => void) => {
       const handler = (_: unknown, p: UploadProgress): void => cb(p)
       ipcRenderer.on(IpcChannels.CppProgress, handler)

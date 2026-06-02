@@ -1,47 +1,69 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Moon, Sun } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { GoeyToaster } from 'goey-toast'
 import { FileBrowserPane } from './components/FileBrowserPane'
 import { RemoteBrowserPane } from './components/RemoteBrowserPane'
-import { RemoteLoginForm } from './components/RemoteLoginForm'
 import { useDrives } from './hooks/useDrives'
 import { useUploadProgress } from './hooks/useUploadProgress'
 
+const COPYPARTY_URL = 'http://localhost:3923'
+
 function App(): React.JSX.Element {
   const drives = useDrives()
-  const [remoteServer, setRemoteServer] = useState<string | null>(null)
+  const [remoteReady, setRemoteReady] = useState(false)
+  const [isDark, setIsDark] = useState(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  )
   useUploadProgress()
 
-  const disconnectRemote = (): void => {
-    if (remoteServer) void window.api.cpp.disconnect(remoteServer)
-    setRemoteServer(null)
+  const toggleTheme = (): void => {
+    const next = !isDark
+    document.documentElement.classList.toggle('dark', next)
+    setIsDark(next)
   }
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const res = await window.api.cpp.connect(COPYPARTY_URL)
+      if (!cancelled && res.ok) setRemoteReady(true)
+    })()
+    return () => {
+      cancelled = true
+      void window.api.cpp.disconnect(COPYPARTY_URL)
+    }
+  }, [])
 
   const usbDrive = drives.find((d) => d.mountpoints[0]) ?? null
   const usbPath = usbDrive?.mountpoints[0]?.path ?? null
 
-  const remotePane = remoteServer ? (
-    <RemoteBrowserPane
-      key={remoteServer}
-      server={remoteServer}
-      onDisconnect={disconnectRemote}
-    />
+  const remotePane = remoteReady ? (
+    <RemoteBrowserPane key={COPYPARTY_URL} server={COPYPARTY_URL} />
   ) : (
-    <RemoteLoginForm onConnected={setRemoteServer} />
+    <div className="text-ink-muted flex h-full items-center justify-center text-label">
+      verbinde mit {COPYPARTY_URL} …
+    </div>
   )
 
   return (
     <>
       <GoeyToaster richColors position="top-right" preset="smooth" showProgress />
-      <div className="bg-background flex h-screen flex-col">
-        <header className="border-border flex items-center justify-between border-b px-4 py-2">
-          <h1 className="text-sm font-semibold tracking-tight">copyparty-kiosk</h1>
+      <div className="bg-background text-foreground flex h-screen flex-col">
+        <header className="border-border bg-bg-page-tint flex items-center justify-between border-b px-4 py-2">
+          <h1 className="text-h2">Agora</h1>
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => document.documentElement.classList.toggle('dark')}
+            onClick={toggleTheme}
+            title={isDark ? 'Tag' : 'Nacht'}
+            aria-label={isDark ? 'Tag' : 'Nacht'}
           >
-            dark
+            {isDark ? (
+              <Sun className="size-5" strokeWidth={1.25} />
+            ) : (
+              <Moon className="size-5" strokeWidth={1.25} />
+            )}
           </Button>
         </header>
 

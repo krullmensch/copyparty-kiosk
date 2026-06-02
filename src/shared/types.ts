@@ -50,19 +50,50 @@ export interface ConnectResult {
   message?: string
 }
 
+export interface FsSearchHit {
+  name: string
+  path: string
+  relPath: string
+  isDirectory: boolean
+  size: number
+  mtime: number
+}
+
+export interface FsSearchResult {
+  hits: FsSearchHit[]
+  truncated: boolean
+}
+
+export interface CppSearchHit {
+  name: string
+  vpath: string
+  isDirectory: boolean
+  size: number
+  ts: number
+}
+
+export interface CppSearchResult {
+  hits: CppSearchHit[]
+  truncated: boolean
+}
+
 export const IpcChannels = {
   DrivesList: 'drives:list',
   DriveAdded: 'drive:added',
   DriveRemoved: 'drive:removed',
   FsList: 'fs:list',
   FsHome: 'fs:home',
+  FsThumb: 'fs:thumb',
+  FsSearch: 'fs:search',
   CppConnect: 'cpp:connect',
   CppList: 'cpp:list',
   CppDisconnect: 'cpp:disconnect',
   CppConnections: 'cpp:connections',
   CppUpload: 'cpp:upload',
   CppDownload: 'cpp:download',
-  CppProgress: 'cpp:progress'
+  CppProgress: 'cpp:progress',
+  CppThumb: 'cpp:thumb',
+  CppSearch: 'cpp:search'
 } as const
 
 export type UploadProgress =

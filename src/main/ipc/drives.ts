@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import drivelist from 'drivelist'
 import { DriveInfo, IpcChannels } from '../../shared/types'
+import { dropBucket, setKnownMounts } from '../thumb-cache'
 
 const POLL_INTERVAL_MS = 2000
 
@@ -50,8 +51,19 @@ async function tick(window: BrowserWindow): Promise<void> {
     const current = await snapshot()
     const { added, removed } = diff(lastDrives, current)
     for (const d of added) window.webContents.send(IpcChannels.DriveAdded, d)
-    for (const id of removed) window.webContents.send(IpcChannels.DriveRemoved, id)
+    for (const id of removed) {
+      const gone = lastDrives.get(id)
+      if (gone) {
+        for (const m of gone.mountpoints) {
+          void dropBucket(m.path)
+        }
+      }
+      window.webContents.send(IpcChannels.DriveRemoved, id)
+    }
     lastDrives = new Map(current.map((d) => [d.id, d]))
+    const mounts: string[] = []
+    for (const d of current) for (const m of d.mountpoints) mounts.push(m.path)
+    setKnownMounts(mounts)
   } catch (err) {
     console.error('[drives] poll failed:', err)
   }

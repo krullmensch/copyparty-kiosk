@@ -1,4 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
+
+app.commandLine.appendSwitch('force-device-scale-factor', '1.4')
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'

@@ -45,16 +45,13 @@ read -rsp "VNC-Passwort (für x11vnc, mind. 6 Zeichen): " VNC_PASSWORD
 echo
 [[ ${#VNC_PASSWORD} -lt 6 ]] && fail "VNC-Passwort zu kurz."
 
-read -rp "Git-Branch von copyparty-kiosk [main]: " GIT_BRANCH
-GIT_BRANCH="${GIT_BRANCH:-main}"
-
+GIT_BRANCH="main"
 REPO_URL="https://github.com/krullmensch/copyparty-kiosk.git"
 APP_DIR="$HOME/copyparty-kiosk"
 
 echo
 log "Konfiguration:"
 echo "    Hostname:    $KIOSK_HOSTNAME"
-echo "    Git-Branch:  $GIT_BRANCH"
 echo "    App-Dir:     $APP_DIR"
 echo "    Repo:        $REPO_URL"
 echo
