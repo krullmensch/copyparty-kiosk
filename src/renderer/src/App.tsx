@@ -26,8 +26,15 @@ function App(): React.JSX.Element {
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      const res = await window.api.cpp.connect(COPYPARTY_URL)
-      if (!cancelled && res.ok) setRemoteReady(true)
+      while (!cancelled) {
+        const res = await window.api.cpp.connect(COPYPARTY_URL)
+        if (cancelled) return
+        if (res.ok) {
+          setRemoteReady(true)
+          return
+        }
+        await new Promise((r) => setTimeout(r, 2000))
+      }
     })()
     return () => {
       cancelled = true
