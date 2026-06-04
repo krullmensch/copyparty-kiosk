@@ -49,22 +49,16 @@ function captureCookies(server: string, res: Response): void {
   cookies[server] = [...map.entries()].map(([k, v]) => `${k}=${v}`).join('; ')
 }
 
-function dbg(...args: unknown[]): void {
-  try {
-    require('node:fs').appendFileSync('/tmp/cpp-debug.log', new Date().toISOString() + ' ' + args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ') + '\n')
-  } catch {}
-}
-
 async function connect(serverUrl: string, password?: string): Promise<ConnectResult> {
   const server = normalizeServer(serverUrl)
-  dbg('[connect] start', { server, hasPw: !!password })
+  console.error('[connect] start', { server, hasPw: !!password })
   if (!password) {
     try {
       const res = await fetch(`${server}/?ls`, { headers: buildHeaders(server) })
-      dbg('[connect] anon probe', { status: res.status, ok: res.ok })
+      console.error('[connect] anon probe', { status: res.status, ok: res.ok })
       return { ok: res.ok, status: res.status }
     } catch (e) {
-      dbg('[connect] anon probe THREW', (e as Error).message)
+      console.error('[connect] anon probe THREW', (e as Error).message)
       throw e
     }
   }
