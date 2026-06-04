@@ -51,16 +51,10 @@ function captureCookies(server: string, res: Response): void {
 
 async function connect(serverUrl: string, password?: string): Promise<ConnectResult> {
   const server = normalizeServer(serverUrl)
-  console.error('[connect] start', { server, hasPw: !!password })
   if (!password) {
-    try {
-      const res = await fetch(`${server}/?ls`, { headers: buildHeaders(server) })
-      console.error('[connect] anon probe', { status: res.status, ok: res.ok })
-      return { ok: res.ok, status: res.status }
-    } catch (e) {
-      console.error('[connect] anon probe THREW', (e as Error).message)
-      throw e
-    }
+    // try anonymous probe
+    const res = await fetch(`${server}/?ls`, { headers: buildHeaders(server) })
+    return { ok: res.ok, status: res.status }
   }
   const body = new URLSearchParams({ cppwd: password }).toString()
   const res = await fetch(`${server}/?login`, {
