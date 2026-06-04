@@ -7,7 +7,7 @@ import { RemoteBrowserPane } from './components/RemoteBrowserPane'
 import { useDrives } from './hooks/useDrives'
 import { useUploadProgress } from './hooks/useUploadProgress'
 
-const COPYPARTY_URL = 'http://localhost:3923'
+const COPYPARTY_URL = 'http://192.168.178.61:3923'
 
 function App(): React.JSX.Element {
   const drives = useDrives()
