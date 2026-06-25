@@ -41,7 +41,7 @@ Ich arbeite weiter an [konkretes Thema].
     └── CLAUDE.md               ← diese Datei
 ```
 
-## Was funktioniert (Stand 2026-05-25)
+## Was funktioniert (Stand 2026-06-26)
 
 - ✅ Electron 39 + React 19 + TS via electron-vite 5
 - ✅ Tailwind v4 + shadcn/ui (new-york, neutral) — Button, Input, Label, ScrollArea, Sonner installiert
@@ -56,18 +56,15 @@ Ich arbeite weiter an [konkretes Thema].
 - ✅ Multi-Select (click single, shift-click range, cmd/ctrl-click toggle, clear on cwd change)
 - ✅ Sonner Toasts (richColors, top-right)
 - ✅ Dark Mode Toggle (`.dark` class on `<html>`)
+- ✅ **up2k-Client** (`src/main/up2k.ts`) — sha512[:33]-Chunk-Hashing, Handshake-State-Machine, Chunk-Upload mit Subchunking >96 MB, Resume via Re-Handshake. Sequenziell (1 Connection). End-to-end getestet gegen echten copyparty.
+- ✅ **up2k Hostile-Network-Hardening** — Per-Request-Timeout (`AbortSignal.timeout`), Auto-Retry mit Backoff, geteilte Deadline ab letztem Erfolg, Fehler-Klassifikation (401/403/4xx fatal, 5xx/Netzwerk retry), Chunk-400 "already got that" = Erfolg. `retry`-Progress → Toast "Reconnecting…"
+- ✅ Upload-Progress-UI (gooey-toast, `useUploadProgress.ts`: hash/upload/retry/done/error)
 - ✅ Typecheck grün
 
 ## Was noch fehlt (Roadmap, in Reihenfolge sinnvoll)
 
-1. **up2k-Client** — ~1-2 Wochen (größter Brocken)
-   - Web-Worker mit `hash-wasm` für SHA-512 pro Chunk
-   - Handshake-State-Machine (POST JSON → fehlende Chunks zurück)
-   - Chunked Parallel Upload mit `sprs`-Flag
-   - Resume nach Disconnect
-   - Subchunking für >96 MB (Cloudflare-Workaround)
+1. ~~**up2k-Client**~~ ✅ **ERLEDIGT** (siehe oben "Was funktioniert"). Im Main-Process (Node `crypto`/`fs`), nicht Web-Worker — kein `hash-wasm` nötig. Offen nur noch (optional, reine Speed): **parallele Connections** (`-j`) + **Chunk-Join** (mehrere Chunks/POST, `cid0,n,prefix…`-Format wie u2c.py). Tragen keine These, nur Durchsatz.
    - Referenz: `../copyparty/bin/u2c.py` (~1700 Zeilen, gut lesbar)
-   - Spec: `../copyparty/docs/up2k.txt` + `04-backend-api.md`
 
 2. **Race the Beam** — kommt fast gratis mit up2k (Range-GET auf wachsender Datei)
 
@@ -92,6 +89,45 @@ Ich arbeite weiter an [konkretes Thema].
 12. **MediaSession API** — OS-Media-Controls für Audio (Lock-Screen-Play/Pause)
 
 13. **Live-Tail wachsender Files** — Range-Polling für `tail -f` im UI
+
+## Agora-Integration (Bachelor-Werk)
+
+Kiosk-App läuft auf drei Thinclients an einem schwarzen runden Sneakernet-Tisch („Agora"). **FritzBox 7490** spannt geschlossenes WLAN ohne Internet-Uplink (WAN-Kabel ungesteckt; DSL-Router läuft trotzdem als WLAN+DHCP weiter, Subnetz `192.168.178.0/24`). Drahtlose Übertragung in Anwesenheit = vollwertige Sneakernet-Form (Differenz zu Café-WLAN ist die fehlende Internetanbindung).
+
+> **Router-Wechsel (2026-06-26):** vorher MikroTik hAP ac2 (`/rest`-API, Subnetz `192.168.88.x`). Jetzt FritzBox 7490. Kioske bereits unter `192.168.178.{61,63,59}`. Client-Tracking-Datenquelle dadurch getauscht (REST → TR-064), Poller-Logik bleibt.
+
+**Vault-Referenz:** `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Bachelor/Agora/Technik/MikroTik-Client-Tracking.md` (⚠️ Doku noch auf MikroTik, FritzBox-Update offen)
+
+### Agora-Dashboard (geplant, auf Kiosk2)
+
+Zusätzlicher Dienst neben Electron-Kiosk, läuft NUR auf Kiosk2 (meiste RAM/Speicher der drei). Prototyp: `agora-dashboard/`.
+
+- Python-Poller fragt **FritzBox TR-064** (Port 49000, SOAP) via `fritzconnection`-Lib alle 60 s ab — `FritzHosts.get_hosts_info()` → MAC/IP/active/hostname/interface
+  - Voraussetzung: TR-064 in FritzBox an (Heimnetz → Netzwerk → Netzwerkeinstellungen → „Zugriff für Anwendungen zulassen"), FritzBox-User + PW
+  - **Bytes-Caveat:** TR-064 liefert nur WLAN-**Aggregat** (`FritzWLAN`/Interface-Statistik), nicht pro Client (MikroTik konnte per-Client). „Bytes seit Session-Start" wird Summe statt pro-Gerät.
+- SQLite unter `~/.agora/agora.db`, reboot-fest
+- Flask/FastAPI auf `localhost:8080/dashboard`, andere Kioske ziehen über `http://kiosk2.local:8080/dashboard`
+- Anzeigewerte: live-Clients, jemals-verbunden, übertragene Bytes seit Session-Start
+- Reset nur via CLI `agora-reset` (neue session-row, samples + seen_macs DROP)
+- MAC nur als SHA256(mac + session_salt) persistiert (DSGVO: MAC = personenbezogen nach Breyer 2016)
+
+### Screensaver-Modus (in Electron integriert)
+
+- Main-Process trackt Idle via `powerMonitor.getSystemIdleTime()` (plattformnativ, Wayland/X11 egal)
+- Trigger: >20 s Idle ODER manueller Button in der Kiosk-Topbar (IPC `screensaver:show`)
+- Kein Max-Timer — aktive Nutzung blockt den Screensaver dauerhaft
+- Bei Trigger: zweites `BrowserWindow` `fullscreen + alwaysOnTop + frame: false + transparent: true`, lädt Renderer-Route `/screensaver`
+- Mausbewegung → Main sendet `screensaver:fade-out` → Container fadet `opacity` per Tailwind `transition-opacity duration-300`, Main schließt nach 400 ms
+- Renderer-Route fetcht `http://kiosk2.local:8080/stats` alle 5 s
+- Versetzte Anzeigen auf den drei Stationen (kein Sync) = drei Beobachterperspektiven auf dasselbe Netz
+- Theme/Fonts/Components geteilt mit Kiosk-App (shadcn, Tailwind)
+- Single Point of Failure: Kiosk2 down → keine Stats-Daten. Aktuell akzeptiert.
+
+### Roadmap-Reihenfolge (Agora)
+
+1. ~~up2k-Client~~ ✅ fertig + hostile-network-gehärtet
+2. **← HIER:** Agora-Dashboard-Service als separater Python-Prozess auf Kiosk2 (FritzBox-TR-064-Poller + Flask/FastAPI). Prototyp in `agora-dashboard/`.
+3. Screensaver-Route + `powerMonitor`-Logik in Kiosk-App integrieren
 
 ## Stack (gesetzt)
 
@@ -207,8 +243,8 @@ npm run dev
 
 copyparty muss separat laufen (z.B. `python -m copyparty` auf `:3923`).
 
-## Aktueller Stand am [HEUTE]
+## Aktueller Stand am 2026-06-26
 
-Letzter Commit: `d393815` — initiales Scaffold mit allen oben markierten ✅ Features.
+up2k-Client fertig + hostile-network-gehärtet (Retry/Backoff/Resume), end-to-end gegen echten copyparty (kiosk2 `.61:3923`) getestet. Router von MikroTik auf FritzBox 7490 gewechselt — Agora-Client-Tracking nutzt jetzt TR-064 statt MikroTik-REST.
 
-Nächster sinnvoller Schritt: **up2k-Client portieren**. Brauchst dafür `hash-wasm` als npm-Dep, einen Web-Worker für Hashing, und Lesen von `bin/u2c.py` als Vorlage.
+Nächster sinnvoller Schritt: **Agora-Dashboard** — FritzBox-TR-064-Poller (`agora-dashboard/`, `fritzconnection`-Lib) + Flask/FastAPI auf Kiosk2. Danach Screensaver-Route.
