@@ -27,6 +27,20 @@ from pathlib import Path
 DEFAULT_DB = Path.home() / ".agora" / "agora.db"
 DEFAULT_ADDRESS = os.environ.get("FRITZ_ADDRESS", "192.168.178.1")
 
+# infrastructure that is always on the Agora net but is NOT a guest: the router
+# and the three kiosks. Everything else active on the net counts as a guest.
+# Matched case-insensitively by hostname; any "fritz.*" (box, repeater) is infra.
+# (interface type is unreliable via get_hosts_info on the 7490, so we filter by
+# identity instead of WLAN-vs-LAN.)
+INFRA_NAMES = {"kiosk1", "kiosk2", "kiosk3"}
+
+
+def is_infra(host: dict, exclude: set[str]) -> bool:
+    name = (host.get("name") or "").strip().lower()
+    if name.startswith("fritz."):  # fritz.box, fritz.repeater
+        return True
+    return name in INFRA_NAMES or name in exclude
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS sessions (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -117,10 +131,11 @@ def fetch_hosts_mock() -> list[dict]:
     import random
 
     pool = [
+        ("AA:BB:CC:00:00:00", "fritz.box"),   # infra -> filtered
         ("AA:BB:CC:00:00:01", "phone-anna"),
         ("AA:BB:CC:00:00:02", "laptop-ben"),
         ("AA:BB:CC:00:00:03", "tablet-cyk"),
-        ("AA:BB:CC:00:00:04", "kiosk2"),
+        ("AA:BB:CC:00:00:04", "kiosk2"),      # infra -> filtered
         ("AA:BB:CC:00:00:05", "phone-dora"),
     ]
     hosts = []
@@ -132,7 +147,7 @@ def fetch_hosts_mock() -> list[dict]:
                 "name": name,
                 # randomly toggle some devices "away" to exercise live vs ever
                 "active": random.random() > 0.3,
-                "interface": "WLAN",
+                "interface": "",  # 7490 leaves this blank via get_hosts_info
             }
         )
     return hosts
@@ -153,12 +168,13 @@ def hash_mac(mac: str, salt: str) -> str:
     return hashlib.sha256((mac + salt).encode("utf-8")).hexdigest()
 
 
-def poll_once(con: sqlite3.Connection, hosts: list[dict]) -> dict:
+def poll_once(con: sqlite3.Connection, hosts: list[dict], exclude: set[str]) -> dict:
     session = current_session(con)
     sid, salt = session["id"], session["salt"]
     now = time.time()
 
-    active = [h for h in hosts if h["active"] and h["mac"]]
+    # guests only: active, has a MAC, and not infra (router/kiosks/--exclude)
+    active = [h for h in hosts if h["active"] and h["mac"] and not is_infra(h, exclude)]
     for h in active:
         mh = hash_mac(h["mac"], salt)
         con.execute(
@@ -202,11 +218,12 @@ def get_hosts(args: argparse.Namespace) -> list[dict]:
 def cmd_run(args: argparse.Namespace) -> None:
     con = connect(args.db)
     current_session(con)  # ensure one exists
+    exclude = {x.strip().lower() for x in (args.exclude or [])}
     src = "mock" if args.mock else f"TR-064 @ {args.address}"
     while True:
         try:
             hosts = get_hosts(args)
-            r = poll_once(con, hosts)
+            r = poll_once(con, hosts, exclude)
             print(
                 f"[{time.strftime('%H:%M:%S')}] session {r['session']}: "
                 f"live={r['live']} ever={r['ever']} "
@@ -237,6 +254,10 @@ def main() -> None:
     run.add_argument("--interval", type=float, default=60.0, help="seconds between polls")
     run.add_argument("--once", action="store_true", help="poll once and exit")
     run.add_argument("--mock", action="store_true", help="use fake hosts (no FritzBox needed)")
+    run.add_argument(
+        "--exclude", action="append", metavar="NAME",
+        help="extra hostname to treat as infra (repeatable); router + kiosk1-3 are always excluded",
+    )
     run.set_defaults(func=cmd_run)
 
     rs = sub.add_parser("reset", help="new session, drop all observations (agora-reset)")

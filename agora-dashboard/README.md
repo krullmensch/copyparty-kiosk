@@ -41,6 +41,23 @@ python3 poller.py reset
 
 DB liegt unter `~/.agora/agora.db` (reboot-fest), abänderbar mit `--db`.
 
+### Gäste vs Infrastruktur
+
+`live`/`ever` zählen nur **Gäste**. Als Infrastruktur (nicht gezählt, MAC wird
+nicht mal gehasht) gelten automatisch: der Router (`fritz.*` → box & repeater)
+und die drei Kioske (`kiosk1`/`kiosk2`/`kiosk3`). Im echten Agora-Netz sind
+standardmäßig nur diese da — alles weitere ist ein Besucher.
+
+Weitere Namen ausschließen:
+
+```bash
+python3 poller.py run --exclude nas-dxp2800 --exclude drucker
+```
+
+> Hinweis: TR-064 `get_hosts_info()` füllt das `interface`-Feld auf der 7490
+> nicht (WLAN vs LAN nicht unterscheidbar), daher Filter über Identität
+> (Hostname) statt Verbindungstyp.
+
 ## Schema
 
 - `sessions(id, started_at, salt)` — pro Reset eine neue Zeile mit frischem Salt
