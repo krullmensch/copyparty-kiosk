@@ -14,16 +14,35 @@ The poller (poller.py) is the writer; this process only reads.
 """
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 import time
 from pathlib import Path
 
-from flask import Flask, Response, jsonify
+from flask import Flask, Response, jsonify, request
 
-DB_PATH = Path.home() / ".agora" / "agora.db"
+import poller
+
+AGORA_DIR = Path.home() / ".agora"
+DB_PATH = AGORA_DIR / "agora.db"
+FRITZ_ENV = AGORA_DIR / "fritz.env"
+ADMIN_HASH = AGORA_DIR / "admin.hash"
 HISTORY_LIMIT = 120  # ~2h at 60s polling
 
 app = Flask(__name__)
+
+
+def tracking_enabled() -> bool:
+    """tracking is on only if a FritzBox password is configured."""
+    try:
+        if not FRITZ_ENV.exists():
+            return False
+        for line in FRITZ_ENV.read_text().splitlines():
+            if line.startswith("FRITZ_PASSWORD=") and line.split("=", 1)[1].strip():
+                return True
+    except OSError:
+        pass
+    return False
 
 
 def read_db() -> sqlite3.Connection | None:
@@ -36,7 +55,9 @@ def read_db() -> sqlite3.Connection | None:
 
 def build_stats() -> dict:
     con = read_db()
+    enabled = tracking_enabled()
     empty = {
+        "enabled": enabled,
         "session": None,
         "live": 0,
         "ever": 0,
@@ -73,6 +94,7 @@ def build_stats() -> dict:
         history = [{"ts": r["ts"], "live": r["live_count"]} for r in reversed(rows)]
 
         return {
+            "enabled": enabled,
             "session": {
                 "id": sid,
                 "started_at": session["started_at"],
@@ -106,6 +128,31 @@ def stats() -> Response:
 @app.get("/healthz")
 def healthz() -> Response:
     return Response("ok", mimetype="text/plain")
+
+
+def admin_password_ok(supplied: str) -> bool:
+    """compares supplied password against the sha256 set at initial setup."""
+    try:
+        stored = ADMIN_HASH.read_text().strip()
+    except OSError:
+        return False  # no admin password configured -> reset disabled
+    if not stored:
+        return False
+    return hashlib.sha256(supplied.encode("utf-8")).hexdigest() == stored
+
+
+@app.post("/reset")
+def reset() -> Response:
+    """starts a fresh session and drops observations. requires admin password."""
+    body = request.get_json(silent=True) or {}
+    if not admin_password_ok(str(body.get("password", ""))):
+        return jsonify({"ok": False, "error": "unauthorized"}), 403
+    con = poller.connect(DB_PATH)
+    try:
+        sid = poller.reset_session(con)
+    finally:
+        con.close()
+    return jsonify({"ok": True, "session": sid})
 
 
 @app.get("/dashboard")

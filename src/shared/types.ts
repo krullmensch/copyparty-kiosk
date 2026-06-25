@@ -94,10 +94,13 @@ export const IpcChannels = {
   CppProgress: 'cpp:progress',
   CppThumb: 'cpp:thumb',
   CppSearch: 'cpp:search',
-  AgoraStats: 'agora:stats'
+  AgoraStats: 'agora:stats',
+  AgoraRole: 'agora:role',
+  AgoraReset: 'agora:reset'
 } as const
 
 export interface AgoraStats {
+  enabled: boolean
   session: { id: number; started_at: number; uptime_s: number } | null
   live: number
   ever: number
@@ -110,6 +113,15 @@ export interface AgoraStats {
 
 export type AgoraStatsResult =
   | { ok: true; stats: AgoraStats }
+  | { ok: false; error: string }
+
+/** local role of this kiosk, read from ~/.agora/role (main vs client). */
+export interface AgoraRole {
+  isMain: boolean
+}
+
+export type AgoraResetResult =
+  | { ok: true; session: number }
   | { ok: false; error: string }
 
 export type UploadProgress =

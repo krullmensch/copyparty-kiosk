@@ -25,7 +25,9 @@ import time
 from pathlib import Path
 
 DEFAULT_DB = Path.home() / ".agora" / "agora.db"
-DEFAULT_ADDRESS = os.environ.get("FRITZ_ADDRESS", "192.168.178.1")
+# "fritz.box" resolves on any FritzBox network via the box's own DNS, so the
+# poller needs no per-network reconfiguration. Override with $FRITZ_ADDRESS.
+DEFAULT_ADDRESS = os.environ.get("FRITZ_ADDRESS", "fritz.box")
 
 # infrastructure that is always on the Agora net but is NOT a guest: the router
 # and the three kiosks. Everything else active on the net counts as a guest.

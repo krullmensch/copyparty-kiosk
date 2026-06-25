@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+#
+# Agora MAIN kiosk setup.
+#
+# Provisions the one kiosk that runs the shared services: copyparty file
+# server, the FritzBox client-tracking poller, and the dashboard HTTP server.
+# Also sets up the display/autostart stack and builds the Electron app.
+#
+# Idempotent: safe to re-run. Run as the kiosk user (with sudo available):
+#   ./deploy/setup-main.sh
+#
+# Network portability: all addressing is by name (kiosk2.local via avahi,
+# fritz.box via the FritzBox's own DNS), so moving to another network needs
+# no reconfiguration -- plug in and boot.
+#
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/lib-kiosk.sh"
+
+AGORA_SRC="$REPO_DIR/agora-dashboard"
+VENV="$AGORA_SRC/.venv"
+PY="$VENV/bin/python"
+
+log "Agora MAIN kiosk setup  (repo: $REPO_DIR)"
+
+install_base_packages
+sudo apt-get install -y -q python3-venv python3-full
+write_role main
+
+# --- python env for the dashboard backend ---
+log "python venv for agora-dashboard"
+[ -d "$VENV" ] || python3 -m venv "$VENV"
+"$VENV/bin/pip" install -q --upgrade pip
+"$VENV/bin/pip" install -q -r "$AGORA_SRC/requirements.txt"
+ok "venv ready ($("$PY" -c 'import flask,fritzconnection;print("flask",flask.__version__)'))"
+
+mkdir -p "$AGORA_HOME"; chmod 700 "$AGORA_HOME"
+
+# --- admin password (gates the in-app reset panel) ---
+if [ "$FORCE" = "1" ] || [ ! -f "$AGORA_HOME/admin.hash" ]; then
+  read -rsp "Set ADMIN password (for the in-app reset panel): " A1; echo
+  read -rsp "Repeat admin password: " A2; echo
+  if [ -z "$A1" ] || [ "$A1" != "$A2" ]; then
+    warn "passwords empty or mismatched; keeping any existing admin.hash"
+  else
+    printf '%s' "$A1" | sha256sum | cut -d' ' -f1 > "$AGORA_HOME/admin.hash"
+    chmod 600 "$AGORA_HOME/admin.hash"
+    ok "admin password set"
+  fi
+else
+  ok "admin password already set (FORCE=1 to change)"
+fi
+
+# --- FritzBox password (optional; absent => tracking disabled + button hidden) ---
+TRACKING=0
+if [ "$FORCE" = "1" ] || [ ! -f "$AGORA_HOME/fritz.env" ]; then
+  read -rsp "FritzBox password (empty = disable client tracking): " FP; echo
+  if [ -n "$FP" ]; then
+    umask 077
+    printf 'FRITZ_PASSWORD=%s\n' "$FP" > "$AGORA_HOME/fritz.env"
+    chmod 600 "$AGORA_HOME/fritz.env"
+    TRACKING=1
+    ok "FritzBox password stored -> tracking enabled"
+  else
+    rm -f "$AGORA_HOME/fritz.env"
+    warn "no FritzBox password -> tracking disabled, stats button hidden"
+  fi
+else
+  TRACKING=1
+  ok "FritzBox password already set (FORCE=1 to change)"
+fi
+
+# --- copyparty system service ---
+if [ -f "$USER_HOME/copyparty-sfx.py" ]; then
+  log "installing copyparty.service"
+  sudo tee /etc/systemd/system/copyparty.service >/dev/null <<EOF
+[Unit]
+Description=copyparty file server
+After=network.target
+
+[Service]
+Type=simple
+User=$USER_NAME
+ExecStart=/usr/bin/python3 $USER_HOME/copyparty-sfx.py -p 3923 -i 0.0.0.0 -v $USER_HOME/copyparty-data:/:rw -e2dsa --no-ses -q
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  mkdir -p "$USER_HOME/copyparty-data"
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now copyparty.service
+  ok "copyparty.service running on :3923"
+else
+  warn "copyparty-sfx.py not at $USER_HOME -- skipping copyparty.service"
+  warn "  download it from https://github.com/9001/copyparty/releases and re-run"
+fi
+
+# --- agora user services (server always; poller only if tracking on) ---
+log "installing agora systemd user services"
+mkdir -p "$USER_HOME/.config/systemd/user"
+
+cat > "$USER_HOME/.config/systemd/user/agora-server.service" <<EOF
+[Unit]
+Description=Agora dashboard HTTP server (port 8080)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=$AGORA_SRC
+ExecStart=$PY server.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+EOF
+
+cat > "$USER_HOME/.config/systemd/user/agora-poller.service" <<EOF
+[Unit]
+Description=Agora FritzBox client-tracking poller
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=$AGORA_SRC
+EnvironmentFile=$AGORA_HOME/fritz.env
+ExecStart=$PY poller.py run --interval 60
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+EOF
+
+sudo loginctl enable-linger "$USER_NAME"
+systemctl --user daemon-reload
+systemctl --user enable --now agora-server.service
+if [ "$TRACKING" = "1" ]; then
+  systemctl --user enable --now agora-poller.service
+  ok "poller + server running"
+else
+  systemctl --user disable --now agora-poller.service 2>/dev/null || true
+  ok "server running, poller disabled (no FritzBox password)"
+fi
+
+ensure_display_stack
+build_app
+restart_app
+
+log "MAIN kiosk setup complete."
+echo "  - dashboard:  http://kiosk2.local:8080/stats   (also /dashboard, /healthz)"
+echo "  - copyparty:  http://kiosk2.local:3923"
+echo "  - tracking:   $([ "$TRACKING" = 1 ] && echo enabled || echo DISABLED)"
+echo "  - reset:      5 clicks on the title in the app -> admin password"

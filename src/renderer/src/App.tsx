@@ -1,23 +1,42 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Moon, Sun, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { GoeyToaster } from 'goey-toast'
 import { FileBrowserPane } from './components/FileBrowserPane'
 import { RemoteBrowserPane } from './components/RemoteBrowserPane'
 import { AgoraStatsPanel } from './components/AgoraStatsPanel'
+import { AdminPanel } from './components/AdminPanel'
 import { useDrives } from './hooks/useDrives'
 import { useUploadProgress } from './hooks/useUploadProgress'
+import { useAgoraCapabilities } from './hooks/useAgoraCapabilities'
 
-const COPYPARTY_URL = 'http://192.168.178.61:3923'
+// main kiosk addressed by mDNS so the app needs no per-network config
+const COPYPARTY_URL = 'http://kiosk2.local:3923'
 
 function App(): React.JSX.Element {
   const drives = useDrives()
+  const caps = useAgoraCapabilities()
   const [remoteReady, setRemoteReady] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
+  const [adminOpen, setAdminOpen] = useState(false)
+  const logoClicks = useRef<{ n: number; t: number }>({ n: 0, t: 0 })
   const [isDark, setIsDark] = useState(() =>
     typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
   )
   useUploadProgress()
+
+  // 5 quick clicks on the title opens the admin panel (main kiosk only)
+  const onLogoClick = (): void => {
+    if (!caps.isMain) return
+    const now = Date.now()
+    const c = logoClicks.current
+    c.n = now - c.t < 2000 ? c.n + 1 : 1
+    c.t = now
+    if (c.n >= 5) {
+      c.n = 0
+      setAdminOpen(true)
+    }
+  }
 
   const toggleTheme = (): void => {
     const next = !isDark
@@ -60,17 +79,21 @@ function App(): React.JSX.Element {
       <GoeyToaster richColors position="top-right" preset="smooth" showProgress />
       <div className="bg-background text-foreground flex h-screen flex-col">
         <header className="border-border bg-bg-page-tint flex items-center justify-between border-b px-4 py-2">
-          <h1 className="text-h2">Agora</h1>
+          <h1 className="text-h2 select-none" onClick={onLogoClick}>
+            Agora
+          </h1>
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setStatsOpen(true)}
-              title="Netz-Statistik"
-              aria-label="Netz-Statistik"
-            >
-              <Users className="size-5" strokeWidth={1.25} />
-            </Button>
+            {caps.trackingEnabled && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setStatsOpen(true)}
+                title="Netz-Statistik"
+                aria-label="Netz-Statistik"
+              >
+                <Users className="size-5" strokeWidth={1.25} />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -101,6 +124,7 @@ function App(): React.JSX.Element {
         </div>
       </div>
       {statsOpen && <AgoraStatsPanel onClose={() => setStatsOpen(false)} />}
+      {adminOpen && <AdminPanel onClose={() => setAdminOpen(false)} />}
     </>
   )
 }

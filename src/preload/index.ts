@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import {
+  AgoraResetResult,
+  AgoraRole,
   AgoraStatsResult,
   ConnectResult,
   CppSearchResult,
@@ -60,7 +62,10 @@ const api = {
     }
   },
   agora: {
-    stats: (): Promise<AgoraStatsResult> => ipcRenderer.invoke(IpcChannels.AgoraStats)
+    stats: (): Promise<AgoraStatsResult> => ipcRenderer.invoke(IpcChannels.AgoraStats),
+    role: (): Promise<AgoraRole> => ipcRenderer.invoke(IpcChannels.AgoraRole),
+    reset: (password: string): Promise<AgoraResetResult> =>
+      ipcRenderer.invoke(IpcChannels.AgoraReset, password)
   }
 }
 
