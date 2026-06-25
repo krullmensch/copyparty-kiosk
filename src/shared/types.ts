@@ -106,6 +106,7 @@ export type UploadProgress =
       chunkIndex: number
       chunkCount: number
     }
+  | { kind: 'retry'; name: string; attempt: number; reason: string }
   | { kind: 'done'; name: string; bytesTotal: number }
   | { kind: 'error'; name: string; message: string }
 

@@ -43,6 +43,12 @@ export function useUploadProgress(): void {
         return
       }
 
+      if (p.kind === 'retry') {
+        const desc = `Reconnecting… (attempt ${p.attempt})`
+        if (id != null) gooeyToast.update(id, { description: desc })
+        return
+      }
+
       if (p.kind === 'done') {
         if (id != null) gooeyToast.dismiss(id)
         active.delete(p.name)
