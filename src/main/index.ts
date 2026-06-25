@@ -7,6 +7,7 @@ import icon from '../../resources/icon.png?asset'
 import { registerDrivesIpc } from './ipc/drives'
 import { registerFsIpc } from './ipc/fs'
 import { registerCppIpc } from './ipc/copyparty'
+import { registerAgoraIpc } from './ipc/agora'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -42,6 +43,7 @@ function createWindow(): void {
   registerDrivesIpc(mainWindow)
   registerFsIpc()
   registerCppIpc(mainWindow)
+  registerAgoraIpc()
 }
 
 app.whenReady().then(() => {

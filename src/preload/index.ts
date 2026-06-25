@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import {
+  AgoraStatsResult,
   ConnectResult,
   CppSearchResult,
   DriveInfo,
@@ -57,6 +58,9 @@ const api = {
       ipcRenderer.on(IpcChannels.CppProgress, handler)
       return () => ipcRenderer.off(IpcChannels.CppProgress, handler)
     }
+  },
+  agora: {
+    stats: (): Promise<AgoraStatsResult> => ipcRenderer.invoke(IpcChannels.AgoraStats)
   }
 }
 

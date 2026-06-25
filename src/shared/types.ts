@@ -93,8 +93,24 @@ export const IpcChannels = {
   CppDownload: 'cpp:download',
   CppProgress: 'cpp:progress',
   CppThumb: 'cpp:thumb',
-  CppSearch: 'cpp:search'
+  CppSearch: 'cpp:search',
+  AgoraStats: 'agora:stats'
 } as const
+
+export interface AgoraStats {
+  session: { id: number; started_at: number; uptime_s: number } | null
+  live: number
+  ever: number
+  peak_live: number
+  wlan_bytes: number | null
+  updated_at: number | null
+  stale_s: number | null
+  history: { ts: number; live: number }[]
+}
+
+export type AgoraStatsResult =
+  | { ok: true; stats: AgoraStats }
+  | { ok: false; error: string }
 
 export type UploadProgress =
   | { kind: 'hash'; name: string; bytesDone: number; bytesTotal: number }
