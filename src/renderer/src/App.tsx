@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Moon, Sun } from 'lucide-react'
+import { Moon, Sun, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { GoeyToaster } from 'goey-toast'
 import { FileBrowserPane } from './components/FileBrowserPane'
 import { RemoteBrowserPane } from './components/RemoteBrowserPane'
+import { AgoraStatsPanel } from './components/AgoraStatsPanel'
 import { useDrives } from './hooks/useDrives'
 import { useUploadProgress } from './hooks/useUploadProgress'
 
@@ -12,6 +13,7 @@ const COPYPARTY_URL = 'http://192.168.178.61:3923'
 function App(): React.JSX.Element {
   const drives = useDrives()
   const [remoteReady, setRemoteReady] = useState(false)
+  const [statsOpen, setStatsOpen] = useState(false)
   const [isDark, setIsDark] = useState(() =>
     typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
   )
@@ -59,19 +61,30 @@ function App(): React.JSX.Element {
       <div className="bg-background text-foreground flex h-screen flex-col">
         <header className="border-border bg-bg-page-tint flex items-center justify-between border-b px-4 py-2">
           <h1 className="text-h2">Agora</h1>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleTheme}
-            title={isDark ? 'Tag' : 'Nacht'}
-            aria-label={isDark ? 'Tag' : 'Nacht'}
-          >
-            {isDark ? (
-              <Sun className="size-5" strokeWidth={1.25} />
-            ) : (
-              <Moon className="size-5" strokeWidth={1.25} />
-            )}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setStatsOpen(true)}
+              title="Netz-Statistik"
+              aria-label="Netz-Statistik"
+            >
+              <Users className="size-5" strokeWidth={1.25} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleTheme}
+              title={isDark ? 'Tag' : 'Nacht'}
+              aria-label={isDark ? 'Tag' : 'Nacht'}
+            >
+              {isDark ? (
+                <Sun className="size-5" strokeWidth={1.25} />
+              ) : (
+                <Moon className="size-5" strokeWidth={1.25} />
+              )}
+            </Button>
+          </div>
         </header>
 
         <div className="flex min-h-0 flex-1 p-3">
@@ -87,6 +100,7 @@ function App(): React.JSX.Element {
           )}
         </div>
       </div>
+      {statsOpen && <AgoraStatsPanel onClose={() => setStatsOpen(false)} />}
     </>
   )
 }

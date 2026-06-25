@@ -1,1 +1,2 @@
 fritzconnection>=1.13
+flask>=3.0

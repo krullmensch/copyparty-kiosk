@@ -6,8 +6,12 @@ Geräte. MAC-Adressen werden ausschließlich als `SHA256(mac + session_salt)`
 gespeichert — kein Klartext, nicht über Sessions korrelierbar (DSGVO, MAC =
 personenbezogen nach Breyer 2016).
 
-Stand: **Poller-Prototyp**. Flask/FastAPI-Dashboard (`localhost:8080`) kommt
-als nächstes.
+Zwei Prozesse auf Kiosk2:
+- **`poller.py`** schreibt Beobachtungen in `~/.agora/agora.db` (FritzBox-Poll)
+- **`server.py`** (Flask, Port 8080) liest die DB read-only und liefert `/stats`
+
+Die Electron-Kioske holen sich die Stats über den **„Netz-Statistik"-Button**
+(Users-Icon) in der Topbar → `http://192.168.178.61:8080/stats`.
 
 ## Setup
 
@@ -40,6 +44,20 @@ python3 poller.py reset
 ```
 
 DB liegt unter `~/.agora/agora.db` (reboot-fest), abänderbar mit `--db`.
+
+### Dashboard-Server
+
+```bash
+# auf Kiosk2, neben dem laufenden Poller:
+.venv/bin/python server.py            # Flask, 0.0.0.0:8080
+# Endpunkte:
+#   GET /stats      JSON (CORS: *)  <- Electron-Button + Screensaver
+#   GET /dashboard  Mini-HTML-Ansicht (Standalone / andere Kioske)
+#   GET /healthz    "ok"
+```
+
+Beide Prozesse später als systemd-User-Services auf Kiosk2 (`poller run` +
+`server`). Der Poller braucht `FRITZ_PASSWORD` im Service-Environment.
 
 ### Gäste vs Infrastruktur
 
