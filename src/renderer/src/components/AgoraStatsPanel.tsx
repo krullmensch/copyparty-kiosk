@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { formatSize } from '../lib/format'
 import { useAgoraStats } from '../hooks/useAgoraStats'
 
 function fmtUptime(s: number): string {
@@ -69,10 +70,11 @@ export function AgoraStatsPanel({ onClose }: { onClose: () => void }): React.JSX
 
         {stats && (
           <>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <Stat n={stats.live} label="live" />
               <Stat n={stats.ever} label="jemals" />
               <Stat n={stats.peak_live} label="peak" />
+              <Stat n={formatSize(stats.traffic_bytes)} label="Traffic" />
             </div>
 
             <div className="mt-6 flex justify-center">

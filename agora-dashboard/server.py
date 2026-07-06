@@ -171,7 +171,7 @@ _DASHBOARD_HTML = """<!doctype html>
 <style>
   body{font-family:system-ui,sans-serif;background:#111;color:#eee;margin:0;
        display:flex;min-height:100vh;align-items:center;justify-content:center}
-  .grid{display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:2rem;text-align:center}
+  .grid{display:grid;grid-template-columns:repeat(4,minmax(100px,1fr));gap:2rem;text-align:center}
   .n{font-size:3.5rem;font-weight:700;line-height:1}
   .l{font-size:.8rem;text-transform:uppercase;letter-spacing:.1em;opacity:.6;margin-top:.5rem}
   .meta{position:fixed;bottom:1rem;width:100%;text-align:center;opacity:.4;font-size:.75rem}
@@ -181,14 +181,22 @@ _DASHBOARD_HTML = """<!doctype html>
     <div><div class="n" id="live">–</div><div class="l">live</div></div>
     <div><div class="n" id="ever">–</div><div class="l">jemals</div></div>
     <div><div class="n" id="peak">–</div><div class="l">peak</div></div>
+    <div><div class="n" id="traffic">–</div><div class="l">traffic</div></div>
   </div>
   <div class="meta" id="meta"></div>
 </div>
 <script>
+function fmtBytes(n){
+  if(n==null) return '–';
+  const units=['B','KB','MB','GB','TB'];let i=0;
+  while(n>=1024 && i<units.length-1){n/=1024;i++;}
+  return (n<10 && i>0 ? n.toFixed(1) : Math.round(n))+' '+units[i];
+}
 async function tick(){
   try{
     const r=await fetch('/stats');const d=await r.json();
     live.textContent=d.live;ever.textContent=d.ever;peak.textContent=d.peak_live;
+    traffic.textContent=fmtBytes(d.traffic_bytes);
     const up=d.session?Math.round(d.session.uptime_s/60):0;
     meta.textContent='Session '+(d.session?d.session.id:'-')+' · '+up+' min · '
       +(d.stale_s==null?'keine Daten':'aktualisiert vor '+d.stale_s+'s');
