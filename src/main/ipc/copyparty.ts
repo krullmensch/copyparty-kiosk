@@ -12,6 +12,12 @@ import {
   UploadProgress
 } from '../../shared/types'
 import { uploadFile } from '../up2k'
+import {
+  cleanupTempDirs,
+  expandForUpload,
+  resolveCollisions,
+  type ExpandItem
+} from '../copy-expand'
 
 interface CookieJar {
   [serverUrl: string]: string
@@ -68,7 +74,9 @@ async function connect(serverUrl: string, password?: string): Promise<ConnectRes
   // disabled (--no-ses), and when sessions are on it still requires the
   // password to be present as the cppwd cookie. Inject it ourselves so
   // follow-up requests authenticate.
-  const existing = cookies[server] ? cookies[server].split('; ').filter((c) => !c.startsWith('cppwd=')) : []
+  const existing = cookies[server]
+    ? cookies[server].split('; ').filter((c) => !c.startsWith('cppwd='))
+    : []
   existing.push(`cppwd=${encodeURIComponent(password)}`)
   cookies[server] = existing.join('; ')
   // copyparty returns 200 on bad pw too, but no cookie. Verify by probing ?ls
@@ -177,6 +185,13 @@ async function thumb(serverUrl: string, vpath: string): Promise<string | null> {
   }
 }
 
+/** joins a base vpath with a relative subdir, avoiding double slashes. */
+function joinVpath(base: string, sub: string): string {
+  const b = base.replace(/\/+$/, '')
+  if (!sub) return b || '/'
+  return `${b}/${sub}`
+}
+
 async function upload(
   serverUrl: string,
   targetVpath: string,
@@ -184,24 +199,61 @@ async function upload(
   emit: (p: UploadProgress) => void
 ): Promise<TransferResult> {
   const server = normalizeServer(serverUrl)
-  let done = 0
-  for (const p of localPaths) {
-    try {
-      await uploadFile({
-        server,
-        targetVpath,
-        filePath: p,
-        cookie: cookies[server],
-        onProgress: emit
-      })
-      done++
-    } catch (err) {
-      const msg = (err as Error).message
-      emit({ kind: 'error', name: p, message: msg })
-      return { ok: false, done, total: localPaths.length, message: msg }
-    }
+
+  // expand folders (walk) and zips (extract to temp) into a flat file list that
+  // keeps each folder/zip as one intact unit; the source browse path is dropped.
+  let items: ExpandItem[]
+  let tempDirs: string[]
+  try {
+    ;({ items, tempDirs } = await expandForUpload(localPaths))
+  } catch (err) {
+    const msg = (err as Error).message
+    emit({ kind: 'error', name: 'expand', message: msg })
+    return { ok: false, done: 0, total: 0, message: msg }
   }
-  return { ok: true, done, total: localPaths.length }
+
+  // resolve top-level name collisions against the current target listing so a
+  // dropped "Album" never merges into an existing "Album" (lands as "Album (2)").
+  let existing = new Set<string>()
+  try {
+    const cur = await list(server, targetVpath)
+    existing = new Set(cur.entries.map((e) => e.name))
+  } catch {
+    // target unreachable/empty: proceed without collision info
+  }
+  const renames = resolveCollisions(items, existing)
+
+  let done = 0
+  try {
+    for (const it of items) {
+      const sub = it.topUnit != null ? applyRename(it.subVpath, it.topUnit, renames) : it.subVpath
+      try {
+        await uploadFile({
+          server,
+          targetVpath: joinVpath(targetVpath, sub),
+          filePath: it.filePath,
+          cookie: cookies[server],
+          onProgress: emit
+        })
+        done++
+      } catch (err) {
+        const msg = (err as Error).message
+        emit({ kind: 'error', name: it.filePath, message: msg })
+        return { ok: false, done, total: items.length, message: msg }
+      }
+    }
+    return { ok: true, done, total: items.length }
+  } finally {
+    await cleanupTempDirs(tempDirs)
+  }
+}
+
+/** rewrites the first path segment (the top unit) to its collision-free name. */
+function applyRename(subVpath: string, topUnit: string, renames: Map<string, string>): string {
+  const renamed = renames.get(topUnit)
+  if (!renamed || renamed === topUnit) return subVpath
+  const rest = subVpath === topUnit ? '' : subVpath.slice(topUnit.length + 1)
+  return rest ? `${renamed}/${rest}` : renamed
 }
 
 async function downloadOne(
@@ -251,7 +303,10 @@ interface CppSrchRaw {
   ts?: number
 }
 
-async function search(serverUrl: string, query: string): Promise<{ hits: import('../../shared/types').CppSearchHit[]; truncated: boolean }> {
+async function search(
+  serverUrl: string,
+  query: string
+): Promise<{ hits: import('../../shared/types').CppSearchHit[]; truncated: boolean }> {
   const q = query.trim()
   if (!q) return { hits: [], truncated: false }
   const server = normalizeServer(serverUrl)
@@ -317,10 +372,6 @@ export function registerCppIpc(mainWindow: BrowserWindow): void {
     async (_, url: string, targetDir: string, items: { vpath: string; name: string }[]) =>
       download(url, targetDir, items)
   )
-  ipcMain.handle(IpcChannels.CppThumb, async (_, url: string, vpath: string) =>
-    thumb(url, vpath)
-  )
-  ipcMain.handle(IpcChannels.CppSearch, async (_, url: string, query: string) =>
-    search(url, query)
-  )
+  ipcMain.handle(IpcChannels.CppThumb, async (_, url: string, vpath: string) => thumb(url, vpath))
+  ipcMain.handle(IpcChannels.CppSearch, async (_, url: string, query: string) => search(url, query))
 }
