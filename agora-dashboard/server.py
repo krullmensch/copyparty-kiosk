@@ -62,7 +62,7 @@ def build_stats() -> dict:
         "live": 0,
         "ever": 0,
         "peak_live": 0,
-        "wlan_bytes": None,
+        "traffic_bytes": None,
         "updated_at": None,
         "stale_s": None,
         "history": [],
@@ -71,7 +71,7 @@ def build_stats() -> dict:
         return empty
     try:
         session = con.execute(
-            "SELECT id, started_at FROM sessions ORDER BY id DESC LIMIT 1"
+            "SELECT id, started_at, baseline_bytes FROM sessions ORDER BY id DESC LIMIT 1"
         ).fetchone()
         if session is None:
             return empty
@@ -79,7 +79,7 @@ def build_stats() -> dict:
         now = time.time()
 
         last = con.execute(
-            "SELECT ts, live_count, ever_count, wlan_bytes FROM samples "
+            "SELECT ts, live_count, ever_count, traffic_bytes FROM samples "
             "WHERE session_id = ? ORDER BY id DESC LIMIT 1",
             (sid,),
         ).fetchone()
@@ -93,6 +93,10 @@ def build_stats() -> dict:
         ).fetchall()
         history = [{"ts": r["ts"], "live": r["live_count"]} for r in reversed(rows)]
 
+        traffic_bytes = None
+        if last is not None and last["traffic_bytes"] is not None and session["baseline_bytes"] is not None:
+            traffic_bytes = max(0, last["traffic_bytes"] - session["baseline_bytes"])
+
         return {
             "enabled": enabled,
             "session": {
@@ -103,7 +107,7 @@ def build_stats() -> dict:
             "live": last["live_count"] if last else 0,
             "ever": last["ever_count"] if last else 0,
             "peak_live": peak or 0,
-            "wlan_bytes": last["wlan_bytes"] if last else None,
+            "traffic_bytes": traffic_bytes,
             "updated_at": last["ts"] if last else None,
             "stale_s": round(now - last["ts"]) if last else None,
             "history": history,

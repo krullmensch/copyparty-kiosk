@@ -45,9 +45,10 @@ def is_infra(host: dict, exclude: set[str]) -> bool:
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS sessions (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  started_at REAL NOT NULL,
-  salt       TEXT NOT NULL
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  started_at     REAL NOT NULL,
+  salt           TEXT NOT NULL,
+  baseline_bytes INTEGER          -- rx+tx of the server iface at session start; NULL if unavailable
 );
 CREATE TABLE IF NOT EXISTS seen_macs (
   session_id INTEGER NOT NULL,
@@ -58,23 +59,37 @@ CREATE TABLE IF NOT EXISTS seen_macs (
   PRIMARY KEY (session_id, mac_hash)
 );
 CREATE TABLE IF NOT EXISTS samples (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  session_id INTEGER NOT NULL,
-  ts         REAL NOT NULL,
-  live_count INTEGER NOT NULL,
-  ever_count INTEGER NOT NULL,
-  wlan_bytes INTEGER          -- best-effort; NULL on FritzBox 7490 (see README)
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id    INTEGER NOT NULL,
+  ts            REAL NOT NULL,
+  live_count    INTEGER NOT NULL,
+  ever_count    INTEGER NOT NULL,
+  traffic_bytes INTEGER          -- raw cumulative rx+tx of the server iface at poll time; NULL if unavailable
 );
 """
 
 
 # --- database -------------------------------------------------------------
 
+def _migrate(con: sqlite3.Connection) -> None:
+    """upgrades DBs created before server-side byte tracking existed."""
+    try:
+        con.execute("ALTER TABLE sessions ADD COLUMN baseline_bytes INTEGER")
+    except sqlite3.OperationalError:
+        pass  # already has it
+    try:
+        con.execute("ALTER TABLE samples RENAME COLUMN wlan_bytes TO traffic_bytes")
+    except sqlite3.OperationalError:
+        pass  # already renamed, or fresh DB never had the old name
+    con.commit()
+
+
 def connect(db_path: Path) -> sqlite3.Connection:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(str(db_path))
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
+    _migrate(con)
     return con
 
 
@@ -87,8 +102,8 @@ def current_session(con: sqlite3.Connection) -> sqlite3.Row:
     row = con.execute("SELECT * FROM sessions ORDER BY id DESC LIMIT 1").fetchone()
     if row is None:
         con.execute(
-            "INSERT INTO sessions (started_at, salt) VALUES (?, ?)",
-            (time.time(), new_salt()),
+            "INSERT INTO sessions (started_at, salt, baseline_bytes) VALUES (?, ?, ?)",
+            (time.time(), new_salt(), iface_bytes(default_iface())),
         )
         con.commit()
         row = con.execute("SELECT * FROM sessions ORDER BY id DESC LIMIT 1").fetchone()
@@ -100,8 +115,8 @@ def reset_session(con: sqlite3.Connection) -> int:
     con.execute("DELETE FROM samples")
     con.execute("DELETE FROM seen_macs")
     con.execute(
-        "INSERT INTO sessions (started_at, salt) VALUES (?, ?)",
-        (time.time(), new_salt()),
+        "INSERT INTO sessions (started_at, salt, baseline_bytes) VALUES (?, ?, ?)",
+        (time.time(), new_salt(), iface_bytes(default_iface())),
     )
     con.commit()
     return con.execute("SELECT MAX(id) AS id FROM sessions").fetchone()["id"]
@@ -155,13 +170,37 @@ def fetch_hosts_mock() -> list[dict]:
     return hosts
 
 
-def wlan_bytes_best_effort() -> int | None:
-    """
-    FritzBox 7490 TR-064 exposes WLAN *packet* counters, not bytes, so there
-    is no reliable per-WLAN byte total here. Return None until a workaround
-    lands; the dashboard treats NULL as "unavailable". See README.
-    """
+def default_iface() -> str | None:
+    """name of the interface holding the default route (LAN or WLAN)."""
+    try:
+        with open("/proc/net/route") as f:
+            next(f)  # header line
+            for line in f:
+                fields = line.split()
+                if len(fields) >= 2 and fields[1] == "00000000":
+                    return fields[0]
+    except OSError:
+        pass
     return None
+
+
+def iface_bytes(iface: str | None) -> int | None:
+    """
+    Cumulative rx+tx bytes of `iface` since it last came up (kernel counter,
+    resets on reboot/interface restart). kiosk2 is the sneakernet hub every
+    transfer passes through, so this stands in for "traffic to/from the
+    server" without needing FritzBox TR-064 (which only exposes WLAN packet
+    counts, not bytes, and no per-client breakdown -- see README).
+    """
+    if not iface:
+        return None
+    try:
+        stats = Path("/sys/class/net") / iface / "statistics"
+        rx = int((stats / "rx_bytes").read_text())
+        tx = int((stats / "tx_bytes").read_text())
+        return rx + tx
+    except (OSError, ValueError):
+        return None
 
 
 # --- polling --------------------------------------------------------------
@@ -173,6 +212,7 @@ def hash_mac(mac: str, salt: str) -> str:
 def poll_once(con: sqlite3.Connection, hosts: list[dict], exclude: set[str]) -> dict:
     session = current_session(con)
     sid, salt = session["id"], session["salt"]
+    baseline = session["baseline_bytes"]
     now = time.time()
 
     # guests only: active, has a MAC, and not infra (router/kiosks/--exclude)
@@ -194,15 +234,21 @@ def poll_once(con: sqlite3.Connection, hosts: list[dict], exclude: set[str]) -> 
         "SELECT COUNT(*) AS n FROM seen_macs WHERE session_id = ?", (sid,)
     ).fetchone()["n"]
     live = len(active)
-    wbytes = wlan_bytes_best_effort()
+
+    raw = iface_bytes(default_iface())
+    if baseline is None and raw is not None:
+        # upgrade path: session predates byte tracking -> adopt now as baseline
+        con.execute("UPDATE sessions SET baseline_bytes = ? WHERE id = ?", (raw, sid))
+        baseline = raw
+    traffic = None if raw is None or baseline is None else max(0, raw - baseline)
 
     con.execute(
-        "INSERT INTO samples (session_id, ts, live_count, ever_count, wlan_bytes) "
+        "INSERT INTO samples (session_id, ts, live_count, ever_count, traffic_bytes) "
         "VALUES (?, ?, ?, ?, ?)",
-        (sid, now, live, ever, wbytes),
+        (sid, now, live, ever, raw),
     )
     con.commit()
-    return {"session": sid, "live": live, "ever": ever, "wlan_bytes": wbytes}
+    return {"session": sid, "live": live, "ever": ever, "traffic_bytes": traffic}
 
 
 def get_hosts(args: argparse.Namespace) -> list[dict]:
@@ -229,7 +275,7 @@ def cmd_run(args: argparse.Namespace) -> None:
             print(
                 f"[{time.strftime('%H:%M:%S')}] session {r['session']}: "
                 f"live={r['live']} ever={r['ever']} "
-                f"bytes={'n/a' if r['wlan_bytes'] is None else r['wlan_bytes']} ({src})"
+                f"bytes={'n/a' if r['traffic_bytes'] is None else r['traffic_bytes']} ({src})"
             )
         except Exception as ex:  # poller must survive a flaky FritzBox
             print(f"[{time.strftime('%H:%M:%S')}] poll failed: {ex}", file=sys.stderr)

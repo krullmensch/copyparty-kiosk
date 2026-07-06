@@ -81,13 +81,30 @@ python3 poller.py run --exclude nas-dxp2800 --exclude drucker
 - `sessions(id, started_at, salt)` — pro Reset eine neue Zeile mit frischem Salt
 - `seen_macs(session_id, mac_hash, hostname, first_seen, last_seen)` — je Session
   einmal pro Gerät; `mac_hash` = SHA256(mac+salt)
-- `samples(session_id, ts, live_count, ever_count, wlan_bytes)` — Zeitreihe der
-  aktiven Clients + Gesamtzahl je gesehener
+- `sessions(..., baseline_bytes)` — rx+tx-Zähler des Server-Interface bei
+  Session-Start; Referenzpunkt für die Bytes-Anzeige
+- `samples(session_id, ts, live_count, ever_count, traffic_bytes)` — Zeitreihe
+  der aktiven Clients + Gesamtzahl je gesehener; `traffic_bytes` = roher
+  kumulativer rx+tx-Zähler des Server-Interface zum Poll-Zeitpunkt
 
-## Bekannte Lücke: Bytes
+## Bytes: Server-Interface statt FritzBox
 
-MikroTik lieferte per-Client-Bytes (`/rest/interface`). Die FritzBox 7490 gibt
-über TR-064 nur **WLAN-Paket**-Zähler, keine verlässlichen Byte-Summen pro WLAN
-oder Gerät. `wlan_bytes` bleibt vorerst `NULL` (`wlan_bytes_best_effort()` in
-`poller.py`). Optionen für später: WLAN-Statistik-Aggregat (Pakete → grobe
-Schätzung) oder copyparty-seitige Transfer-Bytes statt Router-Zählung.
+MikroTik lieferte per-Client-Bytes (`/rest/interface`), das ging beim
+Router-Wechsel verloren. Die FritzBox 7490 gibt über TR-064 ohnehin nur
+**WLAN-Paket**-Zähler als Aggregat übers ganze Interface, keine Bytes und
+keine per-Client-Aufschlüsselung — also keine echte Alternative gewesen.
+
+Stattdessen: kiosk2 ist der Sneakernet-Hub, durch den jeder Transfer läuft.
+`poller.py` liest `/sys/class/net/<iface>/statistics/{rx,tx}_bytes` des
+Interface mit Default-Route (`default_iface()`/`iface_bytes()` in
+`poller.py`) — kernelseitig gezählt, kein FritzBox-Zugriff nötig. Die
+Anzeige ist Bytes zu/von kiosk2 gesamt (copyparty-Transfers, Dashboard-HTTP,
+SSH, …), nicht mehr WLAN-spezifisch und nicht per Client — aber real, nicht
+geschätzt.
+
+**Caveat:** der Kernel-Zähler ist kumulativ seit Interface-Up, nicht seit
+Agora-Session-Start. `sessions.baseline_bytes` hält den Zählerstand bei
+Session-Beginn fest; angezeigt wird die Differenz. Bootet der Server
+*innerhalb* einer laufenden Session neu, springt der Zähler auf 0 zurück und
+die Differenz würde negativ werden — das wird auf 0 geklemmt, macht die
+Anzeige aber bis zum nächsten Reset (`agora-reset`/Admin-Panel) ungenau.

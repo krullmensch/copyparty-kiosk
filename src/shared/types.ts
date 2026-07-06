@@ -105,7 +105,7 @@ export interface AgoraStats {
   live: number
   ever: number
   peak_live: number
-  wlan_bytes: number | null
+  traffic_bytes: number | null
   updated_at: number | null
   stale_s: number | null
   history: { ts: number; live: number }[]
