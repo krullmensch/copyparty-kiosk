@@ -80,6 +80,7 @@ export function ModelViewer({
   const containerRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [unsupported, setUnsupported] = useState(false)
   const [mode, setMode] = useState<ShadingMode>('solid')
 
   // Refs auf three-Objekte für Shading-Umschaltung + Cleanup
@@ -131,6 +132,18 @@ export function ModelViewer({
 
     setLoading(true)
     setError(false)
+    setUnsupported(false)
+
+    // Gaussian Splats (.splat) und Splat-PLYs: die einzige three-kompatible Lib
+    // (@mkkellogg/gaussian-splats-3d) verlangt zur Laufzeit WebAssembly, was ein
+    // Aufweichen der CSP (script-src → wasm-unsafe-eval) erzwingen würde. Bewusst
+    // nicht integriert (Security-Default bleibt); sauberer Info-Zustand statt Fake.
+    const ext0 = entry.name.split('.').pop()?.toLowerCase() ?? ''
+    if (ext0 === 'splat' || ext0 === 'ply') {
+      setUnsupported(true)
+      setLoading(false)
+      return
+    }
 
     const init = async (): Promise<void> => {
       const bytes = await window.api.preview.readBytes(source)
@@ -291,6 +304,21 @@ export function ModelViewer({
     applyMode(mode)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
+
+  if (unsupported) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
+        <span className="border-border text-meta rounded border px-2 py-0.5 uppercase tracking-wider">
+          Gaussian Splat
+        </span>
+        <span className="text-h2 break-all">{entry.name}</span>
+        <span className="text-meta text-ink-faint max-w-md">
+          Splat-Vorschau nicht verfügbar — benötigte Bibliothek verlangt WebAssembly,
+          das die Sicherheits-Richtlinie (CSP) dieser Kiosk-App bewusst nicht zulässt.
+        </span>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col">
