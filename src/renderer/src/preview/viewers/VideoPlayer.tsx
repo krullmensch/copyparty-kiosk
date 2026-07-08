@@ -12,9 +12,11 @@ export function VideoPlayer({
 }): React.JSX.Element {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [error, setError] = useState(false)
+  const [diag, setDiag] = useState('')
 
   useEffect(() => {
     setError(false)
+    setDiag('')
   }, [entry.name, source])
 
   useEffect(() => {
@@ -32,13 +34,18 @@ export function VideoPlayer({
             Codec nicht unterstützt — dieses Format kann in der Vorschau nicht abgespielt werden.
           </span>
           <span className="text-meta text-ink-faint">{formatSize(entry.size)}</span>
+          {diag && <span className="text-meta text-ink-faint">{diag}</span>}
         </div>
       ) : (
         <video
           ref={videoRef}
           src={streamUrl(source)}
           controls
-          onError={() => setError(true)}
+          onError={(e) => {
+            const err = e.currentTarget.error
+            setDiag(err ? `MediaError code=${err.code} ${err.message ?? ''}` : 'no MediaError')
+            setError(true)
+          }}
           className="max-h-full max-w-full"
         />
       )}
