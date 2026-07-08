@@ -220,8 +220,13 @@ async function handleRemote(
   // second range request.
   let upstream: Response
   try {
-    upstream = await net.fetch(`${server}${vp}`, { headers })
+    // Forward the renderer's abort signal: video players cancel a range mid-flight
+    // on seek. Without this the upstream fetch keeps pulling on copyparty's
+    // keep-alive connection, the follow-up range request stalls, and the demuxer
+    // reports a data source error.
+    upstream = await net.fetch(`${server}${vp}`, { headers, signal: req.signal })
   } catch (err) {
+    if ((err as Error).name === 'AbortError') return new Response(null, { status: 499 })
     console.error('[remote] fetch fail', range ?? 'no-range', (err as Error).message)
     return new Response('upstream failed', { status: 502 })
   }
