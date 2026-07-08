@@ -3,7 +3,7 @@ import { createReadStream, promises as fs, type ReadStream } from 'node:fs'
 import { homedir } from 'node:os'
 import { extname, join, resolve, sep } from 'node:path'
 import { Readable } from 'node:stream'
-import { getCookieHeader } from './ipc/copyparty'
+import { getCookieHeader, isKnownServer } from './ipc/copyparty'
 import { getCurrentMountpoints } from './ipc/drives'
 
 // Custom privileged scheme that lets the sandboxed renderer stream large media
@@ -197,12 +197,13 @@ async function handleRemote(
     return new Response('bad url', { status: 400 })
   }
 
-  // Only proxy to servers we hold a live connection for. getCookieHeader ==
-  // undefined means the server is not in the connection map → refuse (502).
-  const cookie = getCookieHeader(serverUrl)
-  if (cookie === undefined) {
+  // Only proxy to servers the renderer has reached this session. Anonymous
+  // servers hold no cookie, so gate on the known-server set, not cookie
+  // presence. Cookie (if any) is attached for authenticated servers.
+  if (!isKnownServer(serverUrl)) {
     return new Response('unknown server', { status: 502 })
   }
+  const cookie = getCookieHeader(serverUrl)
 
   const server = serverUrl.replace(/\/+$/, '')
   const vp = vpath.startsWith('/') ? vpath : `/${vpath}`

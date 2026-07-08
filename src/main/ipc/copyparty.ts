@@ -25,17 +25,28 @@ interface CookieJar {
 
 const cookies: CookieJar = {}
 
+// Servers the renderer has successfully reached this session. Includes anonymous
+// servers, which never enter the cookie jar (no login) — so cookie presence is
+// NOT a valid "is this server known" signal. The kiosk-stream:// remote proxy
+// gates on this set instead.
+const knownServers = new Set<string>()
+
 function normalizeServer(url: string): string {
   return url.replace(/\/+$/, '')
 }
 
 /**
- * Cookie header for a live connection, or undefined when the server is not in
- * the connection map. Used by the kiosk-stream:// remote proxy to authenticate
- * and to gate requests to known servers only.
+ * Cookie header for a live connection, or undefined when we hold no cookie for
+ * this server (anonymous servers always return undefined). Used by the
+ * kiosk-stream:// remote proxy to authenticate when a cookie exists.
  */
 export function getCookieHeader(serverUrl: string): string | undefined {
   return cookies[normalizeServer(serverUrl)]
+}
+
+/** Whether the renderer has reached this server this session (auth or anon). */
+export function isKnownServer(serverUrl: string): boolean {
+  return knownServers.has(normalizeServer(serverUrl))
 }
 
 function buildHeaders(server: string): HeadersInit {
@@ -69,6 +80,7 @@ async function connect(serverUrl: string, password?: string): Promise<ConnectRes
   if (!password) {
     // try anonymous probe
     const res = await fetch(`${server}/?ls`, { headers: buildHeaders(server) })
+    if (res.ok) knownServers.add(server)
     return { ok: res.ok, status: res.status }
   }
   const body = new URLSearchParams({ cppwd: password }).toString()
@@ -99,8 +111,10 @@ async function connect(serverUrl: string, password?: string): Promise<ConnectRes
       delete cookies[server]
       return { ok: false, status: 401, message: 'invalid password' }
     }
+    knownServers.add(server)
     return { ok: true, status: 200, acct: j.acct }
   } catch {
+    knownServers.add(server)
     return { ok: true, status: 200 }
   }
 }
@@ -139,6 +153,10 @@ async function list(serverUrl: string, vpath: string): Promise<RemoteListResult>
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`)
   }
+  // A successful listing proves reachability; mark known so the stream proxy
+  // will serve files from this server (covers anon servers after a restart
+  // where the renderer lists without a fresh connect()).
+  knownServers.add(server)
   const json = (await res.json()) as CppLsResponse
 
   const dirs: RemoteEntry[] = (json.dirs ?? []).map((d) => ({
@@ -172,7 +190,9 @@ async function list(serverUrl: string, vpath: string): Promise<RemoteListResult>
 }
 
 function disconnect(serverUrl: string): void {
-  delete cookies[normalizeServer(serverUrl)]
+  const server = normalizeServer(serverUrl)
+  delete cookies[server]
+  knownServers.delete(server)
 }
 
 async function thumb(serverUrl: string, vpath: string): Promise<string | null> {
