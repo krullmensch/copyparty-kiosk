@@ -17,6 +17,11 @@ import { getCurrentMountpoints } from './ipc/drives'
 
 const SCHEME = 'kiosk-stream'
 
+// Max bytes buffered per ranged remote request. Media players get this much per
+// range and ask for more as they play; keeps memory bounded and avoids
+// pass-through streams that break on seek-abort.
+const REMOTE_CHUNK = 4 * 1024 * 1024
+
 // -- MIME -------------------------------------------------------------------
 
 const MIME: Record<string, string> = {
@@ -207,36 +212,68 @@ async function handleRemote(
 
   const server = serverUrl.replace(/\/+$/, '')
   const vp = vpath.startsWith('/') ? vpath : `/${vpath}`
-  const headers: Record<string, string> = {}
-  if (cookie) headers['Cookie'] = cookie
-  const range = req.headers.get('range')
-  if (range) headers['Range'] = range
+  const url = `${server}${vp}`
+  const baseHeaders: Record<string, string> = {}
+  if (cookie) baseHeaders['Cookie'] = cookie
+  const rangeHeader = req.headers.get('range')
 
-  // Use Electron's net.fetch (Chromium network stack) rather than Node's global
-  // fetch (undici): it proxies range/streaming/cancel correctly through
-  // protocol.handle. undici's body stream breaks when Chromium aborts a range
-  // mid-flight (which video players do constantly on seek) → "FFmpegDemuxer:
-  // data source error" and playback fails for anything large enough to need a
-  // second range request.
+  // No Range (images, small files): stream the whole body through. These are
+  // read to completion without mid-flight aborts, so streaming is safe.
+  if (!rangeHeader) {
+    let upstream: Response
+    try {
+      upstream = await net.fetch(url, { headers: baseHeaders, signal: req.signal })
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return new Response(null, { status: 499 })
+      return new Response('upstream failed', { status: 502 })
+    }
+    const out = new Headers()
+    for (const h of ['content-type', 'content-length', 'accept-ranges']) {
+      const v = upstream.headers.get(h)
+      if (v) out.set(h, v)
+    }
+    return new Response(upstream.body, { status: upstream.status, headers: out })
+  }
+
+  // Ranged request (video/audio seeking): act as a chunked range server. Media
+  // players open an open-ended range, read a bit, abort, then open a new range
+  // on seek. Passing copyparty's stream straight through breaks on that abort
+  // ("FFmpegDemuxer: data source error"). Instead we fetch a bounded chunk from
+  // copyparty as a CLOSED range, buffer it fully, and hand back a complete 206 —
+  // no in-flight stream to abort, and never more than REMOTE_CHUNK in memory.
+  const m = /bytes=(\d+)-(\d*)/.exec(rangeHeader)
+  const start = m ? parseInt(m[1], 10) : 0
+  const reqEnd = m && m[2] ? parseInt(m[2], 10) : null
+  const wantEnd = reqEnd != null ? Math.min(reqEnd, start + REMOTE_CHUNK - 1) : start + REMOTE_CHUNK - 1
+
   let upstream: Response
   try {
-    // Forward the renderer's abort signal: video players cancel a range mid-flight
-    // on seek. Without this the upstream fetch keeps pulling on copyparty's
-    // keep-alive connection, the follow-up range request stalls, and the demuxer
-    // reports a data source error.
-    upstream = await net.fetch(`${server}${vp}`, { headers, signal: req.signal })
+    upstream = await net.fetch(url, {
+      headers: { ...baseHeaders, Range: `bytes=${start}-${wantEnd}` },
+      signal: req.signal
+    })
   } catch (err) {
     if ((err as Error).name === 'AbortError') return new Response(null, { status: 499 })
-    console.error('[remote] fetch fail', range ?? 'no-range', (err as Error).message)
     return new Response('upstream failed', { status: 502 })
   }
 
+  let body: ArrayBuffer
+  try {
+    body = await upstream.arrayBuffer()
+  } catch {
+    return new Response('upstream read failed', { status: 502 })
+  }
+
   const out = new Headers()
-  for (const h of ['content-type', 'content-length', 'content-range', 'accept-ranges']) {
+  // copyparty already clamps the range to the file end and reports the true
+  // total in Content-Range; pass its 206 headers through verbatim.
+  for (const h of ['content-type', 'content-range', 'accept-ranges']) {
     const v = upstream.headers.get(h)
     if (v) out.set(h, v)
   }
-  return new Response(upstream.body, { status: upstream.status, headers: out })
+  out.set('Content-Length', String(body.byteLength))
+  if (!out.has('accept-ranges')) out.set('Accept-Ranges', 'bytes')
+  return new Response(body, { status: upstream.status, headers: out })
 }
 
 async function handleConverted(cacheKey: string, req: Request): Promise<Response> {
