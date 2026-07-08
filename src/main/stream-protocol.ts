@@ -215,7 +215,8 @@ async function handleRemote(
   let upstream: Response
   try {
     upstream = await fetch(`${server}${vp}`, { headers })
-  } catch {
+  } catch (err) {
+    console.error('[remote] fetch fail', range ?? 'no-range', (err as Error).message)
     return new Response('upstream failed', { status: 502 })
   }
 
@@ -224,6 +225,12 @@ async function handleRemote(
     const v = upstream.headers.get(h)
     if (v) out.set(h, v)
   }
+  console.error(
+    '[remote] range=', range ?? '-',
+    'status=', upstream.status,
+    'cr=', upstream.headers.get('content-range') ?? '-',
+    'cl=', upstream.headers.get('content-length') ?? '-'
+  )
   return new Response(upstream.body, { status: upstream.status, headers: out })
 }
 
