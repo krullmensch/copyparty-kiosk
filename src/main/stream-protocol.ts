@@ -1,4 +1,4 @@
-import { app, protocol } from 'electron'
+import { app, net, protocol } from 'electron'
 import { createReadStream, promises as fs, type ReadStream } from 'node:fs'
 import { homedir } from 'node:os'
 import { extname, join, resolve, sep } from 'node:path'
@@ -212,9 +212,15 @@ async function handleRemote(
   const range = req.headers.get('range')
   if (range) headers['Range'] = range
 
+  // Use Electron's net.fetch (Chromium network stack) rather than Node's global
+  // fetch (undici): it proxies range/streaming/cancel correctly through
+  // protocol.handle. undici's body stream breaks when Chromium aborts a range
+  // mid-flight (which video players do constantly on seek) → "FFmpegDemuxer:
+  // data source error" and playback fails for anything large enough to need a
+  // second range request.
   let upstream: Response
   try {
-    upstream = await fetch(`${server}${vp}`, { headers })
+    upstream = await net.fetch(`${server}${vp}`, { headers })
   } catch (err) {
     console.error('[remote] fetch fail', range ?? 'no-range', (err as Error).message)
     return new Response('upstream failed', { status: 502 })
@@ -225,12 +231,6 @@ async function handleRemote(
     const v = upstream.headers.get(h)
     if (v) out.set(h, v)
   }
-  console.error(
-    '[remote] range=', range ?? '-',
-    'status=', upstream.status,
-    'cr=', upstream.headers.get('content-range') ?? '-',
-    'cl=', upstream.headers.get('content-length') ?? '-'
-  )
   return new Response(upstream.body, { status: upstream.status, headers: out })
 }
 
