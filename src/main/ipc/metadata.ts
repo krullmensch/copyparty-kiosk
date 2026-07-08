@@ -17,7 +17,7 @@ import { convertForPreview } from '../preview-convert'
 const MAX_PREVIEW_BYTES = 150 * 1024 * 1024
 
 /** first present string/number field among `keys`, trimmed. */
-function pick(tags: Record<string, unknown>, keys: string[]): string | undefined {
+export function pick(tags: Record<string, unknown>, keys: string[]): string | undefined {
   for (const k of keys) {
     const v = tags[k]
     if (typeof v === 'string') {
@@ -30,7 +30,7 @@ function pick(tags: Record<string, unknown>, keys: string[]): string | undefined
   return undefined
 }
 
-function dimensions(tags: Record<string, unknown>): string | undefined {
+export function dimensions(tags: Record<string, unknown>): string | undefined {
   const w = tags.ImageWidth
   const h = tags.ImageHeight
   if (typeof w === 'number' && typeof h === 'number') return `${w}×${h}`
@@ -38,7 +38,7 @@ function dimensions(tags: Record<string, unknown>): string | undefined {
 }
 
 /** exiftool Duration is `number | string` — "0:03:24", "12.5 s", "12", 204. */
-function parseDuration(v: unknown): number | undefined {
+export function parseDuration(v: unknown): number | undefined {
   if (typeof v === 'number') return v
   if (typeof v !== 'string') return undefined
   const s = v.trim()
@@ -55,7 +55,7 @@ function parseDuration(v: unknown): number | undefined {
 }
 
 /** ExifDateTime (has toISOString) or a plain date string → ISO. */
-function toISO(v: unknown): string | undefined {
+export function toISO(v: unknown): string | undefined {
   if (v == null) return undefined
   if (typeof v === 'object' && typeof (v as { toISOString?: unknown }).toISOString === 'function') {
     const iso = (v as { toISOString: () => string | undefined }).toISOString()
