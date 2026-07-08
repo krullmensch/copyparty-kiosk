@@ -8,6 +8,7 @@ import {
   PreviewSource,
   ReadTextResult
 } from '../../shared/types'
+import { fetchRemoteText } from './copyparty'
 
 /** first present string/number field among `keys`, trimmed. */
 function pick(tags: Record<string, unknown>, keys: string[]): string | undefined {
@@ -146,11 +147,7 @@ export function registerMetadataIpc(): void {
     IpcChannels.PreviewReadText,
     async (_, source: PreviewSource, maxBytes: number): Promise<ReadTextResult> => {
       if (source.kind !== 'local') {
-        return {
-          text: '',
-          truncated: false,
-          error: 'remote text via stream protocol — renderer fetches kiosk-stream:// URL'
-        }
+        return fetchRemoteText(source.server, source.vpath, maxBytes)
       }
       return readLocalText(source.path, maxBytes)
     }

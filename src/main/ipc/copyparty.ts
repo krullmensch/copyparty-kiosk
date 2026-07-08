@@ -6,6 +6,7 @@ import { pipeline } from 'node:stream/promises'
 import {
   ConnectResult,
   IpcChannels,
+  ReadTextResult,
   RemoteEntry,
   RemoteListResult,
   TransferResult,
@@ -47,6 +48,32 @@ export function getCookieHeader(serverUrl: string): string | undefined {
 /** Whether the renderer has reached this server this session (auth or anon). */
 export function isKnownServer(serverUrl: string): boolean {
   return knownServers.has(normalizeServer(serverUrl))
+}
+
+/**
+ * Fetch the first `maxBytes` of a remote file as UTF-8 text, authenticating
+ * with the stored cookie. Used by the preview text handler — the renderer
+ * cannot fetch kiosk-stream:// itself (custom-scheme CORS yields opaque bodies).
+ */
+export async function fetchRemoteText(
+  serverUrl: string,
+  vpath: string,
+  maxBytes: number
+): Promise<ReadTextResult> {
+  const server = normalizeServer(serverUrl)
+  const vp = vpath.startsWith('/') ? vpath : `/${vpath}`
+  const headers = { ...(buildHeaders(server) as Record<string, string>), Range: `bytes=0-${maxBytes - 1}` }
+  let res: Response
+  try {
+    res = await fetch(`${server}${vp}`, { headers })
+  } catch (err) {
+    return { text: '', truncated: false, error: err instanceof Error ? err.message : 'fetch failed' }
+  }
+  if (!res.ok && res.status !== 206) {
+    return { text: '', truncated: false, error: `HTTP ${res.status}` }
+  }
+  const buf = Buffer.from(await res.arrayBuffer())
+  return { text: buf.subarray(0, maxBytes).toString('utf-8'), truncated: buf.length >= maxBytes }
 }
 
 function buildHeaders(server: string): HeadersInit {

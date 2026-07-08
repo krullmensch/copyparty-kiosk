@@ -102,14 +102,9 @@ function TextPreview({ source }: { source: PreviewSource }): React.JSX.Element {
     const load = async (): Promise<void> => {
       try {
         const res = await window.api.preview.readText(source, TEXT_PREVIEW_BYTES)
-        if (!res.error) {
-          if (alive) setState({ text: res.text, loading: false, error: false })
-          return
-        }
-        // remote: Main liefert Text nicht direkt — über Stream-Protokoll holen
-        const resp = await fetch(streamUrl(source))
-        const full = await resp.text()
-        if (alive) setState({ text: full.slice(0, TEXT_PREVIEW_BYTES), loading: false, error: false })
+        if (!alive) return
+        if (res.error) setState({ text: '', loading: false, error: true })
+        else setState({ text: res.text, loading: false, error: false })
       } catch {
         if (alive) setState({ text: '', loading: false, error: true })
       }
