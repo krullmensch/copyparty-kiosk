@@ -9,6 +9,7 @@ import { ImageViewer } from './viewers/ImageViewer'
 import { TextEditor } from './viewers/TextEditor'
 import { VideoPlayer } from './viewers/VideoPlayer'
 import { AudioPlayer } from './viewers/AudioPlayer'
+import { DocumentViewer } from './viewers/DocumentViewer'
 
 /**
  * Vollansicht (Enter/Doppelklick). Deckendes Modal mit Kategorie-Dispatch auf
@@ -79,7 +80,7 @@ function renderViewer(
     case 'text':
       return <TextEditor entry={entry} source={source} />
     case 'document':
-      return <Placeholder label="DocumentViewer folgt (TSK-11)" />
+      return <DocumentViewer entry={entry} source={source} />
     case 'audio':
       return <AudioPlayer entry={entry} source={source} />
     case 'video':
