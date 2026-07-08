@@ -5,6 +5,7 @@ import type { PreviewSource } from '../../../shared/types'
 import { Button } from '@/components/ui/button'
 import { MetadataPanel } from './MetadataPanel'
 import { ProgramPreview } from './viewers/ProgramPreview'
+import { ImageViewer } from './viewers/ImageViewer'
 
 /**
  * Vollansicht (Enter/Doppelklick). Deckendes Modal mit Kategorie-Dispatch auf
@@ -81,7 +82,7 @@ function renderViewer(
     case 'video':
       return <Placeholder label="VideoPlayer folgt (TSK-13)" />
     case 'image':
-      return <Placeholder label="ImageViewer folgt (TSK-14)" />
+      return <ImageViewer entry={entry} source={source} />
     case 'model3d':
       return <Placeholder label="3D-Viewer folgt (TSK-15)" />
     case 'program':

@@ -99,6 +99,7 @@ export const IpcChannels = {
   PreviewMetadataWrite: 'preview:metadata:write',
   PreviewReadText: 'preview:read-text',
   PreviewIcon: 'preview:icon',
+  PreviewConvert: 'preview:convert',
   AgoraStats: 'agora:stats',
   AgoraRole: 'agora:role',
   AgoraReset: 'agora:reset'
@@ -182,3 +183,7 @@ export interface FsWriteResult {
   ok: boolean
   message?: string
 }
+
+export type PreviewConvertResult =
+  | { ok: true; cacheKey: string }
+  | { ok: false; error: string }

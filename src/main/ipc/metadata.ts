@@ -5,10 +5,12 @@ import {
   FileMetadata,
   IpcChannels,
   MetadataWriteResult,
+  PreviewConvertResult,
   PreviewSource,
   ReadTextResult
 } from '../../shared/types'
 import { fetchRemoteText } from './copyparty'
+import { convertForPreview } from '../preview-convert'
 
 /** first present string/number field among `keys`, trimmed. */
 function pick(tags: Record<string, unknown>, keys: string[]): string | undefined {
@@ -150,6 +152,17 @@ export function registerMetadataIpc(): void {
         return fetchRemoteText(source.server, source.vpath, maxBytes)
       }
       return readLocalText(source.path, maxBytes)
+    }
+  )
+
+  ipcMain.handle(
+    IpcChannels.PreviewConvert,
+    async (_, source: PreviewSource): Promise<PreviewConvertResult> => {
+      // Conversion (TIFF/RAW → PNG/JPG) only for local files; remote non-native
+      // images are not supported in v1 (would need download-first).
+      if (source.kind !== 'local') return { ok: false, error: 'remote conversion unsupported' }
+      const res = await convertForPreview(source.path)
+      return res.ok ? { ok: true, cacheKey: res.cacheKey } : { ok: false, error: res.error }
     }
   )
 

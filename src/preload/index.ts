@@ -13,6 +13,7 @@ import {
   IpcChannels,
   ListResult,
   MetadataWriteResult,
+  PreviewConvertResult,
   PreviewSource,
   ReadTextResult,
   RemoteListResult,
@@ -85,7 +86,9 @@ const api = {
     readText: (source: PreviewSource, maxBytes: number): Promise<ReadTextResult> =>
       ipcRenderer.invoke(IpcChannels.PreviewReadText, source, maxBytes),
     icon: (source: PreviewSource): Promise<string | null> =>
-      ipcRenderer.invoke(IpcChannels.PreviewIcon, source)
+      ipcRenderer.invoke(IpcChannels.PreviewIcon, source),
+    convert: (source: PreviewSource): Promise<PreviewConvertResult> =>
+      ipcRenderer.invoke(IpcChannels.PreviewConvert, source)
   }
 }
 
