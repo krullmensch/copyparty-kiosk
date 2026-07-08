@@ -69,6 +69,16 @@ async function tick(window: BrowserWindow): Promise<void> {
   }
 }
 
+/**
+ * Mountpoints of the currently-detected drives, read from the poll snapshot.
+ * Used by the kiosk-stream:// local route to allow-list served paths.
+ */
+export function getCurrentMountpoints(): string[] {
+  const mounts: string[] = []
+  for (const d of lastDrives.values()) for (const m of d.mountpoints) mounts.push(m.path)
+  return mounts
+}
+
 export function registerDrivesIpc(window: BrowserWindow): void {
   ipcMain.handle(IpcChannels.DrivesList, async () => snapshot())
 

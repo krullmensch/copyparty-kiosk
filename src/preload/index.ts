@@ -7,9 +7,14 @@ import {
   ConnectResult,
   CppSearchResult,
   DriveInfo,
+  FileMetadata,
   FsSearchResult,
+  FsWriteResult,
   IpcChannels,
   ListResult,
+  MetadataWriteResult,
+  PreviewSource,
+  ReadTextResult,
   RemoteListResult,
   TransferResult,
   UploadProgress
@@ -34,7 +39,9 @@ const api = {
     home: (): Promise<string> => ipcRenderer.invoke(IpcChannels.FsHome),
     thumb: (path: string): Promise<string | null> => ipcRenderer.invoke(IpcChannels.FsThumb, path),
     search: (root: string, query: string): Promise<FsSearchResult> =>
-      ipcRenderer.invoke(IpcChannels.FsSearch, root, query)
+      ipcRenderer.invoke(IpcChannels.FsSearch, root, query),
+    write: (path: string, content: string): Promise<FsWriteResult> =>
+      ipcRenderer.invoke(IpcChannels.FsWrite, path, content)
   },
   cpp: {
     connect: (url: string, password?: string): Promise<ConnectResult> =>
@@ -66,6 +73,19 @@ const api = {
     role: (): Promise<AgoraRole> => ipcRenderer.invoke(IpcChannels.AgoraRole),
     reset: (password: string): Promise<AgoraResetResult> =>
       ipcRenderer.invoke(IpcChannels.AgoraReset, password)
+  },
+  preview: {
+    metadata: (source: PreviewSource): Promise<FileMetadata> =>
+      ipcRenderer.invoke(IpcChannels.PreviewMetadata, source),
+    writeMetadata: (
+      source: PreviewSource,
+      patch: Partial<FileMetadata['common']>
+    ): Promise<MetadataWriteResult> =>
+      ipcRenderer.invoke(IpcChannels.PreviewMetadataWrite, source, patch),
+    readText: (source: PreviewSource, maxBytes: number): Promise<ReadTextResult> =>
+      ipcRenderer.invoke(IpcChannels.PreviewReadText, source, maxBytes),
+    icon: (source: PreviewSource): Promise<string | null> =>
+      ipcRenderer.invoke(IpcChannels.PreviewIcon, source)
   }
 }
 

@@ -9,6 +9,14 @@ import { AdminPanel } from './components/AdminPanel'
 import { useDrives } from './hooks/useDrives'
 import { useUploadProgress } from './hooks/useUploadProgress'
 import { useAgoraCapabilities } from './hooks/useAgoraCapabilities'
+import { usePreviewKeys } from './hooks/usePreviewKeys'
+import { PreviewProvider } from './preview/PreviewProvider'
+
+/** mountet die globalen Preview-Shortcuts innerhalb des PreviewProvider. */
+function PreviewKeyboard(): null {
+  usePreviewKeys()
+  return null
+}
 
 // main kiosk addressed by mDNS so the app needs no per-network config
 const COPYPARTY_URL = 'http://kiosk2.local:3923'
@@ -75,7 +83,8 @@ function App(): React.JSX.Element {
   )
 
   return (
-    <>
+    <PreviewProvider>
+      <PreviewKeyboard />
       <GoeyToaster richColors position="top-right" preset="smooth" showProgress />
       <div className="bg-background text-foreground flex h-screen flex-col">
         <header className="border-border bg-bg-page-tint flex items-center justify-between border-b px-4 py-2">
@@ -125,7 +134,7 @@ function App(): React.JSX.Element {
       </div>
       {statsOpen && <AgoraStatsPanel onClose={() => setStatsOpen(false)} />}
       {adminOpen && <AdminPanel onClose={() => setAdminOpen(false)} />}
-    </>
+    </PreviewProvider>
   )
 }
 

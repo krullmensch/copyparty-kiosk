@@ -10,6 +10,7 @@ import { Filename } from '@/components/ui/filename'
 import { Breadcrumbs } from '@/components/ui/breadcrumbs'
 import { useRemoteListing } from '../hooks/useRemoteListing'
 import { useSelection } from '../hooks/useSelection'
+import { usePreview } from '../preview/PreviewProvider'
 import { formatDate, formatSize } from '../lib/format'
 import type { CppSearchHit, RemoteEntry } from '../../../shared/types'
 import { DRAG_MIME, type DragPayload } from '../../../shared/dragdrop'
@@ -77,15 +78,46 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
   const sorted = useMemo(() => (data ? sortEntries(data.entries) : []), [data])
   const ids = useMemo(() => sorted.map((e) => e.href), [sorted])
   const sel = useSelection(ids, vpath)
+  const { setActiveSelection, openFullView } = usePreview()
 
   const entryVpath = (entry: RemoteEntry): string => {
     const base = vpath.endsWith('/') ? vpath : `${vpath}/`
     return `${base}${entry.href.replace(/\/$/, '')}`
   }
 
+  // zuletzt geklickten Eintrag als aktive Preview-Selektion melden
+  useEffect(() => {
+    const id = sel.lastClicked
+    const entry = id ? sorted.find((e) => e.href === id) : undefined
+    if (!entry) {
+      setActiveSelection(null)
+      return
+    }
+    const base = vpath.endsWith('/') ? vpath : `${vpath}/`
+    const evp = `${base}${entry.href.replace(/\/$/, '')}`
+    setActiveSelection({
+      name: entry.name,
+      size: entry.size,
+      isDirectory: entry.isDirectory,
+      source: { kind: 'remote', server, vpath: evp }
+    })
+  }, [sel.lastClicked, sorted, setActiveSelection, server, vpath])
+
   const navigateTo = (entry: RemoteEntry): void => {
     if (!entry.isDirectory) return
     setVpath(entryVpath(entry))
+  }
+
+  const onEntryDoubleClick = (entry: RemoteEntry): void => {
+    if (entry.isDirectory) {
+      navigateTo(entry)
+    } else {
+      openFullView(entry.name, entry.size, {
+        kind: 'remote',
+        server,
+        vpath: entryVpath(entry)
+      })
+    }
   }
 
   const onRowClick = (e: React.MouseEvent, entry: RemoteEntry): void => {
@@ -280,7 +312,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
                     ev.stopPropagation()
                     onRowClick(ev, e)
                   }}
-                  onDoubleClick={() => navigateTo(e)}
+                  onDoubleClick={() => onEntryDoubleClick(e)}
                   className={`text-filename-list flex cursor-pointer items-center gap-3 px-3 py-1.5 select-none ${
                     isSel ? 'bg-accent text-ink-leaf' : 'hover:bg-bg-surface-hover'
                   }`}
@@ -324,7 +356,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
                     ev.stopPropagation()
                     onRowClick(ev, e)
                   }}
-                  onDoubleClick={() => navigateTo(e)}
+                  onDoubleClick={() => onEntryDoubleClick(e)}
                   className={`group flex cursor-pointer flex-col items-stretch gap-2 p-2 select-none rounded-card transition-colors ${
                     isSel ? 'bg-accent text-ink-leaf' : 'hover:bg-bg-surface-hover'
                   }`}

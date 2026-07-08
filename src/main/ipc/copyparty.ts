@@ -29,6 +29,15 @@ function normalizeServer(url: string): string {
   return url.replace(/\/+$/, '')
 }
 
+/**
+ * Cookie header for a live connection, or undefined when the server is not in
+ * the connection map. Used by the kiosk-stream:// remote proxy to authenticate
+ * and to gate requests to known servers only.
+ */
+export function getCookieHeader(serverUrl: string): string | undefined {
+  return cookies[normalizeServer(serverUrl)]
+}
+
 function buildHeaders(server: string): HeadersInit {
   const headers: Record<string, string> = { Accept: 'application/json' }
   const cookie = cookies[server]

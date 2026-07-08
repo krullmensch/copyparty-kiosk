@@ -10,6 +10,7 @@ import { Filename } from '@/components/ui/filename'
 import { Breadcrumbs } from '@/components/ui/breadcrumbs'
 import { useListing } from '../hooks/useListing'
 import { useSelection } from '../hooks/useSelection'
+import { usePreview } from '../preview/PreviewProvider'
 import { formatDate, formatSize } from '../lib/format'
 import type { FileEntry, FsSearchHit } from '../../../shared/types'
 import { DRAG_MIME, type DragPayload } from '../../../shared/dragdrop'
@@ -86,9 +87,34 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
   const sorted = useMemo(() => (data ? sortEntries(data.entries, showHidden) : []), [data, showHidden])
   const ids = useMemo(() => sorted.map((e) => e.path), [sorted])
   const sel = useSelection(ids, cwd)
+  const { setActiveSelection, openFullView } = usePreview()
+
+  // zuletzt geklickten Eintrag als aktive Preview-Selektion melden (kein Ordner-Filter, Ordner werden mitgemeldet)
+  useEffect(() => {
+    const id = sel.lastClicked
+    const entry = id ? sorted.find((e) => e.path === id) : undefined
+    if (!entry) {
+      setActiveSelection(null)
+      return
+    }
+    setActiveSelection({
+      name: entry.name,
+      size: entry.size,
+      isDirectory: entry.isDirectory,
+      source: { kind: 'local', path: entry.path }
+    })
+  }, [sel.lastClicked, sorted, setActiveSelection])
 
   const onRowClick = (e: React.MouseEvent, entry: FileEntry): void => {
     sel.click(entry.path, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
+  }
+
+  const onEntryDoubleClick = (entry: FileEntry): void => {
+    if (entry.isDirectory) {
+      setCwd(entry.path)
+    } else {
+      openFullView(entry.name, entry.size, { kind: 'local', path: entry.path })
+    }
   }
 
   const onDragStart = (e: React.DragEvent, entry: FileEntry): void => {
@@ -275,7 +301,7 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
                     ev.stopPropagation()
                     onRowClick(ev, e)
                   }}
-                  onDoubleClick={() => e.isDirectory && setCwd(e.path)}
+                  onDoubleClick={() => onEntryDoubleClick(e)}
                   className={`text-filename-list flex cursor-pointer items-center gap-3 px-3 py-1.5 select-none ${
                     isSel ? 'bg-accent text-ink-leaf' : 'hover:bg-bg-surface-hover'
                   }`}
@@ -318,7 +344,7 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
                     ev.stopPropagation()
                     onRowClick(ev, e)
                   }}
-                  onDoubleClick={() => e.isDirectory && setCwd(e.path)}
+                  onDoubleClick={() => onEntryDoubleClick(e)}
                   className={`group flex cursor-pointer flex-col items-stretch gap-2 p-2 select-none rounded-card transition-colors ${
                     isSel ? 'bg-accent text-ink-leaf' : 'hover:bg-bg-surface-hover'
                   }`}

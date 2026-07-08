@@ -8,6 +8,12 @@ import { registerDrivesIpc } from './ipc/drives'
 import { registerFsIpc } from './ipc/fs'
 import { registerCppIpc } from './ipc/copyparty'
 import { registerAgoraIpc } from './ipc/agora'
+import { registerMetadataIpc } from './ipc/metadata'
+import { registerAppIconIpc } from './ipc/appicon'
+import { registerStreamProtocolHandler, registerStreamProtocolSchemes } from './stream-protocol'
+
+// MUST run before app 'ready': privileged scheme registration.
+registerStreamProtocolSchemes()
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -44,10 +50,14 @@ function createWindow(): void {
   registerFsIpc()
   registerCppIpc(mainWindow)
   registerAgoraIpc()
+  registerMetadataIpc()
+  registerAppIconIpc()
 }
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.electron')
+
+  registerStreamProtocolHandler()
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)

@@ -85,6 +85,7 @@ export const IpcChannels = {
   FsHome: 'fs:home',
   FsThumb: 'fs:thumb',
   FsSearch: 'fs:search',
+  FsWrite: 'fs:write',
   CppConnect: 'cpp:connect',
   CppList: 'cpp:list',
   CppDisconnect: 'cpp:disconnect',
@@ -94,6 +95,10 @@ export const IpcChannels = {
   CppProgress: 'cpp:progress',
   CppThumb: 'cpp:thumb',
   CppSearch: 'cpp:search',
+  PreviewMetadata: 'preview:metadata',
+  PreviewMetadataWrite: 'preview:metadata:write',
+  PreviewReadText: 'preview:read-text',
+  PreviewIcon: 'preview:icon',
   AgoraStats: 'agora:stats',
   AgoraRole: 'agora:role',
   AgoraReset: 'agora:reset'
@@ -143,4 +148,37 @@ export interface TransferResult {
   message?: string
   done: number
   total: number
+}
+
+export type PreviewSource =
+  | { kind: 'local'; path: string }
+  | { kind: 'remote'; server: string; vpath: string }
+
+export interface FileMetadata {
+  writable: boolean
+  common: {
+    title?: string
+    comment?: string
+    author?: string
+    dimensions?: string // "4032×3024"
+    duration?: number // Sekunden
+    dateTaken?: string // ISO
+  }
+  raw: Record<string, string | number> // exiftool-Rohfelder bzw. copyparty-Tags, flach
+}
+
+export interface MetadataWriteResult {
+  ok: boolean
+  message?: string
+}
+
+export interface ReadTextResult {
+  text: string
+  truncated: boolean
+  error?: string
+}
+
+export interface FsWriteResult {
+  ok: boolean
+  message?: string
 }

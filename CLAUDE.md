@@ -4,22 +4,37 @@ Einstiegspunkt für neue Chats. Kiosk-Frontend-Projekt für Marvins Bachelor-Pro
 
 **GitHub:** https://github.com/krullmensch/copyparty-kiosk (private)
 
-## Projekt in einem Satz
+## 🤖 AI Workflow: 10-80-10 Tiered Agent Orchestration
 
-Kiosk-Filemanager für Linux: Electron-App, erkennt lokale USB-Sticks und externe Laufwerke nativ, zeigt sie im Split-Screen-UI parallel zu Remote-VFS-Volumes (via copyparty). Drag&Drop und Operationen funktionieren nahtlos zwischen beiden Welten.
+Dieses Projekt nutzt einen Tiered Agent Workflow zur Token-Optimierung. Die Zusammenarbeit wird zentral über die Datei `RUN-STATE.md` im Root-Verzeichnis gesteuert.
+
+### Rollen & Masterprompts (System Instructions)
+
+**1. Architect (Fable 5)**
+> Du bist der Lead Architect. Deine Aufgabe ist es, das Problem zu analysieren, die Architektur zu planen und das Projekt in unabhängige Sub-Tasks zu zerlegen. Schreibe KEINEN Code. Erstelle für jeden Sub-Task ein "Handoff-Package" mit einer klaren "Definition of Ready" und aktualisiere die `RUN-STATE.md`. Delegiere die Implementierung.
+
+**2. Developer (Opus 4.8 / Sonnet 5)**
+> Du bist der Developer. Implementiere strikt das übergebene Handoff-Package des Architects aus der `RUN-STATE.md`. Baue keine Features, Abstraktionen oder Fehlerbehandlungen ein, die nicht explizit in der Spezifikation gefordert wurden. Das System funktioniert als komplett isoliertes Sneakernet ohne Internetanbindung – füge niemals Abhängigkeiten zu externen Webdiensten, CDNs oder Cloud-APIs hinzu. Nutze die einfachste lokale Lösung, die funktioniert. Wenn du fertig bist, aktualisiere deinen Status in der `RUN-STATE.md`.
+
+**3. Test-Writer (Haiku 4.5 / Sonnet 5)**
+> Du bist der Test-Writer. Schreibe Tests für die bereitgestellten Module, die genau die in der Spezifikation definierten Assertions abdecken. Erfinde keine hypothetischen Edge-Cases, die nicht im Handoff-Package stehen. Dokumentiere den Abschluss in der `RUN-STATE.md`.
+
+**4. Reviewer (Fable 5)**
+> Du bist der finale Reviewer. Prüfe den generierten Code und die Diff-Logs der Developer-Agents gegen die ursprüngliche Spezifikation in der `RUN-STATE.md`. Evaluiere, ob die "Definition of Ready" erfüllt ist. Antworte ausschließlich mit einem strukturierten Urteil (Pass/Fail) und aktualisiere die Handoff Notes in der `RUN-STATE.md`. Schreibe den Code nicht selbst neu.
 
 ## Re-Entry-Prompt (für neue Chats kopieren)
 
-```
+```text
 Lies CLAUDE.md hier und README.md.
+Lies zwingend die RUN-STATE.md, um deinen aktuellen Status und deine Rolle (Architect, Developer, Test-Writer, Reviewer) zu erfassen.
 Companion-Docs in ../copyparty/docs-frontend/.
 Ich arbeite weiter an [konkretes Thema].
 ```
 
 ## Wo was lebt
 
-```
-~/Documents/GitHub/
+```text
+~/Documents/
 ├── copyparty/                  ← Backend-Referenz, Upstream-Repo
 │   ├── copyparty/              ← Python-Backend (NICHT anfassen)
 │   ├── bin/u2c.py              ← up2k-Referenzclient (TS-Port-Vorlage)
@@ -27,6 +42,7 @@ Ich arbeite weiter an [konkretes Thema].
 │   └── docs-frontend/          ← Recherche-Doku (01–09)
 │
 └── copyparty-kiosk/            ← DU BIST HIER
+    ├── RUN-STATE.md            ← AI Workflow State & Handoffs
     ├── src/main/               ← Electron Main (Node.js)
     │   └── ipc/                ← drives.ts, fs.ts, copyparty.ts
     ├── src/preload/            ← contextBridge IPC
@@ -65,29 +81,17 @@ Ich arbeite weiter an [konkretes Thema].
 
 1. ~~**up2k-Client**~~ ✅ **ERLEDIGT** (siehe oben "Was funktioniert"). Im Main-Process (Node `crypto`/`fs`), nicht Web-Worker — kein `hash-wasm` nötig. Offen nur noch (optional, reine Speed): **parallele Connections** (`-j`) + **Chunk-Join** (mehrere Chunks/POST, `cid0,n,prefix…`-Format wie u2c.py). Tragen keine These, nur Durchsatz.
    - Referenz: `../copyparty/bin/u2c.py` (~1700 Zeilen, gut lesbar)
-
 2. **Race the Beam** — kommt fast gratis mit up2k (Range-GET auf wachsender Datei)
-
 3. **Unpost** — eigener Tab `🧯`, POST gegen Unpost-Endpoint (`-e2d` muss server-side an sein)
-
 4. **Drag-Search** — Hashen lokal + Server fragen "kennst du?" statt Upload
-
 5. **Directory Upload/Download** — rekursiv über `fs.readdir` + Loop
-
 6. **Conflict Resolution** — overwrite/rename/skip Dialog vor Drop
-
 7. **Progress UI** — pro Transfer, IPC `onProgress` Event-Stream vom Main
-
 8. **Kiosk-Mode** — `BrowserWindow.kiosk: true` in Production-Build, nicht in Dev
-
 9. **Norton-Hotkeys** — F5 copy, F6 move, F8 delete, F10 quit
-
 10. **Eject Button** — `udisksctl unmount` via `child_process` im Main
-
 11. **systemd-User-Service** + udev-Rule für USB-Auto-Mount (Deployment)
-
 12. **MediaSession API** — OS-Media-Controls für Audio (Lock-Screen-Play/Pause)
-
 13. **Live-Tail wachsender Files** — Range-Polling für `tail -f` im UI
 
 ## Agora-Integration (Bachelor-Werk)
@@ -155,7 +159,7 @@ Zusätzlicher Dienst neben Electron-Kiosk, läuft NUR auf Kiosk2 (meiste RAM/Spe
 
 Drei-Schicht-Hybrid:
 
-```
+```text
 Renderer (React, sandboxed)
    ↕ contextBridge IPC
 Main-Process (Node.js, privileged)
@@ -235,7 +239,7 @@ In der Theorie-Section verteidigbar:
 ## Setup für neuen Rechner
 
 ```bash
-git clone https://github.com/krullmensch/copyparty-kiosk
+git clone [https://github.com/krullmensch/copyparty-kiosk](https://github.com/krullmensch/copyparty-kiosk)
 cd copyparty-kiosk
 npm install
 npm run dev
