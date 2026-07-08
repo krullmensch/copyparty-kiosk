@@ -224,7 +224,9 @@ function TableDoc({ entry, source, mode }: ViewerProps & { mode: 'csv' | 'sheet'
             setLoading(false)
             return
           }
-          const wb = XLSX.read(res.text, { type: 'string' })
+          // raw: keep CSV cells as original text — otherwise date-like strings
+          // ("2026-01-01") get coerced to Excel serial numbers.
+          const wb = XLSX.read(res.text, { type: 'string', raw: true })
           const ws = wb.Sheets[wb.SheetNames[0]]
           parse(ws)
           // readText-Trunkierung (>1 MB) auch als Hinweis werten.
