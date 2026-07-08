@@ -11,15 +11,20 @@ function b64url(input: string): string {
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-/** Baut die kiosk-stream://-URL für eine lokale oder remote Quelle. */
+// Media is served by a loopback HTTP server (see main/media-server.ts), not the
+// kiosk-stream:// protocol scheme: Chromium's media pipeline needs real HTTP
+// range semantics for seeking, which protocol.handle can't provide.
+const base = (): string => window.api.mediaBase
+
+/** Baut die Media-URL für eine lokale oder remote Quelle. */
 export function streamUrl(source: PreviewSource): string {
   if (source.kind === 'local') {
-    return `kiosk-stream://local/${b64url(source.path)}`
+    return `${base()}/local/${b64url(source.path)}`
   }
-  return `kiosk-stream://remote/${b64url(source.server)}/${b64url(source.vpath)}`
+  return `${base()}/remote/${b64url(source.server)}/${b64url(source.vpath)}`
 }
 
 /** Baut die URL für eine im Main konvertierte Datei (TIFF/RAW → PNG/JPG im Cache). */
 export function convertedUrl(cacheKey: string): string {
-  return `kiosk-stream://converted/${encodeURIComponent(cacheKey)}`
+  return `${base()}/converted/${encodeURIComponent(cacheKey)}`
 }

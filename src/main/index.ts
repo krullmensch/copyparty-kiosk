@@ -11,9 +11,16 @@ import { registerAgoraIpc } from './ipc/agora'
 import { registerMetadataIpc } from './ipc/metadata'
 import { registerAppIconIpc } from './ipc/appicon'
 import { registerStreamProtocolHandler, registerStreamProtocolSchemes } from './stream-protocol'
+import { getMediaBase, startMediaServer } from './media-server'
 
 // MUST run before app 'ready': privileged scheme registration.
 registerStreamProtocolSchemes()
+
+// Renderer reads the media server base synchronously at preload time so
+// streamUrl() can build URLs without an async round-trip.
+ipcMain.on('get-media-base', (e) => {
+  e.returnValue = getMediaBase()
+})
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -54,10 +61,13 @@ function createWindow(): void {
   registerAppIconIpc()
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.electron')
 
   registerStreamProtocolHandler()
+  // Start the loopback media server before the window loads so getMediaBase()
+  // has a real port when the preload reads it.
+  await startMediaServer()
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)

@@ -21,7 +21,11 @@ import {
   UploadProgress
 } from '../shared/types'
 
+// Loopback media server base (http://127.0.0.1:PORT), read once synchronously.
+const mediaBase: string = ipcRenderer.sendSync('get-media-base')
+
 const api = {
+  mediaBase,
   drives: {
     list: (): Promise<DriveInfo[]> => ipcRenderer.invoke(IpcChannels.DrivesList),
     onAdded: (cb: (drive: DriveInfo) => void): (() => void) => {

@@ -50,7 +50,7 @@ const MIME: Record<string, string> = {
   '.txt': 'text/plain; charset=utf-8'
 }
 
-function mimeFor(path: string): string {
+export function mimeFor(path: string): string {
   return MIME[extname(path).toLowerCase()] ?? 'application/octet-stream'
 }
 
