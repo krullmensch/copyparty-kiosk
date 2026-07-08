@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { MetadataPanel } from './MetadataPanel'
 import { ProgramPreview } from './viewers/ProgramPreview'
 import { ImageViewer } from './viewers/ImageViewer'
+import { TextEditor } from './viewers/TextEditor'
 
 /**
  * Vollansicht (Enter/Doppelklick). Deckendes Modal mit Kategorie-Dispatch auf
@@ -74,7 +75,7 @@ function renderViewer(
 ): React.JSX.Element {
   switch (category) {
     case 'text':
-      return <Placeholder label="TextEditor folgt (TSK-10)" />
+      return <TextEditor entry={entry} source={source} />
     case 'document':
       return <Placeholder label="DocumentViewer folgt (TSK-11)" />
     case 'audio':
