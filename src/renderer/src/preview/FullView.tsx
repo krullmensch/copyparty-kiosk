@@ -10,6 +10,7 @@ import { TextEditor } from './viewers/TextEditor'
 import { VideoPlayer } from './viewers/VideoPlayer'
 import { AudioPlayer } from './viewers/AudioPlayer'
 import { DocumentViewer } from './viewers/DocumentViewer'
+import { ModelViewer } from './viewers/ModelViewer'
 
 /**
  * Vollansicht (Enter/Doppelklick). Deckendes Modal mit Kategorie-Dispatch auf
@@ -88,7 +89,7 @@ function renderViewer(
     case 'image':
       return <ImageViewer entry={entry} source={source} />
     case 'model3d':
-      return <Placeholder label="3D-Viewer folgt (TSK-15)" />
+      return <ModelViewer entry={entry} source={source} />
     case 'program':
       // Provider öffnet FullView für Programme normalerweise nicht (nur QuickLook).
       // Fallback ohne Crash, falls doch aufgerufen.
