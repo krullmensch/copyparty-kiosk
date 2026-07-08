@@ -4,7 +4,6 @@ import Spectrogram from 'wavesurfer.js/dist/plugins/spectrogram.esm.js'
 import { Pause, Play } from 'lucide-react'
 import type { PreviewSource } from '../../../../shared/types'
 import { Button } from '@/components/ui/button'
-import { streamUrl } from '../streamUrl'
 
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) seconds = 0
@@ -30,8 +29,6 @@ export function AudioPlayer({
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
 
-  const url = streamUrl(source)
-
   useEffect(() => {
     const container = waveRef.current
     const spectroContainer = spectroRef.current
@@ -48,72 +45,72 @@ export function AudioPlayer({
     const progressColor = dark ? '#e5e5e5' : '#404040'
     const cursorColor = dark ? '#fafafa' : '#171717'
 
-    // Eigenes MediaElement: das übernimmt Streaming/Playback (Range-fähig gegen
-    // kiosk-stream://). wavesurfer bindet sich per `media` daran und rendert nur
-    // Waveform + Peaks. Das Spectrogram-Plugin arbeitet auf dem dekodierten
-    // Buffer, nicht am MediaElement — daher kein Analyser/Source-Konflikt.
-    const audio = new Audio()
-    audio.src = url
-
     let ws: WaveSurfer | null = null
-    try {
-      ws = WaveSurfer.create({
-        container,
-        media: audio,
-        waveColor,
-        progressColor,
-        cursorColor,
-        height: 96,
-        barWidth: 2,
-        barGap: 1,
-        barRadius: 2,
-        plugins: [
-          Spectrogram.create({
-            container: spectroContainer,
-            labels: false,
-            height: 128,
-            scale: 'mel',
-            fftSamples: 512,
-            colorMap: 'roseus'
-          })
-        ]
-      })
-    } catch {
-      setError(true)
-      audio.pause()
-      audio.src = ''
-      return
-    }
-    wsRef.current = ws
+    let objectUrl: string | null = null
+    let cancelled = false
 
-    const subs = [
+    // wavesurfer muss die vollständige Datei dekodieren (Waveform + Spektrum).
+    // Der Renderer kann kiosk-stream:// NICHT selbst fetchen (custom-scheme
+    // cross-origin → opaque). Bytes daher über den Main holen und als same-origin
+    // Blob-URL an wavesurfer geben — das deckt Decode UND Playback ab.
+    const load = async (): Promise<void> => {
+      const bytes = await window.api.preview.readBytes(source)
+      if (cancelled) return
+      if (!bytes) {
+        setError(true)
+        return
+      }
+      objectUrl = URL.createObjectURL(new Blob([new Uint8Array(bytes)]))
+      try {
+        ws = WaveSurfer.create({
+          container,
+          url: objectUrl,
+          waveColor,
+          progressColor,
+          cursorColor,
+          height: 96,
+          barWidth: 2,
+          barGap: 1,
+          barRadius: 2,
+          plugins: [
+            Spectrogram.create({
+              container: spectroContainer,
+              labels: false,
+              height: 128,
+              scale: 'mel',
+              fftSamples: 512,
+              colorMap: 'roseus'
+            })
+          ]
+        })
+      } catch {
+        setError(true)
+        return
+      }
+      wsRef.current = ws
       ws.on('ready', (d) => {
         setDuration(d)
         setReady(true)
-      }),
-      ws.on('timeupdate', (t) => setCurrentTime(t)),
-      ws.on('play', () => setIsPlaying(true)),
-      ws.on('pause', () => setIsPlaying(false)),
-      ws.on('finish', () => setIsPlaying(false)),
+      })
+      ws.on('timeupdate', (t) => setCurrentTime(t))
+      ws.on('play', () => setIsPlaying(true))
+      ws.on('pause', () => setIsPlaying(false))
+      ws.on('finish', () => setIsPlaying(false))
       ws.on('error', () => setError(true))
-    ]
-    const onMediaError = (): void => setError(true)
-    audio.addEventListener('error', onMediaError)
+    }
+    void load()
 
     return () => {
-      subs.forEach((unsub) => unsub())
-      audio.removeEventListener('error', onMediaError)
+      cancelled = true
       try {
         ws?.destroy()
       } catch {
         // ignore teardown errors
       }
       wsRef.current = null
-      // MediaElement gehört uns — explizit stoppen, kein Weiterspielen nach Unmount.
-      audio.pause()
-      audio.src = ''
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [url])
+  }, [source])
 
   if (error) {
     return (

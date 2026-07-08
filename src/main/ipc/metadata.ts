@@ -9,8 +9,12 @@ import {
   PreviewSource,
   ReadTextResult
 } from '../../shared/types'
-import { fetchRemoteText } from './copyparty'
+import { fetchRemoteText, fetchRemoteBytes } from './copyparty'
 import { convertForPreview } from '../preview-convert'
+
+// Whole-file byte reads (audio decode, 3D models) are capped to keep them off
+// the streaming path and out of unbounded memory.
+const MAX_PREVIEW_BYTES = 150 * 1024 * 1024
 
 /** first present string/number field among `keys`, trimmed. */
 function pick(tags: Record<string, unknown>, keys: string[]): string | undefined {
@@ -163,6 +167,22 @@ export function registerMetadataIpc(): void {
       if (source.kind !== 'local') return { ok: false, error: 'remote conversion unsupported' }
       const res = await convertForPreview(source.path)
       return res.ok ? { ok: true, cacheKey: res.cacheKey } : { ok: false, error: res.error }
+    }
+  )
+
+  ipcMain.handle(
+    IpcChannels.PreviewReadBytes,
+    async (_, source: PreviewSource): Promise<Uint8Array | null> => {
+      try {
+        if (source.kind === 'local') {
+          const st = await fs.stat(source.path)
+          if (st.size > MAX_PREVIEW_BYTES) return null
+          return new Uint8Array(await fs.readFile(source.path))
+        }
+        return fetchRemoteBytes(source.server, source.vpath, MAX_PREVIEW_BYTES)
+      } catch {
+        return null
+      }
     }
   )
 

@@ -88,7 +88,9 @@ const api = {
     icon: (source: PreviewSource): Promise<string | null> =>
       ipcRenderer.invoke(IpcChannels.PreviewIcon, source),
     convert: (source: PreviewSource): Promise<PreviewConvertResult> =>
-      ipcRenderer.invoke(IpcChannels.PreviewConvert, source)
+      ipcRenderer.invoke(IpcChannels.PreviewConvert, source),
+    readBytes: (source: PreviewSource): Promise<Uint8Array | null> =>
+      ipcRenderer.invoke(IpcChannels.PreviewReadBytes, source)
   }
 }
 

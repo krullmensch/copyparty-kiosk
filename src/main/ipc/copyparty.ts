@@ -76,6 +76,33 @@ export async function fetchRemoteText(
   return { text: buf.subarray(0, maxBytes).toString('utf-8'), truncated: buf.length >= maxBytes }
 }
 
+/**
+ * Fetch a whole remote file as bytes (cookie-authenticated). Used by viewers
+ * that must decode the full payload client-side (audio waveform, 3D models) —
+ * the renderer cannot fetch kiosk-stream:// itself. Returns null on failure or
+ * when the file exceeds `maxBytes`.
+ */
+export async function fetchRemoteBytes(
+  serverUrl: string,
+  vpath: string,
+  maxBytes: number
+): Promise<Uint8Array | null> {
+  const server = normalizeServer(serverUrl)
+  const vp = vpath.startsWith('/') ? vpath : `/${vpath}`
+  let res: Response
+  try {
+    res = await fetch(`${server}${vp}`, { headers: buildHeaders(server) })
+  } catch {
+    return null
+  }
+  if (!res.ok) return null
+  const len = Number(res.headers.get('content-length') ?? '0')
+  if (len > maxBytes) return null
+  const buf = Buffer.from(await res.arrayBuffer())
+  if (buf.length > maxBytes) return null
+  return new Uint8Array(buf)
+}
+
 function buildHeaders(server: string): HeadersInit {
   const headers: Record<string, string> = { Accept: 'application/json' }
   const cookie = cookies[server]

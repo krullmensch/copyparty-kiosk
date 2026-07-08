@@ -100,6 +100,7 @@ export const IpcChannels = {
   PreviewReadText: 'preview:read-text',
   PreviewIcon: 'preview:icon',
   PreviewConvert: 'preview:convert',
+  PreviewReadBytes: 'preview:read-bytes',
   AgoraStats: 'agora:stats',
   AgoraRole: 'agora:role',
   AgoraReset: 'agora:reset'
