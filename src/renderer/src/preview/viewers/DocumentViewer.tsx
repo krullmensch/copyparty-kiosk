@@ -127,10 +127,18 @@ function PdfDoc({ entry, source }: ViewerProps): React.JSX.Element {
         if (!ctx) return
         canvas.width = viewport.width
         canvas.height = viewport.height
+        // PDF-Seiten haben keinen eigenen Hintergrund — weiß füllen, sonst
+        // zeichnet pdf.js nur die Vektoren auf transparentes Canvas.
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, viewport.width, viewport.height)
         renderTask = p.render({ canvas, canvasContext: ctx, viewport })
         await renderTask.promise
-      } catch {
-        // Abbruch beim Seitenwechsel ist kein Fehler.
+      } catch (err) {
+        // Abbruch beim Seitenwechsel ist kein Fehler; echte Fehler zeigen.
+        const name = err instanceof Error ? err.name : ''
+        if (!cancelled && name !== 'RenderingCancelledException') {
+          setError('Seite konnte nicht gerendert werden.')
+        }
       }
     }
     void render()
