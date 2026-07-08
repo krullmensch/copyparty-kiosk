@@ -1,6 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import { capabilitiesFor, categorize } from '../../../shared/filetypes'
 import type { PreviewSource } from '../../../shared/types'
+import { QuickLookOverlay } from './QuickLookOverlay'
+import { FullView } from './FullView'
 
 export type PreviewMode = 'quicklook' | 'fullview'
 
@@ -98,53 +100,12 @@ export function PreviewProvider({ children }: { children: React.ReactNode }): Re
   return (
     <PreviewContext.Provider value={value}>
       {children}
-      {mode && entry && <PreviewPlaceholder mode={mode} entry={entry} onClose={close} />}
+      {mode === 'quicklook' && entry && source && (
+        <QuickLookOverlay entry={entry} source={source} onClose={close} />
+      )}
+      {mode === 'fullview' && entry && source && (
+        <FullView entry={entry} source={source} onClose={close} />
+      )}
     </PreviewContext.Provider>
-  )
-}
-
-/**
- * Platzhalter-Overlay bis TSK-08/09 die echten Viewer liefern.
- * Bewusst als eigene Komponente isoliert, damit die Render-Stelle klar ersetzbar bleibt.
- */
-function PreviewPlaceholder({
-  mode,
-  entry,
-  onClose
-}: {
-  mode: PreviewMode
-  entry: PreviewEntry
-  onClose: () => void
-}): React.JSX.Element {
-  const category = categorize(entry.name)
-  const modeLabel = mode === 'quicklook' ? 'Quick Look' : 'Vollansicht'
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={onClose}
-    >
-      <div
-        className="bg-background border-border text-foreground w-[28rem] max-w-[90vw] rounded-lg border p-6 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center gap-3">
-          <span className="border-border text-meta rounded border px-2 py-0.5 uppercase tracking-wider">
-            {category}
-          </span>
-          <span className="text-meta text-ink-muted">{modeLabel}</span>
-        </div>
-        <div className="text-h2 mb-2 break-all">{entry.name}</div>
-        <div className="text-meta text-ink-faint">Viewer folgt (TSK-08/09)</div>
-      </div>
-    </div>
   )
 }
