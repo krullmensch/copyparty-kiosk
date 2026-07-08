@@ -38,6 +38,12 @@ export function VideoPlayer({
           ref={videoRef}
           src={streamUrl(source)}
           controls
+          // Kiosk: no keyboard to escape native OS fullscreen. Drop the
+          // fullscreen/PiP/download buttons so the player stays inline in the
+          // FullView; the user always leaves via the ✕ button.
+          controlsList="nofullscreen nodownload noremoteplayback"
+          disablePictureInPicture
+          onDoubleClick={(e) => e.preventDefault()}
           onError={() => setError(true)}
           className="max-h-full max-w-full"
         />
