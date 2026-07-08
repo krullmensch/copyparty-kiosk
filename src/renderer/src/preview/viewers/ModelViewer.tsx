@@ -308,7 +308,7 @@ export function ModelViewer({
         ))}
       </div>
 
-      <div ref={containerRef} className="relative flex-1">
+      <div ref={containerRef} className="relative min-h-0 flex-1 overflow-hidden">
         {error ? (
           <div className="text-ink-muted absolute inset-0 flex flex-col items-center justify-center gap-1">
             <span className="text-foreground">{entry.name}</span>
