@@ -7,6 +7,8 @@ import { MetadataPanel } from './MetadataPanel'
 import { ProgramPreview } from './viewers/ProgramPreview'
 import { ImageViewer } from './viewers/ImageViewer'
 import { TextEditor } from './viewers/TextEditor'
+import { VideoPlayer } from './viewers/VideoPlayer'
+import { AudioPlayer } from './viewers/AudioPlayer'
 
 /**
  * Vollansicht (Enter/Doppelklick). Deckendes Modal mit Kategorie-Dispatch auf
@@ -79,9 +81,9 @@ function renderViewer(
     case 'document':
       return <Placeholder label="DocumentViewer folgt (TSK-11)" />
     case 'audio':
-      return <Placeholder label="AudioPlayer folgt (TSK-12)" />
+      return <AudioPlayer entry={entry} source={source} />
     case 'video':
-      return <Placeholder label="VideoPlayer folgt (TSK-13)" />
+      return <VideoPlayer entry={entry} source={source} />
     case 'image':
       return <ImageViewer entry={entry} source={source} />
     case 'model3d':
