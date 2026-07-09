@@ -35,6 +35,10 @@ function Stat({ n, label }: { n: number | string; label: string }): React.JSX.El
   )
 }
 
+function fmtCount(n: number | undefined): number | string {
+  return n == null ? '–' : n
+}
+
 /** overlay showing live Agora client stats fetched from Kiosk2. */
 export function AgoraStatsPanel({ onClose }: { onClose: () => void }): React.JSX.Element {
   const { stats, error, loading } = useAgoraStats(true)
@@ -80,6 +84,30 @@ export function AgoraStatsPanel({ onClose }: { onClose: () => void }): React.JSX
             <div className="mt-6 flex justify-center">
               <Sparkline data={stats.history} />
             </div>
+
+            <div className="border-border mt-6 grid grid-cols-3 gap-4 border-t pt-6">
+              <Stat n={fmtCount(stats.usb_count)} label="USB-Sticks" />
+              <Stat n={fmtCount(stats.disc_count)} label="Discs" />
+              <Stat n={fmtCount(stats.files_transferred)} label="Dateien" />
+            </div>
+
+            {stats.by_ext && stats.by_ext.length > 0 && (
+              <div className="mt-6">
+                <div className="text-meta text-ink-muted mb-2 uppercase tracking-wider">
+                  Top-Formate
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {stats.by_ext.map(({ ext, count }) => (
+                    <span
+                      key={ext}
+                      className="border-border text-ink-faint bg-bg-page rounded-full border px-2 py-0.5 text-meta"
+                    >
+                      {ext} ×{count}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="text-meta text-ink-faint mt-6 flex justify-between">
               <span>

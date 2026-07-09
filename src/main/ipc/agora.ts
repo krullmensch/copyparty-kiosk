@@ -14,7 +14,7 @@ import {
 // per-network reconfiguration (avahi must be installed). Fetched from the main
 // process so the renderer CSP (connect-src 'self') stays locked, matching how
 // copyparty traffic is routed.
-const AGORA_BASE = 'http://kiosk2.local:8080'
+export const AGORA_BASE = 'http://kiosk2.local:8080'
 const TIMEOUT_MS = 4000
 
 async function fetchStats(): Promise<AgoraStatsResult> {

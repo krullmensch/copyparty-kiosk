@@ -2,6 +2,7 @@ import { BrowserWindow, ipcMain } from 'electron'
 import drivelist from 'drivelist'
 import { DriveInfo, IpcChannels } from '../../shared/types'
 import { dropBucket, setKnownMounts } from '../thumb-cache'
+import { reportDiscInserted, reportUsbConnected } from '../agora-events'
 
 const POLL_INTERVAL_MS = 2000
 
@@ -74,6 +75,19 @@ async function tick(window: BrowserWindow): Promise<void> {
         }
       }
       window.webContents.send(IpcChannels.DriveRemoved, id)
+    }
+    // Agora dashboard events (fire-and-forget; dashboard may be offline). A USB
+    // drive fires on first appearance. An optical drive fires disc_inserted when
+    // it gains its first mountpoint — either appearing already-mounted, or
+    // transitioning no-mountpoint -> mountpoint on a drive we already track.
+    for (const d of current) {
+      const prev = lastDrives.get(d.id)
+      if (!prev) {
+        if (!d.isOptical) reportUsbConnected()
+        else if (d.mountpoints.length > 0) reportDiscInserted()
+      } else if (d.isOptical && prev.mountpoints.length === 0 && d.mountpoints.length > 0) {
+        reportDiscInserted()
+      }
     }
     lastDrives = new Map(current.map((d) => [d.id, d]))
     const mounts: string[] = []

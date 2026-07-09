@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowUp, File as FileIcon, Folder, RotateCw, Search, X } from 'lucide-react'
+import {
+  ArrowDownNarrowWide,
+  ArrowUp,
+  ArrowUpNarrowWide,
+  File as FileIcon,
+  Folder,
+  RotateCw,
+  Search,
+  X
+} from 'lucide-react'
 import { gooeyToast as toast } from 'goey-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,8 +21,49 @@ import { useListing } from '../hooks/useListing'
 import { useSelection } from '../hooks/useSelection'
 import { usePreview } from '../preview/PreviewProvider'
 import { formatDate, formatSize } from '../lib/format'
+import { compareBy, type SortDir, type SortField } from '../lib/sort'
 import type { FileEntry, FsSearchHit } from '../../../shared/types'
 import { DRAG_MIME, type DragPayload } from '../../../shared/dragdrop'
+
+const SORT_FIELDS: { field: SortField; label: string }[] = [
+  { field: 'name', label: 'Name' },
+  { field: 'size', label: 'Größe' },
+  { field: 'mtime', label: 'Datum' },
+  { field: 'ext', label: 'Format' }
+]
+
+interface SortControlProps {
+  field: SortField
+  dir: SortDir
+  onChange: (field: SortField, dir: SortDir) => void
+}
+
+function SortControl({ field, dir, onChange }: SortControlProps): React.JSX.Element {
+  return (
+    <div className="bg-bg-page-tint rounded-input inline-flex gap-0.5 p-0.5">
+      {SORT_FIELDS.map((f) => {
+        const active = f.field === field
+        return (
+          <Button
+            key={f.field}
+            variant={active ? 'secondary' : 'ghost'}
+            size="sm"
+            className={active ? '' : 'opacity-60'}
+            onClick={() => onChange(f.field, active ? (dir === 'asc' ? 'desc' : 'asc') : 'asc')}
+          >
+            {f.label}
+            {active &&
+              (dir === 'asc' ? (
+                <ArrowUpNarrowWide className="size-3.5" />
+              ) : (
+                <ArrowDownNarrowWide className="size-3.5" />
+              ))}
+          </Button>
+        )
+      })}
+    </div>
+  )
+}
 
 function buildSegments(
   rootPath: string,
@@ -39,12 +89,14 @@ interface Props {
   rootPath: string
 }
 
-function sortEntries(entries: FileEntry[], showHidden: boolean): FileEntry[] {
+function sortEntries(
+  entries: FileEntry[],
+  showHidden: boolean,
+  field: SortField,
+  dir: SortDir
+): FileEntry[] {
   const filtered = showHidden ? entries : entries.filter((e) => !e.hidden)
-  return [...filtered].sort((a, b) => {
-    if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
-    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-  })
+  return [...filtered].sort(compareBy(field, dir))
 }
 
 export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
@@ -53,6 +105,8 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
   const [dropActive, setDropActive] = useState(false)
   const [busy, setBusy] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [sortField, setSortField] = useState<SortField>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [query, setQuery] = useState('')
   const [searchHits, setSearchHits] = useState<FsSearchHit[] | null>(null)
   const [searching, setSearching] = useState(false)
@@ -84,7 +138,10 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
 
   const inSearch = searchHits !== null
 
-  const sorted = useMemo(() => (data ? sortEntries(data.entries, showHidden) : []), [data, showHidden])
+  const sorted = useMemo(
+    () => (data ? sortEntries(data.entries, showHidden, sortField, sortDir) : []),
+    [data, showHidden, sortField, sortDir]
+  )
   const ids = useMemo(() => sorted.map((e) => e.path), [sorted])
   const sel = useSelection(ids, cwd)
   const { setActiveSelection, openFullView } = usePreview()
@@ -192,6 +249,14 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
           <div className="min-w-0 flex-1">
             <Breadcrumbs segments={buildSegments(rootPath, cwd, setCwd)} />
           </div>
+          <SortControl
+            field={sortField}
+            dir={sortDir}
+            onChange={(f, d) => {
+              setSortField(f)
+              setSortDir(d)
+            }}
+          />
           <ViewToggle mode={viewMode} onChange={setViewMode} />
           <Button
             variant="ghost"

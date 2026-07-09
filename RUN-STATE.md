@@ -1,4 +1,26 @@
-# RUN-STATE: File Preview & Viewer/Editor Feature
+# RUN-STATE: Analytics (#7/#9) + Sort-UI (#3) — AKTIV
+
+## 🧭 System Context (Feature 2)
+
+- **Active Agent:** Architect (Fable 5) — Handoffs erstellt, Worker laufen
+- **Feature:** #7 USB/Disc-Zähler kumulativ, #9 Transferzähler (Dateizahl + Format), #3 Sort-UI
+- **Architektur:** Kiosk-Apps melden Events (fire-and-forget POST, 3s-Timeout, Fehler still) an agora-server (kiosk2:8080) → SQLite-Tabelle `events` → `/stats` erweitert → `AgoraStatsPanel`. Reset löscht Events mit. Shared-Typen (`AgoraEvent`, `AgoraStats`-Erweiterung) hat der Architect bereits in `src/shared/types.ts` festgelegt — Worker fassen types.ts NICHT an.
+- **Constraints:** Sneakernet offline zur Laufzeit; POST /event ohne Auth (gleiche Vertrauensstufe wie anon-copyparty, bewusst); Dashboard-Ausfall darf App nie blocken.
+
+## 📋 Task Ledger (Feature 2)
+
+| Task | Agent | Status | DoR (messbar) | Files (exklusiv) |
+|---|---|---|---|---|
+| TSK-A Server-Events | Opus 4.8 | 🟢 | `events`-Tabelle (id, session_id, ts, kiosk, kind, files, exts_json); `POST /event` validiert kind, insert in aktuelle Session; `/stats` liefert zusätzlich usb_count/disc_count/files_transferred/by_ext (Top 8, aus exts_json aggregiert, nur aktuelle Session); `reset_session` löscht events; Logik-Test mit tmp-SQLite grün | `agora-dashboard/poller.py`, `agora-dashboard/server.py` |
+| TSK-B Kiosk-Events | Opus 4.8 | 🟢 | `agora-events.ts`: `postEvent(AgoraEvent)` fire-and-forget (3s Timeout, catch still); drives.ts feuert `usb_connected` (add, nicht-optical) / `disc_inserted` (optical bekommt mountpoint); copyparty.ts upload+download feuern `transfer` (direction, files=done, exts aus Dateinamen); typecheck grün | `src/main/agora-events.ts` (neu), `src/main/ipc/drives.ts`, `src/main/ipc/copyparty.ts`, `src/main/ipc/agora.ts` (nur AGORA_BASE exportieren) |
+| TSK-C Panel-UI | Sonnet 5 | 🟢 | AgoraStatsPanel zeigt USB-Sticks, Discs, übertragene Dateien, Top-Formate (Badge-Liste); fehlende Felder (alter Server) → „–"; Theme-Tokens, dark-mode | `src/renderer/src/components/AgoraStatsPanel.tsx` |
+| TSK-D Sort-UI | Sonnet 5 | 🟡 | Sort-Feld (Name/Größe/Datum/Format) + Richtung in beiden Panes, dirs-first bleibt, shared Helper; Default Name-asc unverändert; typecheck grün | `src/renderer/src/lib/sort.ts` (neu), `src/renderer/src/components/FileBrowserPane.tsx`, `RemoteBrowserPane.tsx` |
+
+Deploy + End-to-end (curl /event, Panel-Screenshot) macht der Orchestrator nach Merge.
+
+---
+
+# RUN-STATE (ARCHIV): File Preview & Viewer/Editor Feature
 
 ## 🧭 System Context
 

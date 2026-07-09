@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowUp, File as FileIcon, Folder, LogOut, RotateCw, Search, X } from 'lucide-react'
+import {
+  ArrowDownNarrowWide,
+  ArrowUp,
+  ArrowUpNarrowWide,
+  File as FileIcon,
+  Folder,
+  LogOut,
+  RotateCw,
+  Search,
+  X
+} from 'lucide-react'
 import { gooeyToast as toast } from 'goey-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,8 +22,49 @@ import { useRemoteListing } from '../hooks/useRemoteListing'
 import { useSelection } from '../hooks/useSelection'
 import { usePreview } from '../preview/PreviewProvider'
 import { formatDate, formatSize } from '../lib/format'
+import { compareBy, type SortDir, type SortField } from '../lib/sort'
 import type { CppSearchHit, RemoteEntry } from '../../../shared/types'
 import { DRAG_MIME, type DragPayload } from '../../../shared/dragdrop'
+
+const SORT_FIELDS: { field: SortField; label: string }[] = [
+  { field: 'name', label: 'Name' },
+  { field: 'size', label: 'Größe' },
+  { field: 'mtime', label: 'Datum' },
+  { field: 'ext', label: 'Format' }
+]
+
+interface SortControlProps {
+  field: SortField
+  dir: SortDir
+  onChange: (field: SortField, dir: SortDir) => void
+}
+
+function SortControl({ field, dir, onChange }: SortControlProps): React.JSX.Element {
+  return (
+    <div className="bg-bg-page-tint rounded-input inline-flex gap-0.5 p-0.5">
+      {SORT_FIELDS.map((f) => {
+        const active = f.field === field
+        return (
+          <Button
+            key={f.field}
+            variant={active ? 'secondary' : 'ghost'}
+            size="sm"
+            className={active ? '' : 'opacity-60'}
+            onClick={() => onChange(f.field, active ? (dir === 'asc' ? 'desc' : 'asc') : 'asc')}
+          >
+            {f.label}
+            {active &&
+              (dir === 'asc' ? (
+                <ArrowUpNarrowWide className="size-3.5" />
+              ) : (
+                <ArrowDownNarrowWide className="size-3.5" />
+              ))}
+          </Button>
+        )
+      })}
+    </div>
+  )
+}
 
 function buildSegments(
   vpath: string,
@@ -33,11 +84,14 @@ interface Props {
   onDisconnect?: () => void
 }
 
-function sortEntries(entries: RemoteEntry[]): RemoteEntry[] {
-  return [...entries].sort((a, b) => {
-    if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
-    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-  })
+function sortEntries(entries: RemoteEntry[], field: SortField, dir: SortDir): RemoteEntry[] {
+  const cmp = compareBy(field, dir)
+  return [...entries].sort((a, b) =>
+    cmp(
+      { name: a.name, size: a.size, mtime: a.ts, isDirectory: a.isDirectory },
+      { name: b.name, size: b.size, mtime: b.ts, isDirectory: b.isDirectory }
+    )
+  )
 }
 
 export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.Element {
@@ -45,6 +99,8 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
   const [dropActive, setDropActive] = useState(false)
   const [busy, setBusy] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [sortField, setSortField] = useState<SortField>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [query, setQuery] = useState('')
   const [searchHits, setSearchHits] = useState<CppSearchHit[] | null>(null)
   const [searching, setSearching] = useState(false)
@@ -75,7 +131,10 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
   }, [query, server])
 
   const inSearch = searchHits !== null
-  const sorted = useMemo(() => (data ? sortEntries(data.entries) : []), [data])
+  const sorted = useMemo(
+    () => (data ? sortEntries(data.entries, sortField, sortDir) : []),
+    [data, sortField, sortDir]
+  )
   const ids = useMemo(() => sorted.map((e) => e.href), [sorted])
   const sel = useSelection(ids, vpath)
   const { setActiveSelection, openFullView } = usePreview()
@@ -208,6 +267,14 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
             <Breadcrumbs segments={buildSegments(vpath, setVpath)} />
           </div>
           {data?.acct && <span className="text-ink-muted text-meta">{data.acct}</span>}
+          <SortControl
+            field={sortField}
+            dir={sortDir}
+            onChange={(f, d) => {
+              setSortField(f)
+              setSortDir(d)
+            }}
+          />
           <ViewToggle mode={viewMode} onChange={setViewMode} />
           {onDisconnect && (
             <Button variant="ghost" size="sm" onClick={onDisconnect} title="disconnect">

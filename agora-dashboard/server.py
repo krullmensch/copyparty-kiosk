@@ -66,6 +66,10 @@ def build_stats() -> dict:
         "updated_at": None,
         "stale_s": None,
         "history": [],
+        "usb_count": 0,
+        "disc_count": 0,
+        "files_transferred": 0,
+        "by_ext": [],
     }
     if con is None:
         return empty
@@ -97,6 +101,8 @@ def build_stats() -> dict:
         if last is not None and last["traffic_bytes"] is not None and session["baseline_bytes"] is not None:
             traffic_bytes = max(0, last["traffic_bytes"] - session["baseline_bytes"])
 
+        evstats = poller.event_stats(con, sid)
+
         return {
             "enabled": enabled,
             "session": {
@@ -111,6 +117,10 @@ def build_stats() -> dict:
             "updated_at": last["ts"] if last else None,
             "stale_s": round(now - last["ts"]) if last else None,
             "history": history,
+            "usb_count": evstats["usb_count"],
+            "disc_count": evstats["disc_count"],
+            "files_transferred": evstats["files_transferred"],
+            "by_ext": evstats["by_ext"],
         }
     finally:
         con.close()
@@ -157,6 +167,37 @@ def reset() -> Response:
     finally:
         con.close()
     return jsonify({"ok": True, "session": sid})
+
+
+@app.post("/event")
+def event() -> Response:
+    """
+    record a kiosk-reported event. No auth on purpose -- same trust level as
+    the anonymous copyparty on this closed sneakernet.
+    """
+    body = request.get_json(silent=True) or {}
+    con = read_db()
+    sid = None
+    if con is not None:
+        try:
+            row = con.execute(
+                "SELECT id FROM sessions ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            if row is not None:
+                sid = row["id"]
+        finally:
+            con.close()
+    if sid is None:
+        return jsonify({"ok": False, "error": "no active session"}), 409
+
+    rw = poller.connect(DB_PATH)
+    try:
+        poller.insert_event(rw, sid, body)
+    except ValueError as ex:
+        return jsonify({"ok": False, "error": str(ex)}), 400
+    finally:
+        rw.close()
+    return jsonify({"ok": True})
 
 
 @app.get("/dashboard")

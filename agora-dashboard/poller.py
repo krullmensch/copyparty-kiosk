@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import sqlite3
 import sys
@@ -66,7 +67,19 @@ CREATE TABLE IF NOT EXISTS samples (
   ever_count    INTEGER NOT NULL,
   traffic_bytes INTEGER          -- raw cumulative rx+tx of the server iface at poll time; NULL if unavailable
 );
+CREATE TABLE IF NOT EXISTS events (
+  id         INTEGER PRIMARY KEY,
+  session_id INTEGER NOT NULL,
+  ts         REAL NOT NULL,
+  kiosk      TEXT NOT NULL,
+  kind       TEXT NOT NULL,   -- usb_connected | disc_inserted | transfer
+  direction  TEXT,            -- transfer only: up | down
+  files      INTEGER,         -- transfer only: file count
+  exts_json  TEXT             -- transfer only: JSON {ext: count}
+);
 """
+
+VALID_EVENT_KINDS = {"usb_connected", "disc_inserted", "transfer"}
 
 
 # --- database -------------------------------------------------------------
@@ -114,12 +127,101 @@ def reset_session(con: sqlite3.Connection) -> int:
     """drop all observation data and open a brand-new session (new salt)."""
     con.execute("DELETE FROM samples")
     con.execute("DELETE FROM seen_macs")
+    con.execute("DELETE FROM events")
     con.execute(
         "INSERT INTO sessions (started_at, salt, baseline_bytes) VALUES (?, ?, ?)",
         (time.time(), new_salt(), iface_bytes(default_iface())),
     )
     con.commit()
     return con.execute("SELECT MAX(id) AS id FROM sessions").fetchone()["id"]
+
+
+# --- events ---------------------------------------------------------------
+
+def insert_event(con: sqlite3.Connection, session_id: int, event: dict) -> None:
+    """
+    record a kiosk-reported event. `event` is the posted JSON:
+      {"kind": "usb_connected", "kiosk": "kiosk1"}
+      {"kind": "disc_inserted", "kiosk": "kiosk1"}
+      {"kind": "transfer", "kiosk": "kiosk1", "direction": "up"|"down",
+       "files": 3, "exts": {"mp3": 2, "jpg": 1}}
+    invalid input raises ValueError.
+    """
+    kind = event.get("kind")
+    if kind not in VALID_EVENT_KINDS:
+        raise ValueError(f"invalid kind: {kind!r}")
+    kiosk = event.get("kiosk")
+    if not isinstance(kiosk, str) or not kiosk:
+        raise ValueError("kiosk must be a non-empty string")
+
+    direction = None
+    files = None
+    exts_json = None
+    if kind == "transfer":
+        direction = event.get("direction")
+        if direction not in {"up", "down"}:
+            raise ValueError(f"invalid direction: {direction!r}")
+        files = event.get("files")
+        if not isinstance(files, int) or isinstance(files, bool) or files < 0:
+            raise ValueError("files must be an int >= 0")
+        exts = event.get("exts")
+        if not isinstance(exts, dict) or not all(
+            isinstance(k, str) and isinstance(v, int) and not isinstance(v, bool)
+            for k, v in exts.items()
+        ):
+            raise ValueError("exts must be a dict[str, int]")
+        exts_json = json.dumps(exts)
+
+    con.execute(
+        "INSERT INTO events (session_id, ts, kiosk, kind, direction, files, exts_json) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (session_id, time.time(), kiosk, kind, direction, files, exts_json),
+    )
+    con.commit()
+
+
+def event_stats(con: sqlite3.Connection, session_id: int) -> dict:
+    """aggregate the events of one session for the dashboard."""
+    usb_count = con.execute(
+        "SELECT COUNT(*) AS n FROM events WHERE session_id = ? AND kind = 'usb_connected'",
+        (session_id,),
+    ).fetchone()["n"]
+    disc_count = con.execute(
+        "SELECT COUNT(*) AS n FROM events WHERE session_id = ? AND kind = 'disc_inserted'",
+        (session_id,),
+    ).fetchone()["n"]
+    files_transferred = con.execute(
+        "SELECT COALESCE(SUM(files), 0) AS n FROM events "
+        "WHERE session_id = ? AND kind = 'transfer'",
+        (session_id,),
+    ).fetchone()["n"]
+
+    tally: dict[str, int] = {}
+    rows = con.execute(
+        "SELECT exts_json FROM events WHERE session_id = ? AND exts_json IS NOT NULL",
+        (session_id,),
+    ).fetchall()
+    for r in rows:
+        try:
+            exts = json.loads(r["exts_json"])
+        except (ValueError, TypeError):
+            continue
+        if isinstance(exts, dict):
+            for ext, count in exts.items():
+                if isinstance(count, int) and not isinstance(count, bool):
+                    tally[ext] = tally.get(ext, 0) + count
+
+    by_ext = [
+        {"ext": ext, "count": count}
+        for ext, count in sorted(tally.items(), key=lambda kv: (-kv[1], kv[0]))
+    ][:8]
+
+    return {
+        "usb_count": usb_count,
+        "disc_count": disc_count,
+        "files_transferred": files_transferred,
+        "by_ext": by_ext,
+    }
 
 
 # --- data source ----------------------------------------------------------

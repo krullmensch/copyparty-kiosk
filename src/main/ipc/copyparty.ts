@@ -1,8 +1,9 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { createWriteStream } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
+import { extCounts, reportTransfer } from '../agora-events'
 import {
   ConnectResult,
   IpcChannels,
@@ -303,6 +304,13 @@ function joinVpath(base: string, sub: string): string {
   return `${b}/${sub}`
 }
 
+/** fire-and-forget agora report for the files that actually uploaded. */
+function reportUploaded(items: ExpandItem[], done: number): void {
+  if (done <= 0) return
+  const names = items.slice(0, done).map((it) => basename(it.filePath))
+  reportTransfer('up', done, extCounts(names))
+}
+
 async function upload(
   serverUrl: string,
   targetVpath: string,
@@ -350,9 +358,11 @@ async function upload(
       } catch (err) {
         const msg = (err as Error).message
         emit({ kind: 'error', name: it.filePath, message: msg })
+        reportUploaded(items, done)
         return { ok: false, done, total: items.length, message: msg }
       }
     }
+    reportUploaded(items, done)
     return { ok: true, done, total: items.length }
   } finally {
     await cleanupTempDirs(tempDirs)
@@ -399,10 +409,18 @@ export async function download(
       await downloadOne(server, item.vpath, targetDir, item.name)
       done++
     } catch (err) {
+      reportDownloaded(items, done)
       return { ok: false, done, total: items.length, message: (err as Error).message }
     }
   }
+  reportDownloaded(items, done)
   return { ok: true, done, total: items.length }
+}
+
+/** fire-and-forget agora report for the files that actually downloaded. */
+function reportDownloaded(items: { vpath: string; name: string }[], done: number): void {
+  if (done <= 0) return
+  reportTransfer('down', done, extCounts(items.slice(0, done).map((i) => i.name)))
 }
 
 const SEARCH_LIMIT = 500

@@ -140,7 +140,24 @@ export interface AgoraStats {
   updated_at: number | null
   stale_s: number | null
   history: { ts: number; live: number }[]
+  // Kiosk-reported event counters (optional: older server versions omit them).
+  usb_count?: number
+  disc_count?: number
+  files_transferred?: number
+  by_ext?: { ext: string; count: number }[]
 }
+
+/** Event a kiosk reports to the agora dashboard (fire-and-forget). */
+export type AgoraEvent =
+  | { kind: 'usb_connected'; kiosk: string }
+  | { kind: 'disc_inserted'; kiosk: string }
+  | {
+      kind: 'transfer'
+      kiosk: string
+      direction: 'up' | 'down'
+      files: number
+      exts: Record<string, number>
+    }
 
 export type AgoraStatsResult =
   | { ok: true; stats: AgoraStats }
