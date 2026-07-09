@@ -77,11 +77,22 @@ function QuickLookBody({
           autoPlay
           controlsList="nofullscreen nodownload noremoteplayback"
           disablePictureInPicture
+          // QuickLook: Tastatur steuert den Player NICHT (Space schließt via
+          // usePreviewKeys). Nur Maus-Controls bleiben.
+          onKeyDown={(e) => e.preventDefault()}
           className="max-h-[60vh] max-w-full"
         />
       )
     case 'audio':
-      return <audio src={streamUrl(source)} controls autoPlay className="w-[28rem] max-w-full" />
+      return (
+        <audio
+          src={streamUrl(source)}
+          controls
+          autoPlay
+          onKeyDown={(e) => e.preventDefault()}
+          className="w-[28rem] max-w-full"
+        />
+      )
     case 'text':
     case 'document':
       return <TextPreview source={source} />

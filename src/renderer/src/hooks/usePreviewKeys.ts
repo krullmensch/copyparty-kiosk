@@ -39,13 +39,18 @@ export function usePreviewKeys(): void {
       }
 
       if (e.key === ' ' || e.code === 'Space') {
-        if (mode) {
-          // Toggle: offen → zu
+        if (mode === 'quicklook') {
+          // QuickLook: Space schließt (Video-Tastatursteuerung ist dort aus).
           e.preventDefault()
           close()
           return
         }
-        // Toggle: zu → auf, nur bei genau einem Datei-Eintrag
+        if (mode === 'fullview') {
+          // Großer Player/Viewer: Space NICHT kapern — der fokussierte Viewer
+          // (Video Play/Pause, Text-Editor Leerzeichen) bekommt es.
+          return
+        }
+        // mode === null: QuickLook öffnen, nur bei genau einem Datei-Eintrag
         if (activeSelection && !activeSelection.isDirectory) {
           e.preventDefault() // Guard 3: Scroll nur unterdrücken, wenn konsumiert
           openQuickLook(activeSelection.name, activeSelection.size, activeSelection.source)
