@@ -1,18 +1,17 @@
 import { useState } from 'react'
 import { Disc } from 'lucide-react'
 import { DRAG_MIME, type DragPayload } from '../../../shared/dragdrop'
-import type { DriveInfo } from '../../../shared/types'
-import { gooeyToast as toast } from 'goey-toast'
+import type { BurnSources, DriveInfo } from '../../../shared/types'
 import { BurnDialog } from './BurnDialog'
 
 /**
- * Burn target for an optical drive: drop local files here to burn them to DVD.
- * Remote (Agora) files aren't burnable directly yet — they'd need downloading
- * first.
+ * Burn target for an optical drive: drop local (USB) or remote (Agora) files
+ * here to burn them to DVD. Remote files are downloaded to a temp dir first
+ * (handled in the main process).
  */
 export function OpticalDropZone({ drive }: { drive: DriveInfo }): React.JSX.Element {
   const [over, setOver] = useState(false)
-  const [items, setItems] = useState<string[] | null>(null)
+  const [sources, setSources] = useState<BurnSources | null>(null)
 
   const accepts = (e: React.DragEvent): boolean => e.dataTransfer.types.includes(DRAG_MIME)
 
@@ -29,12 +28,14 @@ export function OpticalDropZone({ drive }: { drive: DriveInfo }): React.JSX.Elem
     const raw = e.dataTransfer.getData(DRAG_MIME)
     if (!raw) return
     const payload = JSON.parse(raw) as DragPayload
-    if (payload.kind !== 'local') {
-      toast.error('Nur lokale Dateien können gebrannt werden')
-      return
+    if (payload.kind === 'local') {
+      if (payload.paths.length === 0) return
+      setSources({ local: payload.paths, remote: null })
+    } else {
+      if (payload.vpaths.length === 0) return
+      const items = payload.vpaths.map((vp, i) => ({ vpath: vp, name: payload.names[i] }))
+      setSources({ local: [], remote: { server: payload.server, items } })
     }
-    if (payload.paths.length === 0) return
-    setItems(payload.paths)
   }
 
   const discLabel = drive.mountpoints[0]?.label ?? null
@@ -55,8 +56,8 @@ export function OpticalDropZone({ drive }: { drive: DriveInfo }): React.JSX.Elem
           {discLabel ? ` · ${discLabel}` : ''} — Dateien hierher ziehen zum Brennen
         </span>
       </div>
-      {items && (
-        <BurnDialog device={drive.device} items={items} onClose={() => setItems(null)} />
+      {sources && (
+        <BurnDialog device={drive.device} sources={sources} onClose={() => setSources(null)} />
       )}
     </>
   )

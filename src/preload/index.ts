@@ -6,6 +6,7 @@ import {
   AgoraStatsResult,
   BurnProgress,
   BurnResult,
+  BurnSources,
   ConnectResult,
   CppSearchResult,
   DriveInfo,
@@ -102,8 +103,8 @@ const api = {
   },
   burn: {
     available: (): Promise<boolean> => ipcRenderer.invoke(IpcChannels.BurnAvailable),
-    start: (device: string, items: string[], label: string): Promise<BurnResult> =>
-      ipcRenderer.invoke(IpcChannels.BurnStart, device, items, label),
+    start: (device: string, sources: BurnSources, label: string): Promise<BurnResult> =>
+      ipcRenderer.invoke(IpcChannels.BurnStart, device, sources, label),
     onProgress: (cb: (p: BurnProgress) => void): (() => void) => {
       const handler = (_: unknown, p: BurnProgress): void => cb(p)
       ipcRenderer.on(IpcChannels.BurnProgress, handler)

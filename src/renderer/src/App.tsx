@@ -72,15 +72,17 @@ function App(): React.JSX.Element {
     }
   }, [])
 
-  // A DVD writer is a burn target (and, with a mounted data disc, browsable).
-  const opticalDrive = drives.find((d) => d.isOptical) ?? null
-  // Left pane: first non-optical drive with a mountpoint (USB stick), or a
-  // mounted data disc if that's all there is.
+  // Principle: one local removable source at a time — USB stick OR DVD, not
+  // both. A USB stick (non-optical, mounted) takes precedence as the browse
+  // pane; otherwise a mounted data disc is browsed.
   const dataDrive =
     drives.find((d) => !d.isOptical && d.mountpoints[0]) ??
-    drives.find((d) => d.mountpoints[0]) ??
+    drives.find((d) => d.isOptical && d.mountpoints[0]) ??
     null
   const usbPath = dataDrive?.mountpoints[0]?.path ?? null
+  // Burn target: an optical drive without a mounted data disc (i.e. blank/empty,
+  // ready to write). A data disc is a browse source instead, not a burn target.
+  const burnDrive = drives.find((d) => d.isOptical && !d.mountpoints[0]) ?? null
 
   const remotePane = remoteReady ? (
     <RemoteBrowserPane key={COPYPARTY_URL} server={COPYPARTY_URL} />
@@ -140,7 +142,7 @@ function App(): React.JSX.Element {
               <section className="min-h-0 min-w-0 flex-1">{remotePane}</section>
             )}
           </div>
-          {opticalDrive && <OpticalDropZone drive={opticalDrive} />}
+          {burnDrive && <OpticalDropZone drive={burnDrive} />}
         </div>
       </div>
       {statsOpen && <AgoraStatsPanel onClose={() => setStatsOpen(false)} />}

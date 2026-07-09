@@ -1,9 +1,11 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { spawn, execFile } from 'node:child_process'
-import { basename, resolve, sep } from 'node:path'
-import { homedir } from 'node:os'
-import { BurnProgress, BurnResult, IpcChannels } from '../../shared/types'
+import { promises as fs } from 'node:fs'
+import { basename, join, resolve, sep } from 'node:path'
+import { homedir, tmpdir } from 'node:os'
+import { BurnProgress, BurnResult, BurnSources, IpcChannels } from '../../shared/types'
 import { getCurrentMountpoints } from './drives'
+import { download } from './copyparty'
 
 // Burning is done with `xorriso` (chosen 2026-07-09). One invocation builds the
 // ISO 9660 + Joliet/Rock-Ridge filesystem on the fly and writes it to the disc,
@@ -25,7 +27,9 @@ export function isOpticalDevice(device: string): boolean {
 }
 
 function isUnderAllowedRoot(path: string): boolean {
-  const roots = [homedir(), ...getCurrentMountpoints()]
+  // tmpdir: remote (Agora) files are downloaded here by burnSources before
+  // burning; those paths are constructed by us, not the renderer.
+  const roots = [homedir(), tmpdir(), ...getCurrentMountpoints()]
   const r = resolve(path)
   return roots.some((root) => {
     if (!root) return false
@@ -122,11 +126,42 @@ export function burn(
   })
 }
 
+/**
+ * Burn local files and/or Agora (remote) files. Remote files are downloaded to
+ * a temp dir first, then everything is burned together and the temp dir removed.
+ */
+async function burnSources(
+  device: string,
+  sources: BurnSources,
+  label: string,
+  emit: (p: BurnProgress) => void
+): Promise<BurnResult> {
+  let tmp: string | null = null
+  try {
+    const paths = [...sources.local]
+    if (sources.remote && sources.remote.items.length > 0) {
+      emit({ kind: 'prepare' })
+      tmp = await fs.mkdtemp(join(tmpdir(), 'agora-burn-'))
+      const res = await download(sources.remote.server, tmp, sources.remote.items)
+      if (!res.ok) {
+        emit({ kind: 'error', message: res.message ?? 'Download fehlgeschlagen' })
+        return { ok: false, message: res.message }
+      }
+      for (const it of sources.remote.items) paths.push(join(tmp, it.name))
+    }
+    return await burn(device, paths, label, emit)
+  } finally {
+    if (tmp) await fs.rm(tmp, { recursive: true, force: true })
+  }
+}
+
 export function registerCdBurnIpc(window: BrowserWindow): void {
   ipcMain.handle(IpcChannels.BurnAvailable, async () => isBurnAvailable())
   ipcMain.handle(
     IpcChannels.BurnStart,
-    async (_, device: string, items: string[], label: string): Promise<BurnResult> =>
-      burn(device, items, label, (p) => window.webContents.send(IpcChannels.BurnProgress, p))
+    async (_, device: string, sources: BurnSources, label: string): Promise<BurnResult> =>
+      burnSources(device, sources, label, (p) =>
+        window.webContents.send(IpcChannels.BurnProgress, p)
+      )
   )
 }

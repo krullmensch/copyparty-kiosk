@@ -387,7 +387,7 @@ async function downloadOne(
   )
 }
 
-async function download(
+export async function download(
   serverUrl: string,
   targetDir: string,
   items: { vpath: string; name: string }[]

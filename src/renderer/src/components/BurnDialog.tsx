@@ -3,11 +3,16 @@ import { Disc, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import type { BurnProgress } from '../../../shared/types'
+import type { BurnProgress, BurnSources } from '../../../shared/types'
 
 /** last path segment, works for POSIX and Windows separators. */
 function basename(p: string): string {
   return p.split(/[\\/]/).filter(Boolean).pop() ?? p
+}
+
+/** display names for everything to be burned (local basenames + remote names). */
+function sourceNames(s: BurnSources): string[] {
+  return [...s.local.map(basename), ...(s.remote?.items.map((it) => it.name) ?? [])]
 }
 
 type Phase = 'confirm' | 'unavailable' | 'burning' | 'done' | 'error'
@@ -19,13 +24,14 @@ type Phase = 'confirm' | 'unavailable' | 'burning' | 'done' | 'error'
  */
 export function BurnDialog({
   device,
-  items,
+  sources,
   onClose
 }: {
   device: string
-  items: string[]
+  sources: BurnSources
   onClose: () => void
 }): React.JSX.Element {
+  const names = sourceNames(sources)
   const [phase, setPhase] = useState<Phase>('confirm')
   const [label, setLabel] = useState('AGORA')
   const [percent, setPercent] = useState(0)
@@ -59,7 +65,7 @@ export function BurnDialog({
   const start = async (): Promise<void> => {
     setPhase('burning')
     setMessage('Vorbereiten…')
-    const res = await window.api.burn.start(device, items, label)
+    const res = await window.api.burn.start(device, sources, label)
     if (!res.ok) {
       setPhase('error')
       setMessage(res.message ?? 'Brennen fehlgeschlagen')
@@ -91,12 +97,12 @@ export function BurnDialog({
         {phase === 'confirm' && (
           <div className="flex flex-col gap-4">
             <div className="text-meta text-ink-muted">
-              {items.length} Objekt(e) auf die Disc in <code>{device}</code> brennen:
+              {names.length} Objekt(e) auf die Disc in <code>{device}</code> brennen:
             </div>
             <ul className="text-meta text-ink-faint max-h-40 overflow-auto">
-              {items.map((it) => (
-                <li key={it} className="truncate">
-                  {basename(it)}
+              {names.map((n) => (
+                <li key={n} className="truncate">
+                  {n}
                 </li>
               ))}
             </ul>

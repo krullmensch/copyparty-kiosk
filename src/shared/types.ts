@@ -23,6 +23,12 @@ export interface BurnResult {
   message?: string
 }
 
+/** What to burn: local paths and/or remote copyparty files (downloaded first). */
+export interface BurnSources {
+  local: string[]
+  remote: { server: string; items: { vpath: string; name: string }[] } | null
+}
+
 export interface FileEntry {
   name: string
   path: string
