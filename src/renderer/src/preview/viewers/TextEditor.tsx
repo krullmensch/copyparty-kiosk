@@ -69,8 +69,9 @@ export function TextEditor({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
-  // readOnly-Grund: remote-Quelle oder große (truncated) Datei.
-  const [readOnlyReason, setReadOnlyReason] = useState<'remote' | 'truncated' | null>(null)
+  // readOnly-Grund: nur noch große (truncated) Dateien. Remote ist editierbar
+  // (copyparty overwrite via cpp.write).
+  const [readOnlyReason, setReadOnlyReason] = useState<'truncated' | null>(null)
 
   const lang = languageFor(entry.name)
 
@@ -79,10 +80,12 @@ export function TextEditor({
 
   const doSave = async (): Promise<void> => {
     const view = viewRef.current
-    // Nur lokale Quellen sind schreibbar (fs.write ist local-only).
-    if (!view || source.kind === 'remote') return
+    if (!view) return
     const content = view.state.doc.toString()
-    const res = await window.api.fs.write(source.path, content)
+    const res =
+      source.kind === 'local'
+        ? await window.api.fs.write(source.path, content)
+        : await window.api.cpp.write(source.server, source.vpath, content)
     if (res.ok) {
       baselineRef.current = content
       setDirty(false)
@@ -109,12 +112,9 @@ export function TextEditor({
         return
       }
 
-      const isRemote = source.kind === 'remote'
-      const reason: 'remote' | 'truncated' | null = isRemote
-        ? 'remote'
-        : res.truncated
-          ? 'truncated'
-          : null
+      // Große (truncated) Dateien bleiben schreibgeschützt, sonst würde ein
+      // Speichern die Datei auf den geladenen Ausschnitt kürzen.
+      const reason: 'truncated' | null = res.truncated ? 'truncated' : null
       setReadOnlyReason(reason)
       const readOnly = reason !== null
 
@@ -181,9 +181,6 @@ export function TextEditor({
     <div className="bg-background flex h-full flex-col">
       <div className="border-border flex items-center gap-3 border-b px-4 py-2">
         <span className="text-meta text-ink-muted">{lang.label}</span>
-        {readOnlyReason === 'remote' && (
-          <span className="text-meta text-ink-faint">Remote — schreibgeschützt</span>
-        )}
         {readOnlyReason === 'truncated' && (
           <span className="text-meta text-ink-faint">Große Datei — schreibgeschützt</span>
         )}

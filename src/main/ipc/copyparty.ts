@@ -51,6 +51,34 @@ export function isKnownServer(serverUrl: string): boolean {
 }
 
 /**
+ * Overwrite a remote file with `body` via WebDAV PUT (copyparty needs
+ * `d`+`--daw` for this to replace rather than rename). Used for text editing and
+ * metadata write-back. Returns ok/false with a message.
+ */
+export async function putRemoteFile(
+  serverUrl: string,
+  vpath: string,
+  body: Uint8Array | string
+): Promise<{ ok: boolean; message?: string }> {
+  const server = normalizeServer(serverUrl)
+  const vp = vpath.startsWith('/') ? vpath : `/${vpath}`
+  const headers: Record<string, string> = {}
+  const cookie = cookies[server]
+  if (cookie) headers['Cookie'] = cookie
+  try {
+    const res = await fetch(`${server}${vp}`, {
+      method: 'PUT',
+      headers,
+      body: body as BodyInit
+    })
+    if (res.ok) return { ok: true }
+    return { ok: false, message: `HTTP ${res.status}` }
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : 'PUT failed' }
+  }
+}
+
+/**
  * Fetch the first `maxBytes` of a remote file as UTF-8 text, authenticating
  * with the stored cookie. Used by the preview text handler — the renderer
  * cannot fetch kiosk-stream:// itself (custom-scheme CORS yields opaque bodies).
@@ -457,4 +485,7 @@ export function registerCppIpc(mainWindow: BrowserWindow): void {
   )
   ipcMain.handle(IpcChannels.CppThumb, async (_, url: string, vpath: string) => thumb(url, vpath))
   ipcMain.handle(IpcChannels.CppSearch, async (_, url: string, query: string) => search(url, query))
+  ipcMain.handle(IpcChannels.CppWrite, async (_, url: string, vpath: string, content: string) =>
+    putRemoteFile(url, vpath, content)
+  )
 }

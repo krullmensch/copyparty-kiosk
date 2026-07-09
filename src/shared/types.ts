@@ -95,6 +95,7 @@ export const IpcChannels = {
   CppProgress: 'cpp:progress',
   CppThumb: 'cpp:thumb',
   CppSearch: 'cpp:search',
+  CppWrite: 'cpp:write',
   PreviewMetadata: 'preview:metadata',
   PreviewMetadataWrite: 'preview:metadata:write',
   PreviewReadText: 'preview:read-text',

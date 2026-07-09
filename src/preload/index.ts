@@ -67,6 +67,8 @@ const api = {
       ipcRenderer.invoke(IpcChannels.CppThumb, url, vpath),
     search: (url: string, query: string): Promise<CppSearchResult> =>
       ipcRenderer.invoke(IpcChannels.CppSearch, url, query),
+    write: (url: string, vpath: string, content: string): Promise<FsWriteResult> =>
+      ipcRenderer.invoke(IpcChannels.CppWrite, url, vpath, content),
     onProgress: (cb: (p: UploadProgress) => void): (() => void) => {
       const handler = (_: unknown, p: UploadProgress): void => cb(p)
       ipcRenderer.on(IpcChannels.CppProgress, handler)
