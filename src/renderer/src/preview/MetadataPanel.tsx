@@ -72,7 +72,7 @@ export function MetadataPanel({ source }: { source: PreviewSource }): React.JSX.
 
   return (
     <div className="flex h-full flex-col">
-      <ScrollArea className="flex-1">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-4 p-4">
           <div className="flex flex-col gap-3">
             <Field label="Titel" value={form.title} disabled={!writable} onChange={(v) => setForm({ ...form, title: v })} />
