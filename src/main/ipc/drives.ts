@@ -8,6 +8,9 @@ const POLL_INTERVAL_MS = 2000
 
 let pollTimer: NodeJS.Timeout | null = null
 let lastDrives: Map<string, DriveInfo> = new Map()
+// false until the first poll completed; that first snapshot is the baseline
+// and fires no agora events (see tick()).
+let baselined = false
 
 /**
  * Optical drive detection. drivelist has no isOptical flag, so key off the
@@ -80,13 +83,20 @@ async function tick(window: BrowserWindow): Promise<void> {
     // drive fires on first appearance. An optical drive fires disc_inserted when
     // it gains its first mountpoint — either appearing already-mounted, or
     // transitioning no-mountpoint -> mountpoint on a drive we already track.
-    for (const d of current) {
-      const prev = lastDrives.get(d.id)
-      if (!prev) {
-        if (!d.isOptical) reportUsbConnected()
-        else if (d.mountpoints.length > 0) reportDiscInserted()
-      } else if (d.isOptical && prev.mountpoints.length === 0 && d.mountpoints.length > 0) {
-        reportDiscInserted()
+    // The very first tick is the baseline: drives already plugged in when the
+    // app starts are not "newly connected" and must not be counted (otherwise
+    // every app restart re-counts them).
+    if (!baselined) {
+      baselined = true
+    } else {
+      for (const d of current) {
+        const prev = lastDrives.get(d.id)
+        if (!prev) {
+          if (!d.isOptical) reportUsbConnected()
+          else if (d.mountpoints.length > 0) reportDiscInserted()
+        } else if (d.isOptical && prev.mountpoints.length === 0 && d.mountpoints.length > 0) {
+          reportDiscInserted()
+        }
       }
     }
     lastDrives = new Map(current.map((d) => [d.id, d]))
