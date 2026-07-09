@@ -70,9 +70,18 @@ function QuickLookBody({
         />
       )
     case 'video':
-      return <video src={streamUrl(source)} controls className="max-h-[60vh] max-w-full" />
+      return (
+        <video
+          src={streamUrl(source)}
+          controls
+          autoPlay
+          controlsList="nofullscreen nodownload noremoteplayback"
+          disablePictureInPicture
+          className="max-h-[60vh] max-w-full"
+        />
+      )
     case 'audio':
-      return <audio src={streamUrl(source)} controls className="w-[28rem] max-w-full" />
+      return <audio src={streamUrl(source)} controls autoPlay className="w-[28rem] max-w-full" />
     case 'text':
     case 'document':
       return <TextPreview source={source} />

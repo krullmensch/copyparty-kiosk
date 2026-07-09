@@ -8,6 +8,7 @@ import {
   historyKeymap,
   indentWithTab
 } from '@codemirror/commands'
+import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
 import { markdown } from '@codemirror/lang-markdown'
 import { html } from '@codemirror/lang-html'
 import { python } from '@codemirror/lang-python'
@@ -151,7 +152,10 @@ export function TextEditor({
         })
       ]
       if (lang.ext) extensions.push(lang.ext)
+      // Dark: oneDark bringt eigene Highlight-Farben mit. Light: braucht einen
+      // expliziten Highlight-Style, sonst rendert CodeMirror die Syntax farblos.
       if (dark) extensions.push(oneDark)
+      else extensions.push(syntaxHighlighting(defaultHighlightStyle, { fallback: true }))
       if (readOnly) {
         extensions.push(EditorState.readOnly.of(true), EditorView.editable.of(false))
       }
