@@ -4,6 +4,8 @@ import {
   AgoraResetResult,
   AgoraRole,
   AgoraStatsResult,
+  BurnProgress,
+  BurnResult,
   ConnectResult,
   CppSearchResult,
   DriveInfo,
@@ -97,6 +99,16 @@ const api = {
       ipcRenderer.invoke(IpcChannels.PreviewConvert, source),
     readBytes: (source: PreviewSource): Promise<Uint8Array | null> =>
       ipcRenderer.invoke(IpcChannels.PreviewReadBytes, source)
+  },
+  burn: {
+    available: (): Promise<boolean> => ipcRenderer.invoke(IpcChannels.BurnAvailable),
+    start: (device: string, items: string[], label: string): Promise<BurnResult> =>
+      ipcRenderer.invoke(IpcChannels.BurnStart, device, items, label),
+    onProgress: (cb: (p: BurnProgress) => void): (() => void) => {
+      const handler = (_: unknown, p: BurnProgress): void => cb(p)
+      ipcRenderer.on(IpcChannels.BurnProgress, handler)
+      return () => ipcRenderer.off(IpcChannels.BurnProgress, handler)
+    }
   }
 }
 

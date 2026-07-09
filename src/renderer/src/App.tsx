@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { GoeyToaster } from 'goey-toast'
 import { FileBrowserPane } from './components/FileBrowserPane'
 import { RemoteBrowserPane } from './components/RemoteBrowserPane'
+import { OpticalDropZone } from './components/OpticalDropZone'
 import { AgoraStatsPanel } from './components/AgoraStatsPanel'
 import { AdminPanel } from './components/AdminPanel'
 import { useDrives } from './hooks/useDrives'
@@ -71,8 +72,15 @@ function App(): React.JSX.Element {
     }
   }, [])
 
-  const usbDrive = drives.find((d) => d.mountpoints[0]) ?? null
-  const usbPath = usbDrive?.mountpoints[0]?.path ?? null
+  // A DVD writer is a burn target (and, with a mounted data disc, browsable).
+  const opticalDrive = drives.find((d) => d.isOptical) ?? null
+  // Left pane: first non-optical drive with a mountpoint (USB stick), or a
+  // mounted data disc if that's all there is.
+  const dataDrive =
+    drives.find((d) => !d.isOptical && d.mountpoints[0]) ??
+    drives.find((d) => d.mountpoints[0]) ??
+    null
+  const usbPath = dataDrive?.mountpoints[0]?.path ?? null
 
   const remotePane = remoteReady ? (
     <RemoteBrowserPane key={COPYPARTY_URL} server={COPYPARTY_URL} />
@@ -119,17 +127,20 @@ function App(): React.JSX.Element {
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 p-3">
-          {usbPath ? (
-            <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
-              <section className="min-h-0">
-                <FileBrowserPane key={usbPath} rootPath={usbPath} />
-              </section>
-              <section className="min-h-0">{remotePane}</section>
-            </div>
-          ) : (
-            <section className="min-h-0 min-w-0 flex-1">{remotePane}</section>
-          )}
+        <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+          <div className="flex min-h-0 flex-1">
+            {usbPath ? (
+              <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
+                <section className="min-h-0">
+                  <FileBrowserPane key={usbPath} rootPath={usbPath} />
+                </section>
+                <section className="min-h-0">{remotePane}</section>
+              </div>
+            ) : (
+              <section className="min-h-0 min-w-0 flex-1">{remotePane}</section>
+            )}
+          </div>
+          {opticalDrive && <OpticalDropZone drive={opticalDrive} />}
         </div>
       </div>
       {statsOpen && <AgoraStatsPanel onClose={() => setStatsOpen(false)} />}

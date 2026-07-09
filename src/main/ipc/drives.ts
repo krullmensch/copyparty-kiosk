@@ -8,6 +8,17 @@ const POLL_INTERVAL_MS = 2000
 let pollTimer: NodeJS.Timeout | null = null
 let lastDrives: Map<string, DriveInfo> = new Map()
 
+/**
+ * Optical drive detection. drivelist has no isOptical flag, so key off the
+ * Linux SCSI CD-ROM node (/dev/sr*) or a CD/DVD/BD hint in the description.
+ * USB DVD writers show up as /dev/sr0 with busType USB.
+ */
+function isOpticalDrive(d: drivelist.Drive): boolean {
+  if (/^\/dev\/sr\d+$/.test(d.device)) return true
+  const desc = (d.description ?? '').toLowerCase()
+  return /\b(dvd|cd-?rom|blu-?ray|bd-?re|optical)\b/.test(desc)
+}
+
 function toDriveInfo(d: drivelist.Drive): DriveInfo {
   return {
     id: d.device,
@@ -17,6 +28,7 @@ function toDriveInfo(d: drivelist.Drive): DriveInfo {
     isUSB: !!d.isUSB,
     isRemovable: !!d.isRemovable,
     isSystem: !!d.isSystem,
+    isOptical: isOpticalDrive(d),
     mountpoints: d.mountpoints.map((m) => ({ path: m.path, label: m.label }))
   }
 }
@@ -32,7 +44,10 @@ function isBackupVolume(d: drivelist.Drive): boolean {
 async function snapshot(): Promise<DriveInfo[]> {
   const drives = await drivelist.list()
   return drives
-    .filter((d) => !d.isSystem && (d.isUSB || d.isRemovable) && !isBackupVolume(d))
+    .filter(
+      (d) =>
+        !d.isSystem && (d.isUSB || d.isRemovable || isOpticalDrive(d)) && !isBackupVolume(d)
+    )
     .map(toDriveInfo)
 }
 

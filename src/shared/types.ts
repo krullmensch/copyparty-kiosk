@@ -6,7 +6,21 @@ export interface DriveInfo {
   isUSB: boolean
   isRemovable: boolean
   isSystem: boolean
+  /** optical drive (CD/DVD/BD). Shown even without a mounted disc, as a burn target. */
+  isOptical: boolean
   mountpoints: { path: string; label?: string | null }[]
+}
+
+export type BurnProgress =
+  | { kind: 'prepare' }
+  | { kind: 'blank' }
+  | { kind: 'write'; percent: number }
+  | { kind: 'done' }
+  | { kind: 'error'; message: string }
+
+export interface BurnResult {
+  ok: boolean
+  message?: string
 }
 
 export interface FileEntry {
@@ -96,6 +110,9 @@ export const IpcChannels = {
   CppThumb: 'cpp:thumb',
   CppSearch: 'cpp:search',
   CppWrite: 'cpp:write',
+  BurnStart: 'burn:start',
+  BurnProgress: 'burn:progress',
+  BurnAvailable: 'burn:available',
   PreviewMetadata: 'preview:metadata',
   PreviewMetadataWrite: 'preview:metadata:write',
   PreviewReadText: 'preview:read-text',
