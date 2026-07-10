@@ -28,6 +28,8 @@ const EXTENSION_MAP: Record<string, PreviewCategory> = {
   mkv: 'video',
   avi: 'video',
   webm: 'video',
+  '3gp': 'video',
+  '3g2': 'video',
   // image
   jpg: 'image',
   jpeg: 'image',

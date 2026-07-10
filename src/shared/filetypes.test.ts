@@ -5,7 +5,7 @@ import type { PreviewCategory } from './filetypes'
 describe('categorize', () => {
   const cases: Array<[string[], PreviewCategory]> = [
     [['mp3', 'aac', 'wav', 'flac', 'alac', 'm4a'], 'audio'],
-    [['mp4', 'mov', 'mkv', 'avi', 'webm'], 'video'],
+    [['mp4', 'mov', 'mkv', 'avi', 'webm', '3gp', '3g2'], 'video'],
     [
       ['jpg', 'jpeg', 'png', 'svg', 'tiff', 'tif', 'gif', 'webp', 'cr2', 'cr3', 'nef', 'arw', 'dng', 'raf'],
       'image'
