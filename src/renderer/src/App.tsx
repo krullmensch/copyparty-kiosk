@@ -5,6 +5,7 @@ import { GoeyToaster } from 'goey-toast'
 import { FileBrowserPane } from './components/FileBrowserPane'
 import { RemoteBrowserPane } from './components/RemoteBrowserPane'
 import { OpticalDropZone } from './components/OpticalDropZone'
+import { DvdRipBanner } from './components/DvdRipBanner'
 import { AgoraStatsPanel } from './components/AgoraStatsPanel'
 import { AdminPanel } from './components/AdminPanel'
 import { useDrives } from './hooks/useDrives'
@@ -84,6 +85,24 @@ function App(): React.JSX.Element {
   // ready to write). A data disc is a browse source instead, not a burn target.
   const burnDrive = drives.find((d) => d.isOptical && !d.mountpoints[0]) ?? null
 
+  // A mounted optical disc that's actually a video DVD (VIDEO_TS) offers a rip
+  // action instead of/alongside plain browsing. Checked async since it needs a
+  // main-process fs.existsSync call.
+  const [isVideoDvd, setIsVideoDvd] = useState(false)
+  useEffect(() => {
+    if (dataDrive?.isOptical && usbPath) {
+      let cancelled = false
+      void window.api.dvdrip.isVideoDvd(usbPath).then((ok) => {
+        if (!cancelled) setIsVideoDvd(ok)
+      })
+      return () => {
+        cancelled = true
+      }
+    }
+    setIsVideoDvd(false)
+    return undefined
+  }, [dataDrive?.isOptical, usbPath])
+
   const remotePane = remoteReady ? (
     <RemoteBrowserPane key={COPYPARTY_URL} server={COPYPARTY_URL} />
   ) : (
@@ -142,6 +161,9 @@ function App(): React.JSX.Element {
               <section className="min-h-0 min-w-0 flex-1">{remotePane}</section>
             )}
           </div>
+          {isVideoDvd && dataDrive && (
+            <DvdRipBanner drive={dataDrive} server={COPYPARTY_URL} />
+          )}
           {burnDrive && <OpticalDropZone drive={burnDrive} />}
         </div>
       </div>

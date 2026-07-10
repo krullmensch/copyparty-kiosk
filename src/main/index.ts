@@ -11,6 +11,7 @@ import { registerAgoraIpc } from './ipc/agora'
 import { registerMetadataIpc } from './ipc/metadata'
 import { registerAppIconIpc } from './ipc/appicon'
 import { registerCdBurnIpc } from './ipc/cdburn'
+import { registerDvdRipIpc } from './ipc/dvdrip'
 import { registerStreamProtocolHandler, registerStreamProtocolSchemes } from './stream-protocol'
 import { getMediaBase, startMediaServer } from './media-server'
 
@@ -61,6 +62,7 @@ function createWindow(): void {
   registerMetadataIpc()
   registerAppIconIpc()
   registerCdBurnIpc(mainWindow)
+  registerDvdRipIpc(mainWindow)
 }
 
 app.whenReady().then(async () => {

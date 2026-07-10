@@ -119,6 +119,10 @@ export const IpcChannels = {
   BurnStart: 'burn:start',
   BurnProgress: 'burn:progress',
   BurnAvailable: 'burn:available',
+  DvdRipAvailable: 'dvdrip:available',
+  DvdRipIsVideoDvd: 'dvdrip:is-video-dvd',
+  DvdRipStart: 'dvdrip:start',
+  DvdRipProgress: 'dvdrip:progress',
   PreviewMetadata: 'preview:metadata',
   PreviewMetadataWrite: 'preview:metadata:write',
   PreviewReadText: 'preview:read-text',
@@ -229,3 +233,15 @@ export interface FsWriteResult {
 export type PreviewConvertResult =
   | { ok: true; cacheKey: string }
   | { ok: false; error: string }
+
+export type DvdRipProgress =
+  | { kind: 'scan' }
+  | { kind: 'encode'; percent: number }
+  | { kind: 'upload'; percent: number }
+  | { kind: 'done' }
+  | { kind: 'error'; message: string }
+
+export interface DvdRipResult {
+  ok: boolean
+  message?: string
+}

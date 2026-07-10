@@ -311,7 +311,7 @@ function reportUploaded(items: ExpandItem[], done: number): void {
   reportTransfer('up', done, extCounts(names))
 }
 
-async function upload(
+export async function upload(
   serverUrl: string,
   targetVpath: string,
   localPaths: string[],

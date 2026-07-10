@@ -1,3 +1,46 @@
+# RUN-STATE: Encrypted-DVD Rip/Decrypt-Pipeline (2026-07-10/11) — FERTIG, ungepusht
+
+## 🧭 System Context
+
+- **Active Agent:** Orchestrator (Sonnet 5) — Architektur + Implementierung direkt gebaut (kein Delegations-Overhead für diesen Scope).
+- **Auslöser:** Marvin legt echte kommerzielle Video-DVD ("Jurassic World", CSS-verschlüsselt) in kiosk2 ein. `OPTICAL-MEDIA-BLUEPRINT.md` (Root, ungetrackt) schlug Docker/NAS + MakeMKV + HandBrake vor — Marvin bestätigt Umsetzung nach Korrektur (siehe Handoff-Notes).
+- **Zwei Korrekturen zum Blueprint (vor Implementierung geklärt):**
+  1. **Kein MakeMKV.** Proprietär, kein Debian-Paket, Beta-Key läuft alle 1-2 Monate ab → braucht periodisches Online-Renewal. Widerspricht "für immer offline"-Sneakernet-Prinzip. HandBrakeCLI kann Decrypt (via System-`libdvdcss`, von HandBrakes gebündeltem `libdvdread` per dlopen genutzt) + Transcode in einem Schritt — kein verlustfreier MKV-Zwischenschritt nötig für Kiosk-Demo-Zweck.
+  2. **Kein Docker/NAS.** Projekt hat keine NAS-Rolle (Blueprint nahm fälschlich `Ugreen`-NAS an). Pipeline läuft direkt auf kiosk2 (Haupt-Kiosk), kein neuer Architektur-Layer.
+- **Rechtlicher Hinweis (dokumentiert, nicht verschwiegen):** CSS-Umgehung ist in Deutschland nach §95a UrhG illegal, auch für private Sicherungskopie. Bewusste Bachelor-Projekt-Entscheidung, kein Versehen.
+
+## 📋 Was gebaut wurde
+
+| Baustein | Datei | Zweck |
+|---|---|---|
+| HandBrakeCLI | apt (Debian-Main, `1.9.2+ds1-1`) | Rip+Decrypt+Transcode in einem Aufruf |
+| libdvdcss2 | Source-Build (VideoLAN-Git, meson/ninja, `/usr/local/lib`) | CSS-Entschlüsselung, kein Debian-Paket verfügbar (rechtlich) |
+| `isRipAvailable`/`isVideoDvd`/`sanitizeName`/`rip`/`ripAndUpload`/`registerDvdRipIpc` | `src/main/ipc/dvdrip.ts` (neu) | Erkennt `VIDEO_TS` auf gemounteter Disc, spawnt `HandBrakeCLI -i <mount> -o <temp>.mp4 --main-feature -e x264 -q 22 --aencoder av_aac`, parst `Encoding: … NN.NN %` für Progress, lädt Ergebnis via bestehendes `upload()` nach `/DVD-Rips` hoch, räumt Temp-Dir auf (finally) |
+| `export` von `upload()` | `src/main/ipc/copyparty.ts` | dvdrip.ts ruft es in-process (kein IPC-Roundtrip zurück zum Renderer nötig) |
+| `DvdRipProgress`/`DvdRipResult` + 4 IpcChannels | `src/shared/types.ts` | `dvdrip:available`, `dvdrip:is-video-dvd`, `dvdrip:start`, `dvdrip:progress` |
+| `api.dvdrip.{available,isVideoDvd,start,onProgress}` | `src/preload/index.ts` | Bridge, `AppApi`-Typ automatisch über `typeof api` |
+| `RipDialog.tsx` (neu) | `src/renderer/src/components/` | Confirm→Progress(scan/encode/upload)→Done/Error, 1:1 Stil-Kopie von `BurnDialog.tsx` |
+| `DvdRipBanner.tsx` (neu) | `src/renderer/src/components/` | Banner unter der Split-View wenn `isVideoDvd`, Button öffnet `RipDialog` |
+| Wiring | `src/renderer/src/App.tsx` | `isVideoDvd`-State via `api.dvdrip.isVideoDvd(usbPath)` (async, nur wenn `dataDrive?.isOptical`), Banner-Render neben `OpticalDropZone` |
+
+**Ziel-Ablage:** `/DVD-Rips/<sanitizeName(disc-label)>.mp4` auf Agora (fester vpath, kein User-Input v1).
+
+## ✅ End-to-End-Verifikation (kiosk2, echte Disc "JURASSIC_WORLD", 2026-07-10/11)
+
+1. **CLI-Vorabtest** (vor App-Integration): `HandBrakeCLI -i /media/marvin/JURASSIC_WORLD --scan` → `libdvdread: Attempting to retrieve all CSS keys` (libdvdcss2 wird von HandBrakes gebündeltem libdvdread korrekt dlopen't) → 24 Titel gefunden, Region 2. Voll-Scan (`-t 0`) zeigt Titel 22 = 01:59:16 (Hauptfilm, Rest Trailer/Menüs/Extras).
+2. **UI**: USB-Stick abgezogen (App-Priorität lokal: USB vor DVD) → Split-Pane zeigt DVD, Pane-Titel = Disc-Label `JURASSIC_WORLD`, Banner "Video-DVD erkannt · JURASSIC_WORLD — Dateien sind CSS-verschlüsselt" + Button.
+3. **Rip-Dialog**: Confirm → Klick → Progress "Hauptfilm wird rippen & kodiert…" → nach Encode automatisch Upload → "Fertig — liegt jetzt unter /DVD-Rips auf Agora."
+4. **Ergebnis verifiziert**: `curl localhost:3923/DVD-Rips/?ls` → `JURASSIC_WORLD.mp4`, 1.343.294.450 Bytes (~1,28 GB, sinnvolle Bitrate für q22/119 min). `ftyp`-Box-Check (`od -c` auf ersten 64 Byte) → valides MP4 (`mp42`/`iso2`/`avc1`/`mp41`), kein korruptes File.
+5. Temp-Dir (`/tmp/agora-dvdrip-*`) nach Abschluss weg (cleanup via `finally` bestätigt).
+
+**Nicht getestet:** Fehlerpfad (HandBrakeCLI-Absturz, Upload-Fehler während Rip), zweite Disc/Titel-Auswahl bei mehreren ähnlich langen Titeln, Verhalten bei fehlendem `libdvdcss2`/`HandBrakeCLI` auf kiosk1/kiosk3 (Feature bisher nur auf kiosk2 installiert — dort steht auch der einzige echte DVD-Writer, siehe [[kiosk-infra]]).
+
+## 🔄 Deploy-Status
+
+**Code liegt auf kiosk2 (rsync, NICHT über git — lokaler Branch noch ungepusht).** kiosk1/kiosk3 haben weder den Code noch HandBrakeCLI/libdvdcss2 installiert. Vor Commit/Push: Marvins Freigabe ausstehend (siehe Chat). Nach Push: `git pull` + `npm run build` + App-Restart auf allen 3 (Standardweg, siehe [[kiosk-infra]]) — HandBrakeCLI+libdvdcss2-Install nur auf Kiosken nötig, die tatsächlich ein optisches Laufwerk haben (aktuell nur kiosk2).
+
+---
+
 # RUN-STATE: DVD-Anzeige-Fix (2026-07-10) — AKTIV
 
 ## 🧭 System Context
@@ -28,7 +71,7 @@
   Key ist `mountpoint` (singular, gesetzt), matcht `LsblkDevice`-Interface. typecheck node+web grün.
 - **[DVD-2] Haiku (cavecrew-builder):** ✅ DONE. Refactor: reine `parseOpticalLsblk(stdout)` aus `listOpticalDrives()` extrahiert (execFile + Plattform-Guard bleiben in `listOpticalDrives`), exportiert für Test. Neu `src/main/ipc/drives.test.ts`, 8 Cases (data disc/blank disc/model-Fallback/kein rom/non-rom-Filter/unparsebar + 2 Shape-Checks). Orchestrator-Verifikation: typecheck node+web grün, `npm test` **110/110 grün** (5 Testdateien).
 - **[DVD-3] Sonnet (cavecrew-reviewer):** ✅ PASS (0🔴 2🟡). Items 1–4 PASS: gemountete Disc → `mountpoints[0]` gesetzt → `dataDrive`-find matcht → Split öffnet; blanke Disc → `mountpoints:[]` → nur `burnDrive` (mutually exclusive, korrekt); Merge/Dedup by device droppt/dupliziert keine echten Drives; `listOpticalDrives` non-throwing (execFile + JSON.parse je try/catch → `[]`); Agora disc_inserted feuert korrekt via `prev.mountpoints.length===0 && d.mountpoints.length>0`-Zweig, Baseline respektiert. **2 gelbe Findings gefixt (Sonnet cavecrew-builder):** F1 = synthetische Optical-Entries übersprangen Backup-Filter → neuer `isBackupDriveInfo(DriveInfo)`, in `snapshot()` auf `optical` vor Merge angewandt. F2 = `listOpticalDrives()` execFile-Fehlerzweig untestet → exportiert + Tests (lsblk-fail→[], non-linux→[]) + `isBackupDriveInfo`-Test. Orchestrator-Verifikation: typecheck node+web grün, `npm test` **114/114 grün**.
-- **[DEPLOY] OFFEN:** commit + push main, dann je Kiosk `git pull` in `~/copyparty-kiosk` + App-Restart (Script-Datei-Methode, siehe Memory `kiosk-infra` — NICHT Inline-`pkill -f`). Danach **Marvin: realer DVD-Gesamtflow am Gerät** (Disc rein → Split öffnet → Dateien browsebar; blanke Disc → Burn-Zone unverändert).
+- **[DEPLOY] ✅ ERLEDIGT (2026-07-10):** Commit `34ef711` gepusht (main). Alle 3 Kioske: `git pull` + `npm run build` (out/ gitignored → Rebuild nötig) + App-Restart (Script-Datei-Methode). **End-to-end auf kiosk2 mit echter DVD verifiziert (Screenshot):** Disc `Bläserklasse` → Splitscreen öffnet, linke Pane zeigt DVD-Dateien (JPGs + mp4s, Ordner-Nav „Ohrwurm"), QuickLook funktioniert. kiosk1/kiosk3 gebaut+neugestartet (kein Datentest ohne Disc). **Feature FERTIG.** Offen nur: blanke Disc → Burn-Zone (Regression per Code-Review bestätigt, nicht am Gerät gegengetestet).
 
 ---
 

@@ -10,6 +10,8 @@ import {
   ConnectResult,
   CppSearchResult,
   DriveInfo,
+  DvdRipProgress,
+  DvdRipResult,
   FileMetadata,
   FsSearchResult,
   FsWriteResult,
@@ -109,6 +111,18 @@ const api = {
       const handler = (_: unknown, p: BurnProgress): void => cb(p)
       ipcRenderer.on(IpcChannels.BurnProgress, handler)
       return () => ipcRenderer.off(IpcChannels.BurnProgress, handler)
+    }
+  },
+  dvdrip: {
+    available: (): Promise<boolean> => ipcRenderer.invoke(IpcChannels.DvdRipAvailable),
+    isVideoDvd: (mountPath: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.DvdRipIsVideoDvd, mountPath),
+    start: (mountPath: string, label: string, server: string): Promise<DvdRipResult> =>
+      ipcRenderer.invoke(IpcChannels.DvdRipStart, mountPath, label, server),
+    onProgress: (cb: (p: DvdRipProgress) => void): (() => void) => {
+      const handler = (_: unknown, p: DvdRipProgress): void => cb(p)
+      ipcRenderer.on(IpcChannels.DvdRipProgress, handler)
+      return () => ipcRenderer.off(IpcChannels.DvdRipProgress, handler)
     }
   }
 }
