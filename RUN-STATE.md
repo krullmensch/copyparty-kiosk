@@ -1,4 +1,62 @@
-# RUN-STATE: Analytics (#7/#9) + Sort-UI (#3) — AKTIV
+# RUN-STATE: DVD-Anzeige-Fix (2026-07-10) — AKTIV
+
+## 🧭 System Context
+
+- **Active Agent:** Architect/Orchestrator — analysiert + delegiert, schreibt keinen Code selbst.
+- **Bug:** Eingelegte DVD (schlichte Video-/Bilddateien, keine Verschlüsselung) erscheint nicht in der Kiosk-App → Splitscreen-Browse-Pane öffnet nie.
+- **Root Cause (verifiziert, kein App-Logikfehler):** Das `drivelist`-npm-Package schließt auf Linux `/dev/sr*` (CD/DVD) in seinem lsblk-Enumerator hart aus (`node_modules/drivelist/lib/lsblk/json.ts:102`, Kommentar „Omit loop devices, CD/DVD drives, and RAM"). `drivelist.list()` liefert die DVD auf Linux **nie** zurück → Apps `isOpticalDrive()`-Regex (korrekt geschrieben) läuft nie an. OS mountet die Disc korrekt ro nach `/media/marvin/<label>` (verifiziert kiosk2: `/dev/sr0`, Label `Bläserklasse`, udf).
+- **Fix-Strategie:** drivelist für optische Medien auf Linux umgehen — eigener `/dev/sr*`-Enumerator via `lsblk -J -o …`, synthetische `DriveInfo` (isOptical:true, OS-Mountpoint) in `snapshot()` mergen. Danach greift bestehende `dataDrive`-Logik (`App.tsx:78-81`) automatisch → Splitscreen. Blanke Disc (kein Mount) → weiter `burnDrive` → OpticalDropZone. Beide Pfade erhalten. Kein drivelist-Fork/Patch (App-Layer-Lösung, konform CLAUDE.md).
+- **Deployment/Test:** Fix muss auf alle 3 Kioske (`git pull` im Repo + App-Restart, siehe Memory `kiosk-infra`). **Realer DVD-Gesamtflow testet Marvin selbst am Gerät.**
+
+## 📋 Task Ledger (DVD-Fix)
+
+| Task | Agent | Status | DoR (messbar) | Files (exklusiv) |
+|---|---|---|---|---|
+| DVD-1 Optical-Enumerator | Sonnet (cavecrew-builder) | 🟢 DONE | `listOpticalDrives()` Linux-only: `lsblk -J -o NAME,PATH,LABEL,MOUNTPOINT,RO,RM,TYPE,MODEL`, filter `type==='rom'` → synthetische `DriveInfo` (isOptical:true, isRemovable:true; mountpoint gesetzt → 1 mountpoint, sonst `[]`). Defensiv (lsblk-Fehler/parse-Fehler → `[]`, nie throw). In `snapshot()` gemerged, dedup by device. macOS unberührt (drivelist bleibt). typecheck grün. | `src/main/ipc/drives.ts` |
+| DVD-2 Tests | Haiku (cavecrew-builder) | 🟢 DONE | Unit-Test für lsblk-JSON-Parser mit gemocktem stdout-String: (a) data disc (mountpoint gesetzt → 1 mountpoint), (b) blank disc (mountpoint null → `[]`), (c) kein rom-device → `[]`, (d) lsblk-Fehler → `[]`. **drivelist gemockt, nie real aufrufen** (native binding segfaultet unter plain node — ABI-Mismatch; Enumerator selbst nutzt aber nur execFile(lsblk), kein drivelist). Testfixture = echter kiosk2-Output (siehe Handoff Notes). `npm test` grün. | `src/main/ipc/drives.test.ts` (neu) |
+| DVD-3 Review | Sonnet (cavecrew-reviewer) | 🟢 PASS | Diff gegen Root-Cause: gemountete DVD erscheint → Split (`App.tsx:134`) öffnet. Regression: blanke Disc bleibt Burn-Zone. Dedup korrekt. typecheck+test grün. Dann Deploy auf 3 Kioske + Marvins Gerätetest freigeben. | Review-Eintrag hier |
+
+## 🔄 Handoff Notes (DVD-Fix)
+
+- **[Root-Cause-Investigation] Sonnet-Investigatoren + Orchestrator:** 3 read-only Probes. (1) `drives.ts`-Filter analysiert — `isOpticalDrive()` (`/^\/dev\/sr\d+$/` oder Beschreibungs-Keyword) korrekt, referenziert `isReadOnly`/`busType` nie. (2) `App.tsx:78-85,134` — Split-Bedingung `usbPath ?` braucht `dataDrive` mit `mountpoints[0]`; DVD ohne Mount → `burnDrive` → OpticalDropZone. (3) SSH-Runtime-Probe kiosk2: DVD `/dev/sr0`/`Bläserklasse` von OS gemountet, aber `drivelist.list()` gibt nur `/dev/sda`+`/dev/sdb` (intern) — `/dev/sr0` fehlt komplett → Ursache in `node_modules/drivelist/lib/lsblk/json.ts:102`. `node -e` segfaultet an drivelist native binding → Probe nutzte `ELECTRON_RUN_AS_NODE=1 electron -e`.
+- **[DVD-1] Orchestrator-Verifikation:** Builder gab zunächst `lsblk -J -O -o …` aus → **Bug:** `-O`/`-o` sind mutually exclusive (util-linux 2.40, Debian 13): `lsblk: mutually exclusive arguments: --output-all --output` → catch `[]` → DVD unsichtbar. Gegen echtes kiosk2 verifiziert + gefixt (nur `-o`). **Echter kiosk2-Output** (`lsblk -J -o NAME,PATH,LABEL,MOUNTPOINT,RO,RM,TYPE,MODEL`, für DVD-2-Fixture):
+  ```json
+  { "name": "sr0", "path": "/dev/sr0", "label": "Bläserklasse",
+    "mountpoint": "/media/marvin/Bläserklasse", "ro": false, "rm": true,
+    "type": "rom", "model": "DVD RW AD-7710H" }
+  ```
+  Key ist `mountpoint` (singular, gesetzt), matcht `LsblkDevice`-Interface. typecheck node+web grün.
+- **[DVD-2] Haiku (cavecrew-builder):** ✅ DONE. Refactor: reine `parseOpticalLsblk(stdout)` aus `listOpticalDrives()` extrahiert (execFile + Plattform-Guard bleiben in `listOpticalDrives`), exportiert für Test. Neu `src/main/ipc/drives.test.ts`, 8 Cases (data disc/blank disc/model-Fallback/kein rom/non-rom-Filter/unparsebar + 2 Shape-Checks). Orchestrator-Verifikation: typecheck node+web grün, `npm test` **110/110 grün** (5 Testdateien).
+- **[DVD-3] Sonnet (cavecrew-reviewer):** ✅ PASS (0🔴 2🟡). Items 1–4 PASS: gemountete Disc → `mountpoints[0]` gesetzt → `dataDrive`-find matcht → Split öffnet; blanke Disc → `mountpoints:[]` → nur `burnDrive` (mutually exclusive, korrekt); Merge/Dedup by device droppt/dupliziert keine echten Drives; `listOpticalDrives` non-throwing (execFile + JSON.parse je try/catch → `[]`); Agora disc_inserted feuert korrekt via `prev.mountpoints.length===0 && d.mountpoints.length>0`-Zweig, Baseline respektiert. **2 gelbe Findings gefixt (Sonnet cavecrew-builder):** F1 = synthetische Optical-Entries übersprangen Backup-Filter → neuer `isBackupDriveInfo(DriveInfo)`, in `snapshot()` auf `optical` vor Merge angewandt. F2 = `listOpticalDrives()` execFile-Fehlerzweig untestet → exportiert + Tests (lsblk-fail→[], non-linux→[]) + `isBackupDriveInfo`-Test. Orchestrator-Verifikation: typecheck node+web grün, `npm test` **114/114 grün**.
+- **[DEPLOY] OFFEN:** commit + push main, dann je Kiosk `git pull` in `~/copyparty-kiosk` + App-Restart (Script-Datei-Methode, siehe Memory `kiosk-infra` — NICHT Inline-`pkill -f`). Danach **Marvin: realer DVD-Gesamtflow am Gerät** (Disc rein → Split öffnet → Dateien browsebar; blanke Disc → Burn-Zone unverändert).
+
+---
+
+# RUN-STATE: Anforderungs-Verifikation (2026-07-09) — ARCHIV
+
+## 🧭 System Context (Verifikations-Run)
+
+- **Active Agent:** Architect/Orchestrator (Fable 5) — testet NICHT selbst, schreibt keinen Code
+- **Ziel:** Alle 11 Anforderungen (Memory `kiosk-requirements`) mit echten Tests auf den Kiosken verifizieren. **Ausnahme: DVD/Burn (#1 optisch, #4 Burn) — testet Marvin selbst am Gerät.**
+- **Regel für alle Agents:** NICHTS fixen, keine Commits, nur beobachten + dokumentieren (PASS/FAIL/PARTIAL/NOT-TESTABLE + Beweis). Testartefakte danach aufräumen. Apps laufend hinterlassen.
+- **Output:** Orchestrator konsolidiert in `TEST-REPORT.md` (MD-Tabelle).
+
+## 📋 Task Ledger (Verifikation)
+
+| Task | Agent | Kiosk | Status | Scope |
+|---|---|---|---|---|
+| VER-A Backend/API | Sonnet 5 | kiosk2 (SSH, kein UI) | 🟢 | #2 ?ls, #7/#9 /event+/stats (synthetisch, Delta-basiert, Events danach aus DB löschen), #8 /stats live/ever/peak, #10-remote Code-Check ?srch, #1-USB lsblk-Status; lokal: typecheck+npm test |
+| VER-B Viewer+Meta | Opus 4.8 | kiosk2 (UI, DISPLAY=:0) | 🟢 | #5 alle 7 Kategorien QuickLook+FullView (lokal+remote), #6 Metadaten lesen+schreiben lokal UND remote (≤64 MB) |
+| VER-C Sort+Suche | Opus 4.8 | kiosk1 (UI) | 🟢 | #3 Sort-UI beide Panes (Name/Größe/Datum/Format, dirs-first), #10 lokale Namenssuche |
+| VER-D DnD+Expand | Opus 4.8 | kiosk3 (UI) | 🟢 | #4 DnD local→remote + remote→local (xdotool), #11 Ordner-Drop + ZIP-Drop (Einheit erhalten, single-root-Kollaps, Kollision "(2)") |
+
+**Review (Fable 5, 2026-07-10): ✅ ABGESCHLOSSEN.** Alle 4 Agents fertig, Cleanup je bestätigt (Testfiles, copyparty-Uploads, Stats-Events, scsi_debug entladen), Apps im Normalzustand. Konsolidiertes Ergebnis in **`TEST-REPORT.md`**: #2/#3/#4/#6/#8/#10/#11 voll PASS (Remote-Suche entgegen Doku bereits implementiert + funktionsfähig!), #1-USB/#5/#7 PASS mit Findings, #9 PARTIAL (GB-pro-Format strukturell unmöglich, kein Bytes-Feld im events-Schema). 7 Findings F1–F7 dokumentiert, **NICHTS gefixt** (Auftragsregel): F1 QuickLook PDF/DOCX Rohmüll, F2 Hot-Plug-Mount-Lücke drives.ts, F3 Esc bei Video-Fokus, F4 Handle-Leak Metadaten-Write, F5 Fußzeilen-Kosmetik, F6 = #9-Lücke, F7 Doku veraltet. Offen für Marvin: DVD-Gesamtflow + echter USB-Stecktest.
+
+**Konflikt-Regeln:** UI-Agents je eigener Kiosk (parallel ok). Alle Uploads mit eindeutigem Präfix (`ver-b-`, `ver-c-`, `ver-d-`). VER-A zählt Deltas mit eigenem Marker (`kiosk`-Feld `verify-agent`), da VER-D parallel echte transfer-Events erzeugt.
+
+---
+
+# RUN-STATE (ARCHIV): Analytics (#7/#9) + Sort-UI (#3)
 
 ## 🧭 System Context (Feature 2)
 

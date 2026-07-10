@@ -1,8 +1,12 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import drivelist from 'drivelist'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import { DriveInfo, IpcChannels } from '../../shared/types'
 import { dropBucket, setKnownMounts } from '../thumb-cache'
 import { reportDiscInserted, reportUsbConnected } from '../agora-events'
+
+const execFileAsync = promisify(execFile)
 
 const POLL_INTERVAL_MS = 2000
 
@@ -45,14 +49,88 @@ function isBackupVolume(d: drivelist.Drive): boolean {
   })
 }
 
+export function isBackupDriveInfo(d: DriveInfo): boolean {
+  return d.mountpoints.some((m) => {
+    const label = m.label ?? ''
+    const tail = m.path.split(/[\\/]/).filter(Boolean).pop() ?? ''
+    return /^backup/i.test(label) || /^backup/i.test(tail)
+  })
+}
+
+interface LsblkDevice {
+  name: string
+  path: string
+  label: string | null
+  mountpoint: string | null
+  ro: boolean
+  rm: boolean
+  type: string
+  model: string | null
+  children?: LsblkDevice[]
+}
+
+/**
+ * Parse lsblk JSON stdout and extract optical (type==='rom') devices as DriveInfo.
+ * Exported for testability. Called by listOpticalDrives().
+ */
+export function parseOpticalLsblk(stdout: string): DriveInfo[] {
+  try {
+    const parsed = JSON.parse(stdout) as { blockdevices: LsblkDevice[] }
+    return parsed.blockdevices
+      .filter((d) => d.type === 'rom')
+      .map((d) => {
+        const model = (d.model ?? '').trim()
+        const mountpoint = d.mountpoint ?? ''
+        return {
+          id: d.path,
+          device: d.path,
+          description: model || 'Optical Drive',
+          size: null,
+          isUSB: false,
+          isRemovable: true,
+          isSystem: false,
+          isOptical: true,
+          mountpoints: mountpoint ? [{ path: mountpoint, label: d.label ?? null }] : []
+        } satisfies DriveInfo
+      })
+  } catch (err) {
+    return []
+  }
+}
+
+/**
+ * drivelist's Linux lsblk enumerator hard-excludes /dev/sr* (CD/DVD) nodes,
+ * so inserted discs never show up via drivelist.list(). Run lsblk directly
+ * and synthesize DriveInfo entries for type==='rom' devices. Linux-only;
+ * macOS keeps using drivelist unchanged.
+ */
+export async function listOpticalDrives(): Promise<DriveInfo[]> {
+  if (process.platform !== 'linux') return []
+  try {
+    const { stdout } = await execFileAsync('lsblk', [
+      '-J',
+      '-o',
+      'NAME,PATH,LABEL,MOUNTPOINT,RO,RM,TYPE,MODEL'
+    ])
+    return parseOpticalLsblk(stdout)
+  } catch (err) {
+    console.error('[drives] lsblk optical enumeration failed:', err)
+    return []
+  }
+}
+
 async function snapshot(): Promise<DriveInfo[]> {
   const drives = await drivelist.list()
-  return drives
+  const fromDrivelist = drives
     .filter(
       (d) =>
         !d.isSystem && (d.isUSB || d.isRemovable || isOpticalDrive(d)) && !isBackupVolume(d)
     )
     .map(toDriveInfo)
+  const optical = (await listOpticalDrives()).filter((d) => !isBackupDriveInfo(d))
+  const seen = new Set(fromDrivelist.map((d) => d.device))
+  const merged = [...fromDrivelist, ...optical.filter((d) => !seen.has(d.device))]
+  return merged
 }
 
 function diff(prev: Map<string, DriveInfo>, next: DriveInfo[]): {
