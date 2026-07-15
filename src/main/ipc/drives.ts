@@ -133,21 +133,49 @@ async function snapshot(): Promise<DriveInfo[]> {
   return merged
 }
 
-function diff(prev: Map<string, DriveInfo>, next: DriveInfo[]): {
+// Set of mountpoint paths, order-independent, for detecting disc in/out on a
+// persistent optical node (/dev/sr0 stays present; only its mountpoint changes).
+// Exported for testability.
+export function mountsKey(d: DriveInfo): string {
+  return d.mountpoints
+    .map((m) => m.path)
+    .sort()
+    .join('|')
+}
+
+// Exported for testability.
+export function diff(prev: Map<string, DriveInfo>, next: DriveInfo[]): {
   added: DriveInfo[]
   removed: string[]
+  changed: DriveInfo[]
 } {
   const nextIds = new Set(next.map((d) => d.id))
   const added = next.filter((d) => !prev.has(d.id))
   const removed = [...prev.keys()].filter((id) => !nextIds.has(id))
-  return { added, removed }
+  const changed = next.filter((d) => {
+    const p = prev.get(d.id)
+    return p !== undefined && mountsKey(p) !== mountsKey(d)
+  })
+  return { added, removed, changed }
 }
 
 async function tick(window: BrowserWindow): Promise<void> {
   try {
     const current = await snapshot()
-    const { added, removed } = diff(lastDrives, current)
+    const { added, removed, changed } = diff(lastDrives, current)
     for (const d of added) window.webContents.send(IpcChannels.DriveAdded, d)
+    for (const d of changed) {
+      // Drop thumb caches for any mountpoint that vanished (e.g. disc ejected
+      // from an optical drive whose /dev/sr0 node itself stays present).
+      const prev = lastDrives.get(d.id)
+      if (prev) {
+        const stillMounted = new Set(d.mountpoints.map((m) => m.path))
+        for (const m of prev.mountpoints) {
+          if (!stillMounted.has(m.path)) void dropBucket(m.path)
+        }
+      }
+      window.webContents.send(IpcChannels.DriveChanged, d)
+    }
     for (const id of removed) {
       const gone = lastDrives.get(id)
       if (gone) {

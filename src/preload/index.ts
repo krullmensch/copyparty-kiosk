@@ -42,6 +42,11 @@ const api = {
       const handler = (_: unknown, id: string): void => cb(id)
       ipcRenderer.on(IpcChannels.DriveRemoved, handler)
       return () => ipcRenderer.off(IpcChannels.DriveRemoved, handler)
+    },
+    onChanged: (cb: (drive: DriveInfo) => void): (() => void) => {
+      const handler = (_: unknown, drive: DriveInfo): void => cb(drive)
+      ipcRenderer.on(IpcChannels.DriveChanged, handler)
+      return () => ipcRenderer.off(IpcChannels.DriveChanged, handler)
     }
   },
   fs: {

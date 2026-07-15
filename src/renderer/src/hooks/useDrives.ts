@@ -17,11 +17,15 @@ export function useDrives(): DriveInfo[] {
     const offRemoved = window.api.drives.onRemoved((id) => {
       setDrives((prev) => prev.filter((d) => d.id !== id))
     })
+    const offChanged = window.api.drives.onChanged((drive) => {
+      setDrives((prev) => prev.map((d) => (d.id === drive.id ? drive : d)))
+    })
 
     return () => {
       cancelled = true
       offAdded()
       offRemoved()
+      offChanged()
     }
   }, [])
 

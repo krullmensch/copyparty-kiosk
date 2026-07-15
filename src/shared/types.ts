@@ -101,6 +101,7 @@ export const IpcChannels = {
   DrivesList: 'drives:list',
   DriveAdded: 'drive:added',
   DriveRemoved: 'drive:removed',
+  DriveChanged: 'drive:changed',
   FsList: 'fs:list',
   FsHome: 'fs:home',
   FsThumb: 'fs:thumb',

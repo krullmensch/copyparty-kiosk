@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { DriveInfo } from '../../shared/types'
 
 // drives.ts imports drivelist, execFile, and sends IPC events to BrowserWindow.
 // parseOpticalLsblk is a pure JSON parser, so stub everything that's Electron-only.
@@ -23,7 +24,21 @@ vi.mock('node:child_process', () => ({
   execFile: execFileMock
 }))
 
-const { parseOpticalLsblk, listOpticalDrives, isBackupDriveInfo } = await import('./drives')
+const { parseOpticalLsblk, listOpticalDrives, isBackupDriveInfo, diff } = await import('./drives')
+
+function opticalDrive(mountpoint: string | null): DriveInfo {
+  return {
+    id: '/dev/sr0',
+    device: '/dev/sr0',
+    description: 'DVD',
+    size: null,
+    isUSB: false,
+    isRemovable: true,
+    isSystem: false,
+    isOptical: true,
+    mountpoints: mountpoint ? [{ path: mountpoint, label: 'JURASSIC_WORLD' }] : []
+  }
+}
 
 describe('parseOpticalLsblk', () => {
   // Case 1: Data disc with label, mounted (kiosk2 real fixture)
@@ -264,5 +279,43 @@ describe('isBackupDriveInfo', () => {
         mountpoints: [{ path: '/media/marvin/MyDVD', label: 'MyDVD' }]
       })
     ).toBe(false)
+  })
+})
+
+describe('diff — optical disc in/out on a persistent /dev/sr0 node', () => {
+  // The optical device node stays enumerated whether or not a disc is present;
+  // only its mountpoint changes. These transitions must surface as `changed`,
+  // not be swallowed because the device id is unchanged.
+  it('reports disc insertion (mountpoint gained) as changed, not added/removed', () => {
+    const prev = new Map([['/dev/sr0', opticalDrive(null)]])
+    const { added, removed, changed } = diff(prev, [opticalDrive('/media/marvin/JURASSIC_WORLD')])
+    expect(added).toEqual([])
+    expect(removed).toEqual([])
+    expect(changed).toHaveLength(1)
+    expect(changed[0].mountpoints[0].path).toBe('/media/marvin/JURASSIC_WORLD')
+  })
+
+  it('reports disc removal (mountpoint lost) as changed, not removed', () => {
+    const prev = new Map([['/dev/sr0', opticalDrive('/media/marvin/JURASSIC_WORLD')]])
+    const { added, removed, changed } = diff(prev, [opticalDrive(null)])
+    expect(added).toEqual([])
+    expect(removed).toEqual([])
+    expect(changed).toHaveLength(1)
+    expect(changed[0].mountpoints).toEqual([])
+  })
+
+  it('reports no change when the mountpoint is stable', () => {
+    const drive = opticalDrive('/media/marvin/JURASSIC_WORLD')
+    const prev = new Map([['/dev/sr0', drive]])
+    const { added, removed, changed } = diff(prev, [opticalDrive('/media/marvin/JURASSIC_WORLD')])
+    expect(added).toEqual([])
+    expect(removed).toEqual([])
+    expect(changed).toEqual([])
+  })
+
+  it('still reports a genuinely new device as added', () => {
+    const { added, changed } = diff(new Map(), [opticalDrive('/media/marvin/JURASSIC_WORLD')])
+    expect(added).toHaveLength(1)
+    expect(changed).toEqual([])
   })
 })
