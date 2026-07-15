@@ -27,6 +27,10 @@ function App(): React.JSX.Element {
   const drives = useDrives()
   const caps = useAgoraCapabilities()
   const [remoteReady, setRemoteReady] = useState(false)
+  // Bumping retryNonce re-runs the connect effect for an immediate reconnect.
+  const [retryNonce, setRetryNonce] = useState(0)
+  const [connectAttempts, setConnectAttempts] = useState(0)
+  const [connectError, setConnectError] = useState<string | null>(null)
   const [statsOpen, setStatsOpen] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
   const logoClicks = useRef<{ n: number; t: number }>({ n: 0, t: 0 })
@@ -57,13 +61,18 @@ function App(): React.JSX.Element {
   useEffect(() => {
     let cancelled = false
     void (async () => {
+      let attempt = 0
       while (!cancelled) {
+        attempt++
+        setConnectAttempts(attempt)
         const res = await window.api.cpp.connect(COPYPARTY_URL)
         if (cancelled) return
         if (res.ok) {
+          setConnectError(null)
           setRemoteReady(true)
           return
         }
+        setConnectError(res.message ?? `Fehler ${res.status}`)
         await new Promise((r) => setTimeout(r, 2000))
       }
     })()
@@ -71,7 +80,14 @@ function App(): React.JSX.Element {
       cancelled = true
       void window.api.cpp.disconnect(COPYPARTY_URL)
     }
-  }, [])
+  }, [retryNonce])
+
+  // Manual "reconnect now": drop the ready flag and re-run the connect effect,
+  // so the user isn't stuck waiting out the 2s auto-retry cycle.
+  const retryConnect = (): void => {
+    setRemoteReady(false)
+    setRetryNonce((n) => n + 1)
+  }
 
   // Principle: one local removable source at a time — USB stick OR DVD, not
   // both. A USB stick (non-optical, mounted) takes precedence as the browse
@@ -106,8 +122,15 @@ function App(): React.JSX.Element {
   const remotePane = remoteReady ? (
     <RemoteBrowserPane key={COPYPARTY_URL} server={COPYPARTY_URL} />
   ) : (
-    <div className="text-ink-muted flex h-full items-center justify-center text-label">
-      verbinde mit {COPYPARTY_URL} …
+    <div className="text-ink-muted flex h-full flex-col items-center justify-center gap-3 text-label">
+      <span>
+        verbinde mit {COPYPARTY_URL} …
+        {connectAttempts > 1 && ` (Versuch ${connectAttempts})`}
+      </span>
+      {connectError && <span className="text-meta text-ink-faint">{connectError}</span>}
+      <Button size="sm" variant="outline" onClick={retryConnect}>
+        Erneut verbinden
+      </Button>
     </div>
   )
 
