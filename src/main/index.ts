@@ -1,6 +1,9 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 
 app.commandLine.appendSwitch('force-device-scale-factor', '1.4')
+// Exposes HTMLMediaElement.audioTracks so the video.js player can list and
+// switch the embedded audio languages of a DVD rip (off by default in Chromium).
+app.commandLine.appendSwitch('enable-experimental-web-platform-features')
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'

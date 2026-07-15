@@ -8,7 +8,7 @@ type Stage = 'scan' | 'encode' | 'upload'
 
 /**
  * Confirm + progress dialog for ripping a video DVD's main feature and
- * uploading it to Agora (`/DVD-Rips`). Requires HandBrakeCLI + libdvdcss on
+ * uploading it to the Agora root. Requires HandBrakeCLI + libdvdcss on
  * the kiosk (checked on open, see kiosk-infra memory).
  */
 export function RipDialog({
@@ -96,7 +96,7 @@ export function RipDialog({
           <div className="flex flex-col gap-4">
             <div className="text-meta text-ink-muted">
               Hauptfilm von <code>{label}</code> wird erkannt, entschlüsselt, nach H.264
-              transkodiert und nach <code>{'/DVD-Rips'}</code> auf Agora hochgeladen. Das kann
+              transkodiert (MP4 mit allen Tonspuren) und auf Agora hochgeladen. Das kann
               je nach Länge mehrere Minuten dauern.
             </div>
             <Button className="w-full" onClick={start}>
@@ -125,7 +125,7 @@ export function RipDialog({
         {phase === 'done' && (
           <div className="flex flex-col gap-4">
             <div className="text-meta text-ink-muted">
-              Fertig — liegt jetzt unter <code>{'/DVD-Rips'}</code> auf Agora.
+              Fertig — liegt jetzt auf Agora.
             </div>
             <Button className="w-full" onClick={onClose}>
               Schließen

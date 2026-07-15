@@ -3,7 +3,8 @@ import { spawn, execFile } from 'node:child_process'
 import { existsSync, promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { DvdRipProgress, DvdRipResult, IpcChannels } from '../../shared/types'
+import { promisify } from 'node:util'
+import { DvdRipProgress, DvdRipResult, DvdTracks, IpcChannels } from '../../shared/types'
 import { upload } from './copyparty'
 
 // Rips the main feature off a video DVD and uploads it straight to Agora.
@@ -13,6 +14,8 @@ import { upload } from './copyparty'
 // bundled, see kiosk-infra memory). CSS circumvention is illegal in Germany
 // under §95a UrhG even for private backups -- a deliberate, documented
 // exception here, not an oversight.
+
+const execFileAsync = promisify(execFile)
 
 /** True if the HandBrakeCLI binary is on PATH. */
 export function isRipAvailable(): Promise<boolean> {
@@ -35,7 +38,78 @@ export function sanitizeName(label: string): string {
   return s || 'DVD-Rip'
 }
 
-const UPLOAD_TARGET_VPATH = '/DVD-Rips'
+// Rips land at the Agora root so they sit alongside everything else, not
+// buried in a subfolder.
+const UPLOAD_TARGET_VPATH = '/'
+
+interface HbScanTitle {
+  Index?: number
+  AudioList?: { LanguageCode?: string }[]
+  SubtitleList?: { LanguageCode?: string }[]
+}
+interface HbScan {
+  MainFeature?: number
+  TitleList?: HbScanTitle[]
+}
+
+/** Extract the balanced `{...}` object that follows HandBrake's "JSON Title Set:" banner. */
+function extractTitleSetJson(stdout: string): string | null {
+  const marker = stdout.indexOf('JSON Title Set:')
+  const from = marker === -1 ? 0 : marker
+  const start = stdout.indexOf('{', from)
+  if (start === -1) return null
+  let depth = 0
+  for (let i = start; i < stdout.length; i++) {
+    const c = stdout[i]
+    if (c === '{') depth++
+    else if (c === '}' && --depth === 0) return stdout.slice(start, i + 1)
+  }
+  return null
+}
+
+/**
+ * Parse a HandBrakeCLI `--json` scan into the main feature's audio + subtitle
+ * language codes (iso639-2, deduped, order preserved). Exported for testability.
+ */
+export function parseScanJson(stdout: string): DvdTracks {
+  const empty: DvdTracks = { audio: [], subtitles: [] }
+  const json = extractTitleSetJson(stdout)
+  if (!json) return empty
+  let scan: HbScan
+  try {
+    scan = JSON.parse(json) as HbScan
+  } catch {
+    return empty
+  }
+  const titles = scan.TitleList ?? []
+  const main = titles.find((t) => t.Index === scan.MainFeature) ?? titles[0]
+  if (!main) return empty
+  const langs = (list: { LanguageCode?: string }[] | undefined): string[] => {
+    const out: string[] = []
+    for (const e of list ?? []) {
+      const code = e.LanguageCode
+      if (code && !out.includes(code)) out.push(code)
+    }
+    return out
+  }
+  return { audio: langs(main.AudioList), subtitles: langs(main.SubtitleList) }
+}
+
+/** Scan a mounted video DVD for its main feature's audio + subtitle languages. */
+async function scanTracks(mountPath: string): Promise<DvdTracks> {
+  try {
+    // HandBrake prints its log (incl. the "JSON Title Set:" banner) to stderr;
+    // parse both streams. Bump maxBuffer well past the default 1 MB.
+    const { stdout, stderr } = await execFileAsync(
+      'HandBrakeCLI',
+      ['-i', mountPath, '--main-feature', '--scan', '--json'],
+      { maxBuffer: 32 * 1024 * 1024 }
+    )
+    return parseScanJson(stdout + stderr)
+  } catch {
+    return { audio: [], subtitles: [] }
+  }
+}
 
 function rip(
   mountPath: string,
@@ -43,16 +117,25 @@ function rip(
   emit: (p: DvdRipProgress) => void
 ): Promise<DvdRipResult> {
   return new Promise((resolvePromise) => {
+    // MP4 container so the rip plays natively in the kiosk's Chromium <video>
+    // (MKV does not). Every audio language is kept and transcoded to AAC (Chromium
+    // can't decode the DVD's native AC3). DVD subtitles are VOBSUB bitmaps that
+    // MP4 can't carry and no browser player renders -- they're not embedded; the
+    // available subtitle languages are recorded in a sidecar (see scanTracks) so
+    // the player can surface them as an info badge.
     const args = [
       '-i',
       mountPath,
       '-o',
       outFile,
       '--main-feature',
+      '-f',
+      'av_mp4',
       '-e',
       'x264',
       '-q',
       '22',
+      '--all-audio',
       '--aencoder',
       'av_aac'
     ]
@@ -95,13 +178,23 @@ async function ripAndUpload(
   emit: (p: DvdRipProgress) => void
 ): Promise<DvdRipResult> {
   const tmp = await fs.mkdtemp(join(tmpdir(), 'agora-dvdrip-'))
-  const outFile = join(tmp, `${sanitizeName(label)}.mp4`)
+  const stem = sanitizeName(label)
+  const outFile = join(tmp, `${stem}.mp4`)
+  const sidecarFile = join(tmp, `${stem}.tracks.json`)
   try {
+    // Scan first so the sidecar reflects the disc even if the (long) rip is
+    // aborted later; the language lists come from the same main feature we rip.
+    const tracks = await scanTracks(mountPath)
+
     const ripResult = await rip(mountPath, outFile, emit)
     if (!ripResult.ok) return ripResult
 
+    // Sidecar carries the subtitle languages (not embeddable in MP4) plus the
+    // audio languages, for the player's info badge and track labels.
+    await fs.writeFile(sidecarFile, JSON.stringify(tracks), 'utf8')
+
     emit({ kind: 'upload', percent: 0 })
-    const uploadResult = await upload(server, UPLOAD_TARGET_VPATH, [outFile], (p) => {
+    const uploadResult = await upload(server, UPLOAD_TARGET_VPATH, [outFile, sidecarFile], (p) => {
       if (p.kind === 'upload' && p.bytesTotal > 0) {
         emit({ kind: 'upload', percent: Math.round((p.bytesDone / p.bytesTotal) * 100) })
       }
