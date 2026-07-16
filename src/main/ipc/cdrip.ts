@@ -57,7 +57,11 @@ export function parseTrackCount(stderr: string): number {
  * "TITLE:" line. Never throws -- no CD-TEXT (or an unexpected layout) just
  * yields an empty track map. Exported for testability.
  */
-export function parseCdText(stdout: string): { album?: string; tracks: Record<number, string> } {
+export function parseCdText(stdout: string): {
+  album?: string
+  artist?: string
+  tracks: Record<number, string>
+} {
   const tracks: Record<number, string> = {}
   try {
     if (!/CD-TEXT/i.test(stdout)) return { tracks }
@@ -66,9 +70,12 @@ export function parseCdText(stdout: string): { album?: string; tracks: Record<nu
     // line (its indented TITLE/PERFORMER body ends there).
     const discMatch = /CD-TEXT for Disc:\s*([\s\S]*?)(?=CD-TEXT for |\n\S|$)/i.exec(stdout)
     let album: string | undefined
+    let artist: string | undefined
     if (discMatch) {
       const t = /TITLE:\s*(.+)/i.exec(discMatch[1])
       if (t) album = t[1].trim()
+      const p = /PERFORMER:\s*(.+)/i.exec(discMatch[1])
+      if (p) artist = p[1].trim()
     }
 
     const sectionRe = /CD-TEXT for Track\s*(\d+):\s*([\s\S]*?)(?=CD-TEXT for |\n\S|$)/gi
@@ -78,7 +85,7 @@ export function parseCdText(stdout: string): { album?: string; tracks: Record<nu
       const titleMatch = /TITLE:\s*(.+)/i.exec(m[2])
       if (titleMatch) tracks[track] = titleMatch[1].trim()
     }
-    return { album, tracks }
+    return { album, artist, tracks }
   } catch {
     return { tracks: {} }
   }
@@ -100,7 +107,9 @@ async function readToc(device: string): Promise<number> {
 }
 
 /** cd-info is optional -- missing binary or a disc without CD-TEXT both just yield generic names. */
-async function readCdText(device: string): Promise<{ album?: string; tracks: Record<number, string> }> {
+async function readCdText(
+  device: string
+): Promise<{ album?: string; artist?: string; tracks: Record<number, string> }> {
   try {
     const { stdout } = await execFileAsync('cd-info', [
       '--no-device-info',
@@ -125,6 +134,8 @@ function ripTrack(
   n: number,
   trackCount: number,
   title: string | undefined,
+  album: string | undefined,
+  artist: string | undefined,
   emit: (p: CdRipProgress) => void
 ): Promise<{ ok: boolean; message?: string; file?: string }> {
   return new Promise((resolvePromise) => {
@@ -161,7 +172,19 @@ function ripTrack(
       emit({ kind: 'encode', track: n, total: trackCount })
       const flacName = title ? `${nn} - ${sanitizeName(title)}.flac` : `track${nn}.flac`
       const flacPath = join(tmpDir, flacName)
-      const enc = spawn('ffmpeg', ['-y', '-i', wavPath, '-c:a', 'flac', flacPath])
+      const metaArgs: string[] = ['-metadata', `track=${n}/${trackCount}`]
+      if (title) metaArgs.push('-metadata', `title=${title}`)
+      if (album) metaArgs.push('-metadata', `album=${album}`)
+      if (artist) metaArgs.push('-metadata', `artist=${artist}`)
+      const enc = spawn('ffmpeg', [
+        '-y',
+        '-i',
+        wavPath,
+        '-c:a',
+        'flac',
+        ...metaArgs,
+        flacPath
+      ])
       let encStderrTail = ''
       enc.stderr.on('data', (buf: Buffer) => {
         encStderrTail = (encStderrTail + buf.toString()).slice(-2000)
@@ -187,7 +210,7 @@ async function rip(
   device: string,
   tmpDir: string,
   trackCount: number,
-  cdText: { album?: string; tracks: Record<number, string> },
+  cdText: { album?: string; artist?: string; tracks: Record<number, string> },
   emit: (p: CdRipProgress) => void
 ): Promise<{ ok: boolean; message?: string; files: string[] }> {
   if (!isOpticalDevice(device)) {
@@ -196,7 +219,16 @@ async function rip(
 
   const files: string[] = []
   for (let n = 1; n <= trackCount; n++) {
-    const result = await ripTrack(device, tmpDir, n, trackCount, cdText.tracks[n], emit)
+    const result = await ripTrack(
+      device,
+      tmpDir,
+      n,
+      trackCount,
+      cdText.tracks[n],
+      cdText.album,
+      cdText.artist,
+      emit
+    )
     if (!result.ok || !result.file) return { ok: false, message: result.message, files }
     files.push(result.file)
   }

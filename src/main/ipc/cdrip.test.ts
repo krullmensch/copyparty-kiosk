@@ -82,6 +82,7 @@ CD-TEXT for Track 2:
 `
     expect(parseCdText(stdout)).toEqual({
       album: 'The Dark Side of the Moon',
+      artist: 'Pink Floyd',
       tracks: { 1: 'Speak to Me', 2: 'Breathe' }
     })
   })
@@ -102,6 +103,7 @@ CD-TEXT for Track  2:
 `
     expect(parseCdText(stdout)).toEqual({
       album: 'nie',
+      artist: 'Fynn Kliemann',
       tracks: { 1: 'Morgen', 2: 'Bis Seattle' }
     })
   })
