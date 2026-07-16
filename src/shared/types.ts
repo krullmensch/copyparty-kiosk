@@ -8,6 +8,8 @@ export interface DriveInfo {
   isSystem: boolean
   /** optical drive (CD/DVD/BD). Shown even without a mounted disc, as a burn target. */
   isOptical: boolean
+  /** audio CD / CDDA disc -- no mounted filesystem, ripped via cdparanoia. */
+  isAudioCd?: boolean
   mountpoints: { path: string; label?: string | null }[]
 }
 
@@ -124,6 +126,9 @@ export const IpcChannels = {
   DvdRipIsVideoDvd: 'dvdrip:is-video-dvd',
   DvdRipStart: 'dvdrip:start',
   DvdRipProgress: 'dvdrip:progress',
+  CdRipAvailable: 'cdrip:available',
+  CdRipStart: 'cdrip:start',
+  CdRipProgress: 'cdrip:progress',
   PreviewMetadata: 'preview:metadata',
   PreviewMetadataWrite: 'preview:metadata:write',
   PreviewReadText: 'preview:read-text',
@@ -267,4 +272,17 @@ export interface DvdRipResult {
 export interface DvdTracks {
   audio: string[]
   subtitles: string[]
+}
+
+export type CdRipProgress =
+  | { kind: 'scan' }
+  | { kind: 'rip'; track: number; total: number; percent: number }
+  | { kind: 'encode'; track: number; total: number }
+  | { kind: 'upload'; percent: number }
+  | { kind: 'done' }
+  | { kind: 'error'; message: string }
+
+export interface CdRipResult {
+  ok: boolean
+  message?: string
 }

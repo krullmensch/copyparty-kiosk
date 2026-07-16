@@ -8,6 +8,8 @@ import {
   BurnProgress,
   BurnResult,
   BurnSources,
+  CdRipProgress,
+  CdRipResult,
   ConnectResult,
   CppSearchResult,
   DriveInfo,
@@ -139,6 +141,16 @@ const api = {
       const handler = (_: unknown, p: DvdRipProgress): void => cb(p)
       ipcRenderer.on(IpcChannels.DvdRipProgress, handler)
       return () => ipcRenderer.off(IpcChannels.DvdRipProgress, handler)
+    }
+  },
+  cdrip: {
+    available: (): Promise<boolean> => ipcRenderer.invoke(IpcChannels.CdRipAvailable),
+    start: (device: string, server: string): Promise<CdRipResult> =>
+      ipcRenderer.invoke(IpcChannels.CdRipStart, device, server),
+    onProgress: (cb: (p: CdRipProgress) => void): (() => void) => {
+      const handler = (_: unknown, p: CdRipProgress): void => cb(p)
+      ipcRenderer.on(IpcChannels.CdRipProgress, handler)
+      return () => ipcRenderer.off(IpcChannels.CdRipProgress, handler)
     }
   }
 }

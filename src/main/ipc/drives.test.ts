@@ -24,8 +24,14 @@ vi.mock('node:child_process', () => ({
   execFile: execFileMock
 }))
 
-const { parseOpticalLsblk, listOpticalDrives, isBackupDriveInfo, diff, parseUdevMedia } =
-  await import('./drives')
+const {
+  parseOpticalLsblk,
+  listOpticalDrives,
+  isBackupDriveInfo,
+  diff,
+  parseUdevMedia,
+  parseAudioTrackCount
+} = await import('./drives')
 
 function opticalDrive(mountpoint: string | null): DriveInfo {
   return {
@@ -341,5 +347,29 @@ describe('parseUdevMedia — disc loaded vs empty tray', () => {
   it('does not match ID_CDROM_MEDIA as a substring of another key', () => {
     // ID_CDROM_MEDIA_DVD=1 without ID_CDROM_MEDIA=1 must not count as media.
     expect(parseUdevMedia('ID_CDROM=1\nID_CDROM_MEDIA_DVD=1')).toBe(false)
+  })
+})
+
+describe('parseAudioTrackCount', () => {
+  it('parses the audio track count from a udev property dump', () => {
+    const stdout = [
+      'ID_CDROM=1',
+      'ID_CDROM_MEDIA=1',
+      'ID_CDROM_MEDIA_CD=1',
+      'ID_CDROM_MEDIA_TRACK_COUNT=12',
+      'ID_CDROM_MEDIA_TRACK_COUNT_AUDIO=12',
+      'ID_FS_TYPE='
+    ].join('\n')
+    expect(parseAudioTrackCount(stdout)).toBe(12)
+  })
+
+  it('returns 0 when the property is absent', () => {
+    expect(parseAudioTrackCount('ID_CDROM=1\nID_CDROM_MEDIA=1')).toBe(0)
+  })
+
+  it('does not false-match a different property', () => {
+    // ID_CDROM_MEDIA_TRACK_COUNT (data+audio total) must not be mistaken for
+    // ID_CDROM_MEDIA_TRACK_COUNT_AUDIO.
+    expect(parseAudioTrackCount('ID_CDROM_MEDIA_TRACK_COUNT=12')).toBe(0)
   })
 })

@@ -6,6 +6,7 @@ import { FileBrowserPane } from './components/FileBrowserPane'
 import { RemoteBrowserPane } from './components/RemoteBrowserPane'
 import { OpticalDropZone } from './components/OpticalDropZone'
 import { DvdRipBanner } from './components/DvdRipBanner'
+import { AudioCdBanner } from './components/AudioCdBanner'
 import { AgoraStatsPanel } from './components/AgoraStatsPanel'
 import { AdminPanel } from './components/AdminPanel'
 import { useDrives } from './hooks/useDrives'
@@ -121,7 +122,11 @@ function App(): React.JSX.Element {
   const usbPath = dataDrive?.mountpoints[0]?.path ?? null
   // Burn target: an optical drive without a mounted data disc (i.e. blank/empty,
   // ready to write). A data disc is a browse source instead, not a burn target.
-  const burnDrive = drives.find((d) => d.isOptical && !d.mountpoints[0]) ?? null
+  // Audio CDs never mount either, but are a rip source, not a burn target.
+  const burnDrive = drives.find((d) => d.isOptical && !d.mountpoints[0] && !d.isAudioCd) ?? null
+
+  // A drive holding an audio CD (CDDA, no mountpoint) offers a rip-to-FLAC action.
+  const audioCdDrive = drives.find((d) => d.isOptical && d.isAudioCd) ?? null
 
   // A mounted optical disc that's actually a video DVD (VIDEO_TS) offers a rip
   // action instead of/alongside plain browsing. Checked async since it needs a
@@ -209,6 +214,9 @@ function App(): React.JSX.Element {
           </div>
           {isVideoDvd && dataDrive && copypartyUrl && (
             <DvdRipBanner drive={dataDrive} server={copypartyUrl} />
+          )}
+          {audioCdDrive && copypartyUrl && (
+            <AudioCdBanner drive={audioCdDrive} server={copypartyUrl} />
           )}
           {burnDrive && <OpticalDropZone drive={burnDrive} />}
         </div>

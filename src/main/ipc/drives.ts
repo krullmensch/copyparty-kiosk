@@ -90,6 +90,9 @@ export function parseOpticalLsblk(stdout: string): DriveInfo[] {
           isRemovable: true,
           isSystem: false,
           isOptical: true,
+          // Overwritten per-device in listOpticalDrives() once the udev probe
+          // (audio-track count) is in; parseOpticalLsblk has no way to know it.
+          isAudioCd: false,
           mountpoints: mountpoint ? [{ path: mountpoint, label: d.label ?? null }] : []
         } satisfies DriveInfo
       })
@@ -111,18 +114,31 @@ export function parseUdevMedia(stdout: string): boolean {
   return /^ID_CDROM_MEDIA=1$/m.test(stdout)
 }
 
-async function opticalHasMedia(devPath: string): Promise<boolean> {
+/**
+ * Number of CDDA (audio) tracks udev found on the disc, from the same
+ * `udevadm info` property dump as parseUdevMedia. 0 for data discs / no disc.
+ * Exported for testability.
+ */
+export function parseAudioTrackCount(stdout: string): number {
+  const m = /^ID_CDROM_MEDIA_TRACK_COUNT_AUDIO=(\d+)$/m.exec(stdout)
+  return m ? parseInt(m[1], 10) : 0
+}
+
+/** Single udevadm call per device, surfacing both media presence and audio-track count. */
+async function probeOpticalMedia(
+  devPath: string
+): Promise<{ hasMedia: boolean; audioTracks: number }> {
   try {
     const { stdout } = await execFileAsync('udevadm', [
       'info',
       '--query=property',
       `--name=${devPath}`
     ])
-    return parseUdevMedia(stdout)
+    return { hasMedia: parseUdevMedia(stdout), audioTracks: parseAudioTrackCount(stdout) }
   } catch {
     // udevadm missing/failed: assume media present so a real disc is never
     // hidden by a probe failure (the old, over-eager behaviour).
-    return true
+    return { hasMedia: true, audioTracks: 0 }
   }
 }
 
@@ -142,8 +158,12 @@ export async function listOpticalDrives(): Promise<DriveInfo[]> {
       'NAME,PATH,LABEL,MOUNTPOINT,RO,RM,TYPE,MODEL'
     ])
     const optical = parseOpticalLsblk(stdout)
-    const withMedia = await Promise.all(optical.map((d) => opticalHasMedia(d.device)))
-    return optical.filter((_, i) => withMedia[i])
+    const probes = await Promise.all(optical.map((d) => probeOpticalMedia(d.device)))
+    const withMedia: DriveInfo[] = []
+    optical.forEach((d, i) => {
+      if (probes[i].hasMedia) withMedia.push({ ...d, isAudioCd: probes[i].audioTracks > 0 })
+    })
+    return withMedia
   } catch (err) {
     console.error('[drives] lsblk optical enumeration failed:', err)
     return []
