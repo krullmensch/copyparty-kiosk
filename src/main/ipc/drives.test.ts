@@ -24,7 +24,8 @@ vi.mock('node:child_process', () => ({
   execFile: execFileMock
 }))
 
-const { parseOpticalLsblk, listOpticalDrives, isBackupDriveInfo, diff } = await import('./drives')
+const { parseOpticalLsblk, listOpticalDrives, isBackupDriveInfo, diff, parseUdevMedia } =
+  await import('./drives')
 
 function opticalDrive(mountpoint: string | null): DriveInfo {
   return {
@@ -317,5 +318,28 @@ describe('diff — optical disc in/out on a persistent /dev/sr0 node', () => {
     const { added, changed } = diff(new Map(), [opticalDrive('/media/marvin/JURASSIC_WORLD')])
     expect(added).toHaveLength(1)
     expect(changed).toEqual([])
+  })
+})
+
+describe('parseUdevMedia — disc loaded vs empty tray', () => {
+  // Real udev output: a loaded DVD (kiosk3 fixture) vs an empty drive (kiosk2).
+  it('detects a loaded disc via ID_CDROM_MEDIA=1', () => {
+    const loaded = [
+      'ID_CDROM=1',
+      'ID_CDROM_MEDIA=1',
+      'ID_CDROM_MEDIA_DVD=1',
+      'ID_CDROM_MEDIA_STATE=complete',
+      'ID_FS_TYPE=udf'
+    ].join('\n')
+    expect(parseUdevMedia(loaded)).toBe(true)
+  })
+
+  it('reports no media for an empty drive (ID_CDROM only)', () => {
+    expect(parseUdevMedia('ID_CDROM=1')).toBe(false)
+  })
+
+  it('does not match ID_CDROM_MEDIA as a substring of another key', () => {
+    // ID_CDROM_MEDIA_DVD=1 without ID_CDROM_MEDIA=1 must not count as media.
+    expect(parseUdevMedia('ID_CDROM=1\nID_CDROM_MEDIA_DVD=1')).toBe(false)
   })
 })

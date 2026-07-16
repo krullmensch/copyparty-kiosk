@@ -99,10 +99,39 @@ export function parseOpticalLsblk(stdout: string): DriveInfo[] {
 }
 
 /**
+ * True if udev reports a disc is loaded (`ID_CDROM_MEDIA=1`). An empty drive
+ * only carries `ID_CDROM=1`. Exported for testability.
+ *
+ * Why not lsblk/sysfs: `/sys/block/sr0/size` and lsblk's SIZE both keep the
+ * *last* disc's size after eject (stale non-zero), so they can't tell an empty
+ * tray from a loaded one. udev updates ID_CDROM_MEDIA on media_change events
+ * and serves it from cache -- no device open, so no drive spin-up per poll.
+ */
+export function parseUdevMedia(stdout: string): boolean {
+  return /^ID_CDROM_MEDIA=1$/m.test(stdout)
+}
+
+async function opticalHasMedia(devPath: string): Promise<boolean> {
+  try {
+    const { stdout } = await execFileAsync('udevadm', [
+      'info',
+      '--query=property',
+      `--name=${devPath}`
+    ])
+    return parseUdevMedia(stdout)
+  } catch {
+    // udevadm missing/failed: assume media present so a real disc is never
+    // hidden by a probe failure (the old, over-eager behaviour).
+    return true
+  }
+}
+
+/**
  * drivelist's Linux lsblk enumerator hard-excludes /dev/sr* (CD/DVD) nodes,
  * so inserted discs never show up via drivelist.list(). Run lsblk directly
- * and synthesize DriveInfo entries for type==='rom' devices. Linux-only;
- * macOS keeps using drivelist unchanged.
+ * and synthesize DriveInfo entries for type==='rom' devices, but only for
+ * drives that actually have a disc loaded -- an empty drive must not surface
+ * as a burn target. Linux-only; macOS keeps using drivelist unchanged.
  */
 export async function listOpticalDrives(): Promise<DriveInfo[]> {
   if (process.platform !== 'linux') return []
@@ -112,7 +141,9 @@ export async function listOpticalDrives(): Promise<DriveInfo[]> {
       '-o',
       'NAME,PATH,LABEL,MOUNTPOINT,RO,RM,TYPE,MODEL'
     ])
-    return parseOpticalLsblk(stdout)
+    const optical = parseOpticalLsblk(stdout)
+    const withMedia = await Promise.all(optical.map((d) => opticalHasMedia(d.device)))
+    return optical.filter((_, i) => withMedia[i])
   } catch (err) {
     console.error('[drives] lsblk optical enumeration failed:', err)
     return []
