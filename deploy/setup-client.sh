@@ -16,6 +16,7 @@ log "Agora CLIENT kiosk setup  (repo: $REPO_DIR)"
 install_base_packages
 write_role client
 provision_admin_password
+ensure_audio
 ensure_display_stack
 build_app
 restart_app

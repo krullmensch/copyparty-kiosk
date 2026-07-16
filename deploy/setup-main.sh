@@ -158,6 +158,7 @@ else
   ok "server running, poller disabled (no FritzBox password)"
 fi
 
+ensure_audio
 ensure_display_stack
 build_app
 restart_app

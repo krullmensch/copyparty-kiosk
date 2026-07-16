@@ -32,9 +32,23 @@ install_base_packages() {
   sudo apt-get install -y -q \
     avahi-daemon avahi-utils libnss-mdns \
     xserver-xorg xinit openbox unclutter x11vnc \
-    scrot xdotool curl
+    scrot xdotool curl alsa-utils
   sudo systemctl enable --now avahi-daemon
   ok "base packages + avahi"
+}
+
+# The Optiplex analog output (front headphone jack) ships with Master muted at
+# 0% on a fresh install, so Chromium plays silently. Unmute and raise the
+# analog controls, then persist via alsactl so alsa-restore reapplies it on
+# boot. Best-effort: missing controls (different codec) are skipped.
+ensure_audio() {
+  log "unmuting analog audio output"
+  for ctl in Master Headphone Speaker "Line Out" PCM; do
+    amixer -q sset "$ctl" unmute 2>/dev/null || true
+  done
+  amixer -q sset Master 80% 2>/dev/null || true
+  sudo alsactl store 2>/dev/null || true
+  ok "audio: analog output unmuted + stored"
 }
 
 write_role() {
