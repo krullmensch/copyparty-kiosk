@@ -10,7 +10,7 @@ vi.mock('./copyparty', () => ({
   upload: vi.fn()
 }))
 
-const { parseScanJson, sanitizeName } = await import('./dvdrip')
+const { parseScanJson, parseRawAudioLangs, sanitizeName } = await import('./dvdrip')
 
 describe('parseScanJson', () => {
   // Mirrors the real Jurassic World scan: EN+DE audio, EN/DE/IT VOBSUB subs.
@@ -88,5 +88,40 @@ describe('sanitizeName', () => {
 
   it('falls back to a default for an empty result', () => {
     expect(sanitizeName('///')).toBe('DVD-Rip')
+  })
+})
+
+describe('parseRawAudioLangs', () => {
+  it('keeps every track in order, not deduped (for --aname track count)', () => {
+    const scan = {
+      MainFeature: 1,
+      TitleList: [
+        {
+          Index: 1,
+          AudioList: [
+            { LanguageCode: 'eng' },
+            { LanguageCode: 'eng' },
+            { LanguageCode: 'deu' }
+          ]
+        }
+      ]
+    }
+    expect(parseRawAudioLangs(`JSON Title Set: ${JSON.stringify(scan)}`)).toEqual([
+      'eng',
+      'eng',
+      'deu'
+    ])
+  })
+
+  it('defaults a track with no LanguageCode to "und"', () => {
+    const scan = {
+      MainFeature: 1,
+      TitleList: [{ Index: 1, AudioList: [{}, { LanguageCode: 'eng' }] }]
+    }
+    expect(parseRawAudioLangs(`JSON Title Set: ${JSON.stringify(scan)}`)).toEqual(['und', 'eng'])
+  })
+
+  it('returns an empty list when there is no JSON to parse', () => {
+    expect(parseRawAudioLangs('no scan output')).toEqual([])
   })
 })

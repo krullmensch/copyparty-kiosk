@@ -3,40 +3,13 @@ import { useEffect, useState } from 'react'
 import { createPlayer } from '@videojs/react'
 import { Video, VideoSkin, videoFeatures } from '@videojs/react/video'
 import type { DvdTracks, PreviewSource } from '../../../../shared/types'
+import { langLabel } from '../../../../shared/langNames'
 import { formatSize } from '../../lib/format'
 import { streamUrl } from '../streamUrl'
 
 // One player definition for the whole app; each mount gets its own Provider
 // store instance, so this is safe to hoist to module scope.
 const Player = createPlayer({ features: videoFeatures })
-
-// iso639-2 -> display name for the subtitle-availability badge. Falls back to
-// the raw code for anything not listed.
-const LANG_NAMES: Record<string, string> = {
-  eng: 'English',
-  deu: 'Deutsch',
-  ger: 'Deutsch',
-  fra: 'Français',
-  fre: 'Français',
-  ita: 'Italiano',
-  spa: 'Español',
-  nld: 'Nederlands',
-  por: 'Português',
-  tur: 'Türkçe',
-  rus: 'Русский',
-  pol: 'Polski',
-  ces: 'Čeština',
-  cze: 'Čeština',
-  jpn: '日本語',
-  kor: '한국어',
-  zho: '中文',
-  chi: '中文',
-  ara: 'العربية'
-}
-
-function langLabel(code: string): string {
-  return LANG_NAMES[code] ?? code
-}
 
 /** The `<stem>.tracks.json` sidecar written next to a DVD rip (see main/ipc/dvdrip.ts). */
 function sidecarSource(source: PreviewSource): PreviewSource {
@@ -94,6 +67,12 @@ export function VideoPlayer({
 
   return (
     <div className="relative flex h-full items-center justify-center bg-black">
+      {/* Kiosk: no keyboard to escape native OS fullscreen, and PiP would float
+          outside the kiosk window entirely. VideoSkin has no prop to omit
+          individual buttons, so hide them by their stable skin classes. */}
+      <style>{`
+        .media-button--pip, .media-button--fullscreen { display: none; }
+      `}</style>
       <Player.Provider>
         <VideoSkin>
           <Video

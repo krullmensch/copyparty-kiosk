@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { promisify } from 'node:util'
 import { DvdRipProgress, DvdRipResult, DvdTracks, IpcChannels } from '../../shared/types'
+import { langLabel } from '../../shared/langNames'
 import { upload } from './copyparty'
 
 // Rips the main feature off a video DVD and uploads it straight to Agora.
@@ -67,22 +68,31 @@ function extractTitleSetJson(stdout: string): string | null {
   return null
 }
 
+/** Find the scanned main feature title, falling back to the first title. Exported for testability. */
+export function selectMainTitle(scan: HbScan): HbScanTitle | undefined {
+  const titles = scan.TitleList ?? []
+  return titles.find((t) => t.Index === scan.MainFeature) ?? titles[0]
+}
+
+function parseScan(stdout: string): HbScan | null {
+  const json = extractTitleSetJson(stdout)
+  if (!json) return null
+  try {
+    return JSON.parse(json) as HbScan
+  } catch {
+    return null
+  }
+}
+
 /**
  * Parse a HandBrakeCLI `--json` scan into the main feature's audio + subtitle
  * language codes (iso639-2, deduped, order preserved). Exported for testability.
  */
 export function parseScanJson(stdout: string): DvdTracks {
   const empty: DvdTracks = { audio: [], subtitles: [] }
-  const json = extractTitleSetJson(stdout)
-  if (!json) return empty
-  let scan: HbScan
-  try {
-    scan = JSON.parse(json) as HbScan
-  } catch {
-    return empty
-  }
-  const titles = scan.TitleList ?? []
-  const main = titles.find((t) => t.Index === scan.MainFeature) ?? titles[0]
+  const scan = parseScan(stdout)
+  if (!scan) return empty
+  const main = selectMainTitle(scan)
   if (!main) return empty
   const langs = (list: { LanguageCode?: string }[] | undefined): string[] => {
     const out: string[] = []
@@ -95,8 +105,25 @@ export function parseScanJson(stdout: string): DvdTracks {
   return { audio: langs(main.AudioList), subtitles: langs(main.SubtitleList) }
 }
 
-/** Scan a mounted video DVD for its main feature's audio + subtitle languages. */
-async function scanTracks(mountPath: string): Promise<DvdTracks> {
+/**
+ * Parse a HandBrakeCLI `--json` scan into the main feature's audio language
+ * codes, one per track in scan order, NOT deduped -- `--all-audio` keeps every
+ * track (e.g. a disc can carry two English tracks at different bitrates), and
+ * `--aname` needs exactly one name per resulting track to label them correctly.
+ * Exported for testability.
+ */
+export function parseRawAudioLangs(stdout: string): string[] {
+  const scan = parseScan(stdout)
+  if (!scan) return []
+  const main = selectMainTitle(scan)
+  if (!main) return []
+  return (main.AudioList ?? []).map((e) => e.LanguageCode ?? 'und')
+}
+
+/** Scan a mounted video DVD for its main feature's track languages. */
+async function scanTracks(
+  mountPath: string
+): Promise<{ tracks: DvdTracks; rawAudioLangs: string[] }> {
   try {
     // HandBrake prints its log (incl. the "JSON Title Set:" banner) to stderr;
     // parse both streams. Bump maxBuffer well past the default 1 MB.
@@ -105,15 +132,17 @@ async function scanTracks(mountPath: string): Promise<DvdTracks> {
       ['-i', mountPath, '--main-feature', '--scan', '--json'],
       { maxBuffer: 32 * 1024 * 1024 }
     )
-    return parseScanJson(stdout + stderr)
+    const combined = stdout + stderr
+    return { tracks: parseScanJson(combined), rawAudioLangs: parseRawAudioLangs(combined) }
   } catch {
-    return { audio: [], subtitles: [] }
+    return { tracks: { audio: [], subtitles: [] }, rawAudioLangs: [] }
   }
 }
 
 function rip(
   mountPath: string,
   outFile: string,
+  audioNames: string[],
   emit: (p: DvdRipProgress) => void
 ): Promise<DvdRipResult> {
   return new Promise((resolvePromise) => {
@@ -139,6 +168,15 @@ function rip(
       '--aencoder',
       'av_aac'
     ]
+    // Without --aname, Chromium's audio-track menu falls back to a generic
+    // channel-layout label ("Stereo") for every track, indistinguishable from
+    // each other. Name each track by its scanned language so the player's
+    // audio-track menu reads e.g. "English"/"Deutsch" instead. Length must
+    // match the track count HandBrake produces from --all-audio exactly, or
+    // HandBrake errors -- only pass it when the pre-encode scan succeeded.
+    if (audioNames.length > 0) {
+      args.push('--aname', audioNames.join(','))
+    }
 
     emit({ kind: 'scan' })
 
@@ -184,9 +222,10 @@ async function ripAndUpload(
   try {
     // Scan first so the sidecar reflects the disc even if the (long) rip is
     // aborted later; the language lists come from the same main feature we rip.
-    const tracks = await scanTracks(mountPath)
+    const { tracks, rawAudioLangs } = await scanTracks(mountPath)
+    const audioNames = rawAudioLangs.map(langLabel)
 
-    const ripResult = await rip(mountPath, outFile, emit)
+    const ripResult = await rip(mountPath, outFile, audioNames, emit)
     if (!ripResult.ok) return ripResult
 
     // Sidecar carries the subtitle languages (not embeddable in MP4) plus the
