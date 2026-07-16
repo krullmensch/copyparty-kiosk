@@ -1,6 +1,6 @@
 import { hostname } from 'node:os'
 import { AgoraEvent } from '../shared/types'
-import { AGORA_BASE } from './ipc/agora'
+import { getAgoraHost } from './ipc/config'
 
 // Reports kiosk-side events (USB plugged, disc inserted, files transferred) to
 // the agora dashboard. Strictly fire-and-forget: the dashboard is optional and
@@ -31,12 +31,15 @@ export function extCounts(names: string[]): Record<string, number> {
 
 /** POSTs the event, stamping this kiosk's hostname. Never rejects. */
 function post(event: AgoraEvent): void {
-  void fetch(`${AGORA_BASE}/event`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(event),
-    signal: AbortSignal.timeout(TIMEOUT_MS)
-  }).catch(() => {
+  void (async () => {
+    const base = `http://${await getAgoraHost()}:8080`
+    return fetch(`${base}/event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(event),
+      signal: AbortSignal.timeout(TIMEOUT_MS)
+    })
+  })().catch(() => {
     // dashboard offline/absent is the normal case in the isolated sneakernet;
     // log at most once so a down dashboard never spams the console.
     if (!warned) {

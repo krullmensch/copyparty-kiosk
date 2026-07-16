@@ -11,6 +11,7 @@ import { registerDrivesIpc } from './ipc/drives'
 import { registerFsIpc } from './ipc/fs'
 import { registerCppIpc } from './ipc/copyparty'
 import { registerAgoraIpc } from './ipc/agora'
+import { registerConfigIpc } from './ipc/config'
 import { registerMetadataIpc } from './ipc/metadata'
 import { registerAppIconIpc } from './ipc/appicon'
 import { registerCdBurnIpc } from './ipc/cdburn'
@@ -62,6 +63,7 @@ function createWindow(): void {
   registerFsIpc()
   registerCppIpc(mainWindow)
   registerAgoraIpc()
+  registerConfigIpc()
   registerMetadataIpc()
   registerAppIconIpc()
   registerCdBurnIpc(mainWindow)

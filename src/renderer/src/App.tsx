@@ -20,12 +20,14 @@ function PreviewKeyboard(): null {
   return null
 }
 
-// main kiosk addressed by mDNS so the app needs no per-network config
-const COPYPARTY_URL = 'http://kiosk2.local:3923'
-
 function App(): React.JSX.Element {
   const drives = useDrives()
   const caps = useAgoraCapabilities()
+  // The Agora host (hostname/IP) is configurable at runtime via the admin panel
+  // and persisted in ~/.agora/host, so the app needs no hardcoded address and
+  // stays portable across networks. null while the persisted value is loading.
+  const [agoraHost, setAgoraHost] = useState<string | null>(null)
+  const copypartyUrl = agoraHost ? `http://${agoraHost}:3923` : null
   const [remoteReady, setRemoteReady] = useState(false)
   // Bumping retryNonce re-runs the connect effect for an immediate reconnect.
   const [retryNonce, setRetryNonce] = useState(0)
@@ -39,9 +41,14 @@ function App(): React.JSX.Element {
   )
   useUploadProgress()
 
-  // 5 quick clicks on the title opens the admin panel (main kiosk only)
+  useEffect(() => {
+    void window.api.config.getHost().then(setAgoraHost)
+  }, [])
+
+  // 5 quick clicks on the title opens the admin panel. Available on every kiosk:
+  // clients use it to point at the Agora host, the main kiosk also to reset the
+  // session.
   const onLogoClick = (): void => {
-    if (!caps.isMain) return
     const now = Date.now()
     const c = logoClicks.current
     c.n = now - c.t < 2000 ? c.n + 1 : 1
@@ -58,14 +65,25 @@ function App(): React.JSX.Element {
     setIsDark(next)
   }
 
+  // Persist a new Agora host and force an immediate reconnect to it.
+  const changeHost = async (host: string): Promise<{ ok: boolean; error?: string }> => {
+    const res = await window.api.config.setHost(host)
+    if (res.ok) {
+      setRemoteReady(false)
+      setAgoraHost(res.host)
+    }
+    return { ok: res.ok, error: res.error }
+  }
+
   useEffect(() => {
+    if (!copypartyUrl) return
     let cancelled = false
     void (async () => {
       let attempt = 0
       while (!cancelled) {
         attempt++
         setConnectAttempts(attempt)
-        const res = await window.api.cpp.connect(COPYPARTY_URL)
+        const res = await window.api.cpp.connect(copypartyUrl)
         if (cancelled) return
         if (res.ok) {
           setConnectError(null)
@@ -78,9 +96,9 @@ function App(): React.JSX.Element {
     })()
     return () => {
       cancelled = true
-      void window.api.cpp.disconnect(COPYPARTY_URL)
+      void window.api.cpp.disconnect(copypartyUrl)
     }
-  }, [retryNonce])
+  }, [copypartyUrl, retryNonce])
 
   // Manual "reconnect now": drop the ready flag and re-run the connect effect,
   // so the user isn't stuck waiting out the 2s auto-retry cycle.
@@ -119,20 +137,21 @@ function App(): React.JSX.Element {
     return undefined
   }, [dataDrive?.isOptical, usbPath])
 
-  const remotePane = remoteReady ? (
-    <RemoteBrowserPane key={COPYPARTY_URL} server={COPYPARTY_URL} />
-  ) : (
-    <div className="text-ink-muted flex h-full flex-col items-center justify-center gap-3 text-label">
-      <span>
-        verbinde mit {COPYPARTY_URL} …
-        {connectAttempts > 1 && ` (Versuch ${connectAttempts})`}
-      </span>
-      {connectError && <span className="text-meta text-ink-faint">{connectError}</span>}
-      <Button size="sm" variant="outline" onClick={retryConnect}>
-        Erneut verbinden
-      </Button>
-    </div>
-  )
+  const remotePane =
+    remoteReady && copypartyUrl ? (
+      <RemoteBrowserPane key={copypartyUrl} server={copypartyUrl} />
+    ) : (
+      <div className="text-ink-muted flex h-full flex-col items-center justify-center gap-3 text-label">
+        <span>
+          verbinde mit {copypartyUrl ?? '…'} …
+          {connectAttempts > 1 && ` (Versuch ${connectAttempts})`}
+        </span>
+        {connectError && <span className="text-meta text-ink-faint">{connectError}</span>}
+        <Button size="sm" variant="outline" onClick={retryConnect}>
+          Erneut verbinden
+        </Button>
+      </div>
+    )
 
   return (
     <PreviewProvider>
@@ -184,14 +203,21 @@ function App(): React.JSX.Element {
               <section className="min-h-0 min-w-0 flex-1">{remotePane}</section>
             )}
           </div>
-          {isVideoDvd && dataDrive && (
-            <DvdRipBanner drive={dataDrive} server={COPYPARTY_URL} />
+          {isVideoDvd && dataDrive && copypartyUrl && (
+            <DvdRipBanner drive={dataDrive} server={copypartyUrl} />
           )}
           {burnDrive && <OpticalDropZone drive={burnDrive} />}
         </div>
       </div>
       {statsOpen && <AgoraStatsPanel onClose={() => setStatsOpen(false)} />}
-      {adminOpen && <AdminPanel onClose={() => setAdminOpen(false)} />}
+      {adminOpen && (
+        <AdminPanel
+          host={agoraHost ?? ''}
+          isMain={caps.isMain}
+          onChangeHost={changeHost}
+          onClose={() => setAdminOpen(false)}
+        />
+      )}
     </PreviewProvider>
   )
 }

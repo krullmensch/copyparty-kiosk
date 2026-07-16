@@ -9,17 +9,21 @@ import {
   AgoraStatsResult,
   IpcChannels
 } from '../../shared/types'
+import { getAgoraHost } from './config'
 
-// Agora dashboard service on the main kiosk, addressed by mDNS so it needs no
-// per-network reconfiguration (avahi must be installed). Fetched from the main
-// process so the renderer CSP (connect-src 'self') stays locked, matching how
-// copyparty traffic is routed.
-export const AGORA_BASE = 'http://kiosk2.local:8080'
+// Agora dashboard service on the main kiosk (:8080), on the same host the app
+// connects to for copyparty. The host is configurable at runtime (admin panel,
+// ~/.agora/host) so it needs no per-network reconfiguration. Fetched from the
+// main process so the renderer CSP (connect-src 'self') stays locked, matching
+// how copyparty traffic is routed.
+async function agoraBase(): Promise<string> {
+  return `http://${await getAgoraHost()}:8080`
+}
 const TIMEOUT_MS = 4000
 
 async function fetchStats(): Promise<AgoraStatsResult> {
   try {
-    const res = await fetch(`${AGORA_BASE}/stats`, {
+    const res = await fetch(`${await agoraBase()}/stats`, {
       signal: AbortSignal.timeout(TIMEOUT_MS)
     })
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` }
@@ -42,7 +46,7 @@ async function readRole(): Promise<AgoraRole> {
 
 async function reset(password: string): Promise<AgoraResetResult> {
   try {
-    const res = await fetch(`${AGORA_BASE}/reset`, {
+    const res = await fetch(`${await agoraBase()}/reset`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password }),

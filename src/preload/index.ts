@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import {
+  AgoraHostCandidate,
   AgoraResetResult,
   AgoraRole,
   AgoraStatsResult,
@@ -90,6 +91,12 @@ const api = {
     role: (): Promise<AgoraRole> => ipcRenderer.invoke(IpcChannels.AgoraRole),
     reset: (password: string): Promise<AgoraResetResult> =>
       ipcRenderer.invoke(IpcChannels.AgoraReset, password)
+  },
+  config: {
+    getHost: (): Promise<string> => ipcRenderer.invoke(IpcChannels.ConfigGetHost),
+    setHost: (host: string): Promise<{ ok: boolean; host: string; error?: string }> =>
+      ipcRenderer.invoke(IpcChannels.ConfigSetHost, host),
+    scanHosts: (): Promise<AgoraHostCandidate[]> => ipcRenderer.invoke(IpcChannels.ConfigScanHosts)
   },
   preview: {
     metadata: (source: PreviewSource): Promise<FileMetadata> =>

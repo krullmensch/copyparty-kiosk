@@ -132,7 +132,10 @@ export const IpcChannels = {
   PreviewReadBytes: 'preview:read-bytes',
   AgoraStats: 'agora:stats',
   AgoraRole: 'agora:role',
-  AgoraReset: 'agora:reset'
+  AgoraReset: 'agora:reset',
+  ConfigGetHost: 'config:get-host',
+  ConfigSetHost: 'config:set-host',
+  ConfigScanHosts: 'config:scan-hosts'
 } as const
 
 export interface AgoraStats {
@@ -176,6 +179,13 @@ export interface AgoraRole {
 export type AgoraResetResult =
   | { ok: true; session: number }
   | { ok: false; error: string }
+
+/** A host on the LAN that answered on the copyparty port during a scan. */
+export interface AgoraHostCandidate {
+  ip: string
+  /** Reverse-resolved name (mDNS/DNS) if available, else null. */
+  name: string | null
+}
 
 export type UploadProgress =
   | { kind: 'hash'; name: string; bytesDone: number; bytesTotal: number }
