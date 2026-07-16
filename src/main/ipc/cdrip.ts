@@ -50,22 +50,28 @@ export function parseTrackCount(stderr: string): number {
 }
 
 /**
- * Tolerant parser for `cd-info`'s CD-TEXT dump: a disc-level TITLE plus one
- * TITLE per "track N" section. Format varies across cd-info builds, so this
- * never throws -- no CD-TEXT section (or an unexpected layout) just yields an
- * empty track map. Exported for testability.
+ * Tolerant parser for `cd-info`'s CD-TEXT dump. cd-info prints an unrelated
+ * "TRACK n ISRC:" list *before* the CD-TEXT, so key strictly off the labelled
+ * "CD-TEXT for Disc:" (album) and "CD-TEXT for Track N:" (per-track) sections
+ * instead of the first "track N" seen. Each section's indented body carries a
+ * "TITLE:" line. Never throws -- no CD-TEXT (or an unexpected layout) just
+ * yields an empty track map. Exported for testability.
  */
 export function parseCdText(stdout: string): { album?: string; tracks: Record<number, string> } {
   const tracks: Record<number, string> = {}
   try {
     if (!/CD-TEXT/i.test(stdout)) return { tracks }
 
-    const firstTrackIdx = stdout.search(/track\s*\d+/i)
-    const discSection = firstTrackIdx === -1 ? stdout : stdout.slice(0, firstTrackIdx)
-    const discTitle = /TITLE:\s*(.+)/i.exec(discSection)
-    const album = discTitle ? discTitle[1].trim() : undefined
+    // A section runs until the next "CD-TEXT for ..." header or a non-indented
+    // line (its indented TITLE/PERFORMER body ends there).
+    const discMatch = /CD-TEXT for Disc:\s*([\s\S]*?)(?=CD-TEXT for |\n\S|$)/i.exec(stdout)
+    let album: string | undefined
+    if (discMatch) {
+      const t = /TITLE:\s*(.+)/i.exec(discMatch[1])
+      if (t) album = t[1].trim()
+    }
 
-    const sectionRe = /track\s*(\d+)[^\n]*\n([\s\S]*?)(?=track\s*\d+[^\n]*\n|$)/gi
+    const sectionRe = /CD-TEXT for Track\s*(\d+):\s*([\s\S]*?)(?=CD-TEXT for |\n\S|$)/gi
     let m: RegExpExecArray | null
     while ((m = sectionRe.exec(stdout)) !== null) {
       const track = parseInt(m[1], 10)

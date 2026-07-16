@@ -86,6 +86,26 @@ CD-TEXT for Track 2:
     })
   })
 
+  it('finds the album even when an ISRC track list precedes the CD-TEXT (real cd-info layout)', () => {
+    const stdout = `CD-ROM Track List (1 - 11)
+TRACK  1 ISRC: DELJ81899038
+TRACK  2 ISRC: DELJ81899214
+CD-TEXT for Disc:
+	TITLE: nie
+	PERFORMER: Fynn Kliemann
+CD-TEXT for Track  1:
+	TITLE: Morgen
+	PERFORMER: Fynn Kliemann
+CD-TEXT for Track  2:
+	TITLE: Bis Seattle
+	PERFORMER: Fynn Kliemann
+`
+    expect(parseCdText(stdout)).toEqual({
+      album: 'nie',
+      tracks: { 1: 'Morgen', 2: 'Bis Seattle' }
+    })
+  })
+
   it('returns empty tracks (no throw) when there is no CD-TEXT section', () => {
     const stdout = `cd-info version 10.7\nCDDB disc ID: 0x00051207\nTrack   1: 0 00:02:32:63\n`
     expect(parseCdText(stdout)).toEqual({ tracks: {} })
