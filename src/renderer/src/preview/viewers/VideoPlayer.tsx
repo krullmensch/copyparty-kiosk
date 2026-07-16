@@ -70,8 +70,13 @@ export function VideoPlayer({
       {/* Kiosk: no keyboard to escape native OS fullscreen, and PiP would float
           outside the kiosk window entirely. VideoSkin has no prop to omit
           individual buttons, so hide them by their stable skin classes. */}
+      {/* The skin's base ".media-default-skin .media-button" rule (specificity
+          0,2,0) sets display:flex and beats a plain ".media-button--pip"
+          selector (0,1,0) regardless of source order, so match its
+          specificity and use !important to stay correct across skin updates. */}
       <style>{`
-        .media-button--pip, .media-button--fullscreen { display: none; }
+        .media-default-skin .media-button--pip,
+        .media-default-skin .media-button--fullscreen { display: none !important; }
       `}</style>
       <Player.Provider>
         <VideoSkin>
