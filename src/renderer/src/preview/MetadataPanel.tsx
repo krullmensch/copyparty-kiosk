@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { gooeyToast as toast } from 'goey-toast'
-import type { DvdTracks, FileMetadata, PreviewSource } from '../../../shared/types'
-import { langLabel } from '../../../shared/langNames'
+import type { FileMetadata, PreviewSource } from '../../../shared/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { sidecarSource, streamUrl } from './streamUrl'
 
 type Editable = { title: string; comment: string; author: string }
 
@@ -24,26 +22,6 @@ export function MetadataPanel({ source }: { source: PreviewSource }): React.JSX.
   const [form, setForm] = useState<Editable>({ title: '', comment: '', author: '' })
   const [baseline, setBaseline] = useState<Editable>({ title: '', comment: '', author: '' })
   const [saving, setSaving] = useState(false)
-  // Track languages from a DVD-rip sidecar (<stem>.tracks.json), if present.
-  // Subtitles are on the disc but not embedded in the MP4, so they're listed
-  // here by name rather than shown over the video.
-  const [tracks, setTracks] = useState<DvdTracks | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    setTracks(null)
-    fetch(streamUrl(sidecarSource(source)))
-      .then((r) => (r.ok ? (r.json() as Promise<DvdTracks>) : null))
-      .then((t) => {
-        if (!cancelled && t && (t.audio?.length || t.subtitles?.length)) setTracks(t)
-      })
-      .catch(() => {
-        /* no sidecar for ordinary files */
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [source])
 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true)
@@ -107,17 +85,6 @@ export function MetadataPanel({ source }: { source: PreviewSource }): React.JSX.
               {meta.common.dimensions && <div>Abmessungen: {meta.common.dimensions}</div>}
               {meta.common.duration != null && <div>Dauer: {formatDuration(meta.common.duration)}</div>}
               {meta.common.dateTaken && <div>Datum: {meta.common.dateTaken}</div>}
-            </div>
-          )}
-
-          {tracks && (
-            <div className="text-meta text-ink-muted flex flex-col gap-1">
-              {tracks.audio.length > 0 && (
-                <div>Tonspuren: {tracks.audio.map(langLabel).join(' · ')}</div>
-              )}
-              {tracks.subtitles.length > 0 && (
-                <div>Untertitel: {tracks.subtitles.map(langLabel).join(' · ')}</div>
-              )}
             </div>
           )}
 

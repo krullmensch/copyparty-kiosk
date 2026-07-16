@@ -4,7 +4,7 @@ import { existsSync, promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { promisify } from 'node:util'
-import { DvdRipProgress, DvdRipResult, DvdTracks, IpcChannels } from '../../shared/types'
+import { DvdRipProgress, DvdRipResult, IpcChannels } from '../../shared/types'
 import { langLabel } from '../../shared/langNames'
 import { upload } from './copyparty'
 
@@ -46,7 +46,6 @@ const UPLOAD_TARGET_VPATH = '/'
 interface HbScanTitle {
   Index?: number
   AudioList?: { LanguageCode?: string }[]
-  SubtitleList?: { LanguageCode?: string }[]
 }
 interface HbScan {
   MainFeature?: number
@@ -85,27 +84,6 @@ function parseScan(stdout: string): HbScan | null {
 }
 
 /**
- * Parse a HandBrakeCLI `--json` scan into the main feature's audio + subtitle
- * language codes (iso639-2, deduped, order preserved). Exported for testability.
- */
-export function parseScanJson(stdout: string): DvdTracks {
-  const empty: DvdTracks = { audio: [], subtitles: [] }
-  const scan = parseScan(stdout)
-  if (!scan) return empty
-  const main = selectMainTitle(scan)
-  if (!main) return empty
-  const langs = (list: { LanguageCode?: string }[] | undefined): string[] => {
-    const out: string[] = []
-    for (const e of list ?? []) {
-      const code = e.LanguageCode
-      if (code && !out.includes(code)) out.push(code)
-    }
-    return out
-  }
-  return { audio: langs(main.AudioList), subtitles: langs(main.SubtitleList) }
-}
-
-/**
  * Parse a HandBrakeCLI `--json` scan into the main feature's audio language
  * codes, one per track in scan order, NOT deduped -- `--all-audio` keeps every
  * track (e.g. a disc can carry two English tracks at different bitrates), and
@@ -120,10 +98,8 @@ export function parseRawAudioLangs(stdout: string): string[] {
   return (main.AudioList ?? []).map((e) => e.LanguageCode ?? 'und')
 }
 
-/** Scan a mounted video DVD for its main feature's track languages. */
-async function scanTracks(
-  mountPath: string
-): Promise<{ tracks: DvdTracks; rawAudioLangs: string[] }> {
+/** Scan a mounted video DVD for its main feature's audio track languages. */
+async function scanTracks(mountPath: string): Promise<{ rawAudioLangs: string[] }> {
   try {
     // HandBrake prints its log (incl. the "JSON Title Set:" banner) to stderr;
     // parse both streams. Bump maxBuffer well past the default 1 MB.
@@ -132,10 +108,9 @@ async function scanTracks(
       ['-i', mountPath, '--main-feature', '--scan', '--json'],
       { maxBuffer: 32 * 1024 * 1024 }
     )
-    const combined = stdout + stderr
-    return { tracks: parseScanJson(combined), rawAudioLangs: parseRawAudioLangs(combined) }
+    return { rawAudioLangs: parseRawAudioLangs(stdout + stderr) }
   } catch {
-    return { tracks: { audio: [], subtitles: [] }, rawAudioLangs: [] }
+    return { rawAudioLangs: [] }
   }
 }
 
@@ -148,10 +123,9 @@ function rip(
   return new Promise((resolvePromise) => {
     // MP4 container so the rip plays natively in the kiosk's Chromium <video>
     // (MKV does not). Every audio language is kept and transcoded to AAC (Chromium
-    // can't decode the DVD's native AC3). DVD subtitles are VOBSUB bitmaps that
-    // MP4 can't carry and no browser player renders -- they're not embedded; the
-    // available subtitle languages are recorded in a sidecar (see scanTracks) so
-    // the player can surface them as an info badge.
+    // can't decode the DVD's native AC3). DVD subtitles are VOBSUB bitmaps -- MP4
+    // can't carry them and no browser player renders VOBSUB, so they're dropped
+    // entirely rather than tracked in a sidecar nobody could use.
     const args = [
       '-i',
       mountPath,
@@ -218,22 +192,15 @@ async function ripAndUpload(
   const tmp = await fs.mkdtemp(join(tmpdir(), 'agora-dvdrip-'))
   const stem = sanitizeName(label)
   const outFile = join(tmp, `${stem}.mp4`)
-  const sidecarFile = join(tmp, `${stem}.tracks.json`)
   try {
-    // Scan first so the sidecar reflects the disc even if the (long) rip is
-    // aborted later; the language lists come from the same main feature we rip.
-    const { tracks, rawAudioLangs } = await scanTracks(mountPath)
+    const { rawAudioLangs } = await scanTracks(mountPath)
     const audioNames = rawAudioLangs.map(langLabel)
 
     const ripResult = await rip(mountPath, outFile, audioNames, emit)
     if (!ripResult.ok) return ripResult
 
-    // Sidecar carries the subtitle languages (not embeddable in MP4) plus the
-    // audio languages, for the player's info badge and track labels.
-    await fs.writeFile(sidecarFile, JSON.stringify(tracks), 'utf8')
-
     emit({ kind: 'upload', percent: 0 })
-    const uploadResult = await upload(server, UPLOAD_TARGET_VPATH, [outFile, sidecarFile], (p) => {
+    const uploadResult = await upload(server, UPLOAD_TARGET_VPATH, [outFile], (p) => {
       if (p.kind === 'upload' && p.bytesTotal > 0) {
         emit({ kind: 'upload', percent: Math.round((p.bytesDone / p.bytesTotal) * 100) })
       }

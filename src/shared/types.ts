@@ -265,17 +265,6 @@ export interface DvdRipResult {
   message?: string
 }
 
-/**
- * Track languages of a ripped DVD, written next to the .mp4 as a
- * `<name>.tracks.json` sidecar. `audio` languages are embedded in the file and
- * selectable in the player; `subtitles` are VOBSUB on the disc, not embedded,
- * surfaced only as an info badge. Language values are iso639-2 codes (e.g. eng).
- */
-export interface DvdTracks {
-  audio: string[]
-  subtitles: string[]
-}
-
 export type CdRipProgress =
   | { kind: 'scan' }
   | { kind: 'rip'; track: number; total: number; percent: number }
