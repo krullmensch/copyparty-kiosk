@@ -2,12 +2,8 @@
 @import 'tw-animate-css';
 
 /* Self-hosted fonts (bundled, no CDN — kiosk runs offline) */
-@import '@fontsource/fraunces/400.css';
-@import '@fontsource/fraunces/600.css';
 @import '@fontsource/averia-serif-libre/400.css';
 @import '@fontsource/averia-serif-libre/700.css';
-@import '@fontsource/geist-mono/400.css';
-@import '@fontsource/geist-mono/500.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -139,9 +135,9 @@
   --shadow-popover: var(--shadow-popover);
 
   /* Fonts */
-  --font-serif: 'Fraunces', ui-serif, Georgia, serif;
+  --font-serif: 'Averia Serif Libre', ui-serif, Georgia, serif;
   --font-body: 'Averia Serif Libre', ui-serif, Georgia, serif;
-  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: 'Averia Serif Libre', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 @layer components {
