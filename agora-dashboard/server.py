@@ -69,6 +69,7 @@ def build_stats() -> dict:
         "usb_count": 0,
         "disc_count": 0,
         "files_transferred": 0,
+        "bytes_transferred": 0,
         "by_ext": [],
     }
     if con is None:
@@ -120,6 +121,7 @@ def build_stats() -> dict:
             "usb_count": evstats["usb_count"],
             "disc_count": evstats["disc_count"],
             "files_transferred": evstats["files_transferred"],
+            "bytes_transferred": evstats["bytes_transferred"],
             "by_ext": evstats["by_ext"],
         }
     finally:

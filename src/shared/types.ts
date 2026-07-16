@@ -158,7 +158,8 @@ export interface AgoraStats {
   usb_count?: number
   disc_count?: number
   files_transferred?: number
-  by_ext?: { ext: string; count: number }[]
+  bytes_transferred?: number
+  by_ext?: { ext: string; count: number; bytes: number }[]
 }
 
 /** Event a kiosk reports to the agora dashboard (fire-and-forget). */
@@ -170,7 +171,8 @@ export type AgoraEvent =
       kiosk: string
       direction: 'up' | 'down'
       files: number
-      exts: Record<string, number>
+      bytes: number
+      exts: Record<string, { count: number; bytes: number }>
     }
 
 export type AgoraStatsResult =

@@ -1,9 +1,10 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { createWriteStream } from 'node:fs'
+import { stat } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { extCounts, reportTransfer } from '../agora-events'
+import { extStats, reportTransfer } from '../agora-events'
 import {
   ConnectResult,
   IpcChannels,
@@ -307,8 +308,10 @@ function joinVpath(base: string, sub: string): string {
 /** fire-and-forget agora report for the files that actually uploaded. */
 function reportUploaded(items: ExpandItem[], done: number): void {
   if (done <= 0) return
-  const names = items.slice(0, done).map((it) => basename(it.filePath))
-  reportTransfer('up', done, extCounts(names))
+  const doneItems = items.slice(0, done)
+  const bytes = doneItems.reduce((acc, it) => acc + it.size, 0)
+  const mapped = doneItems.map((it) => ({ name: basename(it.filePath), size: it.size }))
+  reportTransfer('up', done, bytes, extStats(mapped))
 }
 
 export async function upload(
@@ -382,7 +385,7 @@ async function downloadOne(
   sourceVpath: string,
   targetDir: string,
   name: string
-): Promise<void> {
+): Promise<number> {
   const url = `${server}${sourceVpath}`
   const headers: Record<string, string> = {}
   const cookie = cookies[server]
@@ -395,6 +398,8 @@ async function downloadOne(
     Readable.fromWeb(res.body as unknown as import('node:stream/web').ReadableStream),
     createWriteStream(target)
   )
+  const s = await stat(target)
+  return s.size
 }
 
 export async function download(
@@ -404,23 +409,26 @@ export async function download(
 ): Promise<TransferResult> {
   const server = normalizeServer(serverUrl)
   let done = 0
+  const downloadedItems: { name: string; size: number }[] = []
   for (const item of items) {
     try {
-      await downloadOne(server, item.vpath, targetDir, item.name)
+      const size = await downloadOne(server, item.vpath, targetDir, item.name)
+      downloadedItems.push({ name: item.name, size })
       done++
     } catch (err) {
-      reportDownloaded(items, done)
+      reportDownloaded(downloadedItems)
       return { ok: false, done, total: items.length, message: (err as Error).message }
     }
   }
-  reportDownloaded(items, done)
+  reportDownloaded(downloadedItems)
   return { ok: true, done, total: items.length }
 }
 
 /** fire-and-forget agora report for the files that actually downloaded. */
-function reportDownloaded(items: { vpath: string; name: string }[], done: number): void {
-  if (done <= 0) return
-  reportTransfer('down', done, extCounts(items.slice(0, done).map((i) => i.name)))
+function reportDownloaded(items: { name: string; size: number }[]): void {
+  if (items.length <= 0) return
+  const bytes = items.reduce((acc, it) => acc + it.size, 0)
+  reportTransfer('down', items.length, bytes, extStats(items))
 }
 
 const SEARCH_LIMIT = 500

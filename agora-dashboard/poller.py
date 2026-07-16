@@ -75,7 +75,8 @@ CREATE TABLE IF NOT EXISTS events (
   kind       TEXT NOT NULL,   -- usb_connected | disc_inserted | transfer
   direction  TEXT,            -- transfer only: up | down
   files      INTEGER,         -- transfer only: file count
-  exts_json  TEXT             -- transfer only: JSON {ext: count}
+  bytes      INTEGER,         -- transfer only: total bytes
+  exts_json  TEXT             -- transfer only: JSON {ext: {"count": N, "bytes": N}}
 );
 """
 
@@ -94,6 +95,10 @@ def _migrate(con: sqlite3.Connection) -> None:
         con.execute("ALTER TABLE samples RENAME COLUMN wlan_bytes TO traffic_bytes")
     except sqlite3.OperationalError:
         pass  # already renamed, or fresh DB never had the old name
+    try:
+        con.execute("ALTER TABLE events ADD COLUMN bytes INTEGER")
+    except sqlite3.OperationalError:
+        pass
     con.commit()
 
 
@@ -144,7 +149,7 @@ def insert_event(con: sqlite3.Connection, session_id: int, event: dict) -> None:
       {"kind": "usb_connected", "kiosk": "kiosk1"}
       {"kind": "disc_inserted", "kiosk": "kiosk1"}
       {"kind": "transfer", "kiosk": "kiosk1", "direction": "up"|"down",
-       "files": 3, "exts": {"mp3": 2, "jpg": 1}}
+       "files": 3, "bytes": 1024, "exts": {"mp3": {"count": 2, "bytes": 1000}, "jpg": {"count": 1, "bytes": 24}}}
     invalid input raises ValueError.
     """
     kind = event.get("kind")
@@ -156,6 +161,7 @@ def insert_event(con: sqlite3.Connection, session_id: int, event: dict) -> None:
 
     direction = None
     files = None
+    bytes_ = None
     exts_json = None
     if kind == "transfer":
         direction = event.get("direction")
@@ -164,18 +170,21 @@ def insert_event(con: sqlite3.Connection, session_id: int, event: dict) -> None:
         files = event.get("files")
         if not isinstance(files, int) or isinstance(files, bool) or files < 0:
             raise ValueError("files must be an int >= 0")
+        bytes_ = event.get("bytes")
+        if not isinstance(bytes_, int) or isinstance(bytes_, bool) or bytes_ < 0:
+            raise ValueError("bytes must be an int >= 0")
         exts = event.get("exts")
         if not isinstance(exts, dict) or not all(
-            isinstance(k, str) and isinstance(v, int) and not isinstance(v, bool)
+            isinstance(k, str) and isinstance(v, dict) and "count" in v and "bytes" in v
             for k, v in exts.items()
         ):
-            raise ValueError("exts must be a dict[str, int]")
+            raise ValueError("exts must be a dict[str, dict[count, bytes]]")
         exts_json = json.dumps(exts)
 
     con.execute(
-        "INSERT INTO events (session_id, ts, kiosk, kind, direction, files, exts_json) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (session_id, time.time(), kiosk, kind, direction, files, exts_json),
+        "INSERT INTO events (session_id, ts, kiosk, kind, direction, files, bytes, exts_json) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (session_id, time.time(), kiosk, kind, direction, files, bytes_, exts_json),
     )
     con.commit()
 
@@ -195,8 +204,13 @@ def event_stats(con: sqlite3.Connection, session_id: int) -> dict:
         "WHERE session_id = ? AND kind = 'transfer'",
         (session_id,),
     ).fetchone()["n"]
+    bytes_transferred = con.execute(
+        "SELECT COALESCE(SUM(bytes), 0) AS n FROM events "
+        "WHERE session_id = ? AND kind = 'transfer'",
+        (session_id,),
+    ).fetchone()["n"]
 
-    tally: dict[str, int] = {}
+    tally: dict[str, dict] = {}
     rows = con.execute(
         "SELECT exts_json FROM events WHERE session_id = ? AND exts_json IS NOT NULL",
         (session_id,),
@@ -207,19 +221,25 @@ def event_stats(con: sqlite3.Connection, session_id: int) -> dict:
         except (ValueError, TypeError):
             continue
         if isinstance(exts, dict):
-            for ext, count in exts.items():
-                if isinstance(count, int) and not isinstance(count, bool):
-                    tally[ext] = tally.get(ext, 0) + count
+            for ext, stats in exts.items():
+                if ext not in tally:
+                    tally[ext] = {"count": 0, "bytes": 0}
+                if isinstance(stats, int):
+                    tally[ext]["count"] += stats
+                elif isinstance(stats, dict):
+                    tally[ext]["count"] += stats.get("count", 0)
+                    tally[ext]["bytes"] += stats.get("bytes", 0)
 
     by_ext = [
-        {"ext": ext, "count": count}
-        for ext, count in sorted(tally.items(), key=lambda kv: (-kv[1], kv[0]))
+        {"ext": ext, "count": st["count"], "bytes": st["bytes"]}
+        for ext, st in sorted(tally.items(), key=lambda kv: (-kv[1]["bytes"], -kv[1]["count"], kv[0]))
     ][:8]
 
     return {
         "usb_count": usb_count,
         "disc_count": disc_count,
         "files_transferred": files_transferred,
+        "bytes_transferred": bytes_transferred,
         "by_ext": by_ext,
     }
 

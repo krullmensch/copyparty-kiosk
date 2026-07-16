@@ -18,13 +18,20 @@ export function extOf(name: string): string {
   return name.slice(dot + 1).toLowerCase()
 }
 
-/** counts of file extensions across `names`; files without one are skipped. */
-export function extCounts(names: string[]): Record<string, number> {
-  const out: Record<string, number> = {}
-  for (const n of names) {
-    const ext = extOf(n)
+export interface ExtStats {
+  count: number
+  bytes: number
+}
+
+/** counts and bytes of file extensions across items; files without one are skipped. */
+export function extStats(items: { name: string; size: number }[]): Record<string, ExtStats> {
+  const out: Record<string, ExtStats> = {}
+  for (const it of items) {
+    const ext = extOf(it.name)
     if (!ext) continue
-    out[ext] = (out[ext] ?? 0) + 1
+    if (!out[ext]) out[ext] = { count: 0, bytes: 0 }
+    out[ext].count++
+    out[ext].bytes += it.size
   }
   return out
 }
@@ -60,7 +67,8 @@ export function reportDiscInserted(): void {
 export function reportTransfer(
   direction: 'up' | 'down',
   files: number,
-  exts: Record<string, number>
+  bytes: number,
+  exts: Record<string, ExtStats>
 ): void {
-  post({ kind: 'transfer', kiosk: hostname(), direction, files, exts })
+  post({ kind: 'transfer', kiosk: hostname(), direction, files, bytes, exts })
 }

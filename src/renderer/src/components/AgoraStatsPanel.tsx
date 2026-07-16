@@ -85,10 +85,11 @@ export function AgoraStatsPanel({ onClose }: { onClose: () => void }): React.JSX
               <Sparkline data={stats.history} />
             </div>
 
-            <div className="border-border mt-6 grid grid-cols-3 gap-4 border-t pt-6">
+            <div className="border-border mt-6 grid grid-cols-4 gap-4 border-t pt-6">
               <Stat n={fmtCount(stats.usb_count)} label="USB-Sticks" />
               <Stat n={fmtCount(stats.disc_count)} label="Discs" />
               <Stat n={fmtCount(stats.files_transferred)} label="Dateien" />
+              <Stat n={stats.bytes_transferred != null ? formatSize(stats.bytes_transferred) : '–'} label="Daten" />
             </div>
 
             {stats.by_ext && stats.by_ext.length > 0 && (
@@ -97,12 +98,12 @@ export function AgoraStatsPanel({ onClose }: { onClose: () => void }): React.JSX
                   Top-Formate
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {stats.by_ext.map(({ ext, count }) => (
+                  {stats.by_ext.map(({ ext, count, bytes }) => (
                     <span
                       key={ext}
                       className="border-border text-ink-faint bg-bg-page rounded-full border px-2 py-0.5 text-meta"
                     >
-                      {ext} ×{count}
+                      {ext} ×{count} ({formatSize(bytes)})
                     </span>
                   ))}
                 </div>

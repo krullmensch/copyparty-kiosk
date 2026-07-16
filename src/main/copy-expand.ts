@@ -16,6 +16,7 @@ export interface ExpandItem {
   filePath: string
   subVpath: string
   topUnit: string | null
+  size: number
 }
 
 export interface ExpandResult {
@@ -29,8 +30,8 @@ function toPosix(p: string): string {
 }
 
 /** recursively list regular files under `root`, returning absolute paths. */
-async function walkFiles(root: string): Promise<string[]> {
-  const out: string[] = []
+async function walkFiles(root: string): Promise<{ path: string; size: number }[]> {
+  const out: { path: string; size: number }[] = []
   const stack = [root]
   while (stack.length) {
     const dir = stack.pop() as string
@@ -38,7 +39,10 @@ async function walkFiles(root: string): Promise<string[]> {
     for (const e of entries) {
       const abs = join(dir, e.name)
       if (e.isDirectory()) stack.push(abs)
-      else if (e.isFile()) out.push(abs)
+      else if (e.isFile()) {
+        const s = await stat(abs)
+        out.push({ path: abs, size: s.size })
+      }
       // symlinks/sockets/etc. are skipped: they don't survive a copy meaningfully
     }
   }
@@ -114,8 +118,8 @@ export async function expandForUpload(localPaths: string[]): Promise<ExpandResul
         const unit = basename(p)
         const parent = dirname(p)
         for (const f of await walkFiles(p)) {
-          const rel = toPosix(relative(parent, dirname(f))) // e.g. "Album/disc1"
-          items.push({ filePath: f, subVpath: rel, topUnit: unit })
+          const rel = toPosix(relative(parent, dirname(f.path))) // e.g. "Album/disc1"
+          items.push({ filePath: f.path, subVpath: rel, topUnit: unit, size: f.size })
         }
         continue
       }
@@ -131,15 +135,15 @@ export async function expandForUpload(localPaths: string[]): Promise<ExpandResul
         const { root, name } = await collapseSingleRoot(tmp)
         const unit = name === basename(tmp) ? basename(p, extname(p)) : name
         for (const f of await walkFiles(root)) {
-          const inner = toPosix(relative(root, dirname(f))) // '' or "data/sub"
+          const inner = toPosix(relative(root, dirname(f.path))) // '' or "data/sub"
           const rel = inner ? `${unit}/${inner}` : unit
-          items.push({ filePath: f, subVpath: rel, topUnit: unit })
+          items.push({ filePath: f.path, subVpath: rel, topUnit: unit, size: f.size })
         }
         continue
       }
 
       // loose file: lands straight into the target, server handles name collisions
-      items.push({ filePath: p, subVpath: '', topUnit: null })
+      items.push({ filePath: p, subVpath: '', topUnit: null, size: st.size })
     }
   } catch (err) {
     // don't leak temp dirs if expansion fails partway through
