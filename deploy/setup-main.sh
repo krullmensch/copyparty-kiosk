@@ -25,7 +25,6 @@ log "Agora MAIN kiosk setup  (repo: $REPO_DIR)"
 install_base_packages
 sudo apt-get install -y -q python3-venv python3-full
 write_role main
-provision_admin_password
 
 # --- python env for the dashboard backend ---
 log "python venv for agora-dashboard"

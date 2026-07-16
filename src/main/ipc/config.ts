@@ -13,11 +13,13 @@ import { AgoraHostCandidate, IpcChannels } from '../../shared/types'
 // no rebuild, no hardcoded address, portable across networks.
 const AGORA_DIR = join(homedir(), '.agora')
 const HOST_FILE = join(AGORA_DIR, 'host')
-// Local admin-password hash (hex sha256) gating host changes. Verified locally
-// (not against the dashboard) so a client can still be re-pointed while it
-// can't reach the server. Set once per kiosk, e.g.
-//   printf '%s' 'MYPW' | sha256sum | cut -d' ' -f1 > ~/.agora/admin-pw
-const ADMIN_PW_FILE = join(AGORA_DIR, 'admin-pw')
+// Admin-password hash (hex sha256) gating host changes -- the SAME file and
+// hash the agora-dashboard reads for /reset (agora-dashboard/server.py,
+// ADMIN_HASH), so it's one password for both, not two to keep in sync.
+// Verified locally (not by calling the dashboard) so a client can still be
+// re-pointed while it can't reach the server. Set once per kiosk, e.g.
+//   printf '%s' 'MYPW' | sha256sum | cut -d' ' -f1 > ~/.agora/admin.hash
+const ADMIN_PW_FILE = join(AGORA_DIR, 'admin.hash')
 const DEFAULT_HOST = 'kiosk2.local'
 const COPYPARTY_PORT = 3923
 
