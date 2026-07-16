@@ -96,6 +96,19 @@ else
   warn "  download it from https://github.com/9001/copyparty/releases and re-run"
 fi
 
+# --- self-resolution of <hostname>.local to loopback ---
+# The kiosk app addresses copyparty as <this-host>.local:3923 everywhere. On the
+# main kiosk that name refers to itself, and avahi may resolve it to an IPv6
+# address copyparty (IPv4 0.0.0.0) isn't listening on -- the in-process media
+# server's fetch() then fails with 502 and video preview shows "codec not
+# supported". Pin the own .local name to IPv4 loopback so self-requests work.
+SELF_LOCAL="$(hostname).local"
+if ! grep -q "127.0.0.1 $SELF_LOCAL" /etc/hosts; then
+  log "pinning $SELF_LOCAL -> 127.0.0.1 in /etc/hosts"
+  echo "127.0.0.1 $SELF_LOCAL" | sudo tee -a /etc/hosts >/dev/null
+  ok "$SELF_LOCAL resolves to loopback"
+fi
+
 # --- agora user services (server always; poller only if tracking on) ---
 log "installing agora systemd user services"
 mkdir -p "$USER_HOME/.config/systemd/user"

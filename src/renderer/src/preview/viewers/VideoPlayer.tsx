@@ -21,7 +21,17 @@ const LANG_NAMES: Record<string, string> = {
   ita: 'Italiano',
   spa: 'Español',
   nld: 'Nederlands',
-  por: 'Português'
+  por: 'Português',
+  tur: 'Türkçe',
+  rus: 'Русский',
+  pol: 'Polski',
+  ces: 'Čeština',
+  cze: 'Čeština',
+  jpn: '日本語',
+  kor: '한국어',
+  zho: '中文',
+  chi: '中文',
+  ara: 'العربية'
 }
 
 function langLabel(code: string): string {
