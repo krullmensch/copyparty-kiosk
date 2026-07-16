@@ -65,9 +65,13 @@ function App(): React.JSX.Element {
     setIsDark(next)
   }
 
-  // Persist a new Agora host and force an immediate reconnect to it.
-  const changeHost = async (host: string): Promise<{ ok: boolean; error?: string }> => {
-    const res = await window.api.config.setHost(host)
+  // Persist a new Agora host (admin-password gated) and force an immediate
+  // reconnect to it.
+  const changeHost = async (
+    host: string,
+    password: string
+  ): Promise<{ ok: boolean; error?: string }> => {
+    const res = await window.api.config.setHost(host, password)
     if (res.ok) {
       setRemoteReady(false)
       setAgoraHost(res.host)

@@ -18,10 +18,11 @@ export function AdminPanel({
 }: {
   host: string
   isMain: boolean
-  onChangeHost: (host: string) => Promise<{ ok: boolean; error?: string }>
+  onChangeHost: (host: string, password: string) => Promise<{ ok: boolean; error?: string }>
   onClose: () => void
 }): React.JSX.Element {
   const [hostInput, setHostInput] = useState(host)
+  const [hostPassword, setHostPassword] = useState('')
   const [connecting, setConnecting] = useState(false)
   const [hostError, setHostError] = useState<string | null>(null)
   const [scanning, setScanning] = useState(false)
@@ -34,7 +35,7 @@ export function AdminPanel({
   async function applyHost(): Promise<void> {
     setConnecting(true)
     setHostError(null)
-    const res = await onChangeHost(hostInput)
+    const res = await onChangeHost(hostInput, hostPassword)
     setConnecting(false)
     if (res.ok) {
       gooeyToast.success(`Verbinde mit ${hostInput}…`, { duration: 3000 })
@@ -92,17 +93,23 @@ export function AdminPanel({
           <form
             onSubmit={(e) => {
               e.preventDefault()
-              if (hostInput.trim() && !connecting) void applyHost()
+              if (hostInput.trim() && hostPassword && !connecting) void applyHost()
             }}
           >
-            <div className="flex gap-2">
+            <Input
+              value={hostInput}
+              onChange={(e) => setHostInput(e.target.value)}
+              placeholder="kiosk2.local oder 192.168.178.71"
+              autoFocus
+            />
+            <div className="mt-2 flex gap-2">
               <Input
-                value={hostInput}
-                onChange={(e) => setHostInput(e.target.value)}
-                placeholder="kiosk2.local oder 192.168.178.71"
-                autoFocus
+                type="password"
+                value={hostPassword}
+                onChange={(e) => setHostPassword(e.target.value)}
+                placeholder="Admin-Passwort"
               />
-              <Button type="submit" disabled={!hostInput.trim() || connecting}>
+              <Button type="submit" disabled={!hostInput.trim() || !hostPassword || connecting}>
                 {connecting ? '…' : 'Verbinden'}
               </Button>
             </div>

@@ -4,6 +4,7 @@ import { homedir, networkInterfaces } from 'node:os'
 import { join } from 'node:path'
 import { createConnection } from 'node:net'
 import { reverse } from 'node:dns/promises'
+import { createHash, timingSafeEqual } from 'node:crypto'
 import { AgoraHostCandidate, IpcChannels } from '../../shared/types'
 
 // The Agora host (hostname or IP) that this kiosk connects to for copyparty
@@ -12,8 +13,41 @@ import { AgoraHostCandidate, IpcChannels } from '../../shared/types'
 // no rebuild, no hardcoded address, portable across networks.
 const AGORA_DIR = join(homedir(), '.agora')
 const HOST_FILE = join(AGORA_DIR, 'host')
+// Local admin-password hash (hex sha256) gating host changes. Verified locally
+// (not against the dashboard) so a client can still be re-pointed while it
+// can't reach the server. Set once per kiosk, e.g.
+//   printf '%s' 'MYPW' | sha256sum | cut -d' ' -f1 > ~/.agora/admin-pw
+const ADMIN_PW_FILE = join(AGORA_DIR, 'admin-pw')
 const DEFAULT_HOST = 'kiosk2.local'
 const COPYPARTY_PORT = 3923
+
+const sha256Hex = (s: string): string => createHash('sha256').update(s, 'utf8').digest('hex')
+
+/**
+ * Verify an admin password against the local hash. Fail-closed: an unset or
+ * unreadable hash file rejects every password, so the host can't be changed
+ * until an admin password is configured.
+ */
+async function verifyAdminPassword(password: string): Promise<boolean> {
+  let stored: string
+  try {
+    stored = (await readFile(ADMIN_PW_FILE, 'utf-8')).trim().toLowerCase()
+  } catch {
+    return false
+  }
+  if (stored.length !== 64) return false
+  const a = Buffer.from(sha256Hex(password), 'hex')
+  const b = Buffer.from(stored, 'hex')
+  return a.length === b.length && timingSafeEqual(a, b)
+}
+
+async function adminPasswordSet(): Promise<boolean> {
+  try {
+    return (await readFile(ADMIN_PW_FILE, 'utf-8')).trim().length === 64
+  } catch {
+    return false
+  }
+}
 
 /** Bare host from user input: strip any scheme, port, path, and whitespace. */
 export function sanitizeHost(input: string): string {
@@ -33,15 +67,25 @@ export async function getAgoraHost(): Promise<string> {
   }
 }
 
-async function setAgoraHost(input: string): Promise<{ ok: boolean; host: string; error?: string }> {
+async function setAgoraHost(
+  input: string,
+  password: string
+): Promise<{ ok: boolean; host: string; error?: string }> {
+  const current = await getAgoraHost()
+  if (!(await adminPasswordSet())) {
+    return { ok: false, host: current, error: 'Kein Admin-Passwort gesetzt (~/.agora/admin-pw)' }
+  }
+  if (!(await verifyAdminPassword(password))) {
+    return { ok: false, host: current, error: 'Falsches Passwort' }
+  }
   const host = sanitizeHost(input)
-  if (!host) return { ok: false, host: await getAgoraHost(), error: 'Leerer Host' }
+  if (!host) return { ok: false, host: current, error: 'Leerer Host' }
   try {
     await mkdir(AGORA_DIR, { recursive: true })
     await writeFile(HOST_FILE, `${host}\n`, 'utf-8')
     return { ok: true, host }
   } catch (err) {
-    return { ok: false, host: await getAgoraHost(), error: (err as Error).message }
+    return { ok: false, host: current, error: (err as Error).message }
   }
 }
 
@@ -110,6 +154,9 @@ async function scanCopypartyHosts(): Promise<AgoraHostCandidate[]> {
 
 export function registerConfigIpc(): void {
   ipcMain.handle(IpcChannels.ConfigGetHost, () => getAgoraHost())
-  ipcMain.handle(IpcChannels.ConfigSetHost, (_, host: string) => setAgoraHost(host))
+  ipcMain.handle(IpcChannels.ConfigSetHost, (_, host: string, password: string) =>
+    setAgoraHost(host, password)
+  )
   ipcMain.handle(IpcChannels.ConfigScanHosts, () => scanCopypartyHosts())
+  ipcMain.handle(IpcChannels.ConfigAdminPwSet, () => adminPasswordSet())
 }

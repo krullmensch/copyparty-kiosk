@@ -94,9 +94,13 @@ const api = {
   },
   config: {
     getHost: (): Promise<string> => ipcRenderer.invoke(IpcChannels.ConfigGetHost),
-    setHost: (host: string): Promise<{ ok: boolean; host: string; error?: string }> =>
-      ipcRenderer.invoke(IpcChannels.ConfigSetHost, host),
-    scanHosts: (): Promise<AgoraHostCandidate[]> => ipcRenderer.invoke(IpcChannels.ConfigScanHosts)
+    setHost: (
+      host: string,
+      password: string
+    ): Promise<{ ok: boolean; host: string; error?: string }> =>
+      ipcRenderer.invoke(IpcChannels.ConfigSetHost, host, password),
+    scanHosts: (): Promise<AgoraHostCandidate[]> => ipcRenderer.invoke(IpcChannels.ConfigScanHosts),
+    adminPwSet: (): Promise<boolean> => ipcRenderer.invoke(IpcChannels.ConfigAdminPwSet)
   },
   preview: {
     metadata: (source: PreviewSource): Promise<FileMetadata> =>

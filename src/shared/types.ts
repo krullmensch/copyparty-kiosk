@@ -135,7 +135,8 @@ export const IpcChannels = {
   AgoraReset: 'agora:reset',
   ConfigGetHost: 'config:get-host',
   ConfigSetHost: 'config:set-host',
-  ConfigScanHosts: 'config:scan-hosts'
+  ConfigScanHosts: 'config:scan-hosts',
+  ConfigAdminPwSet: 'config:admin-pw-set'
 } as const
 
 export interface AgoraStats {

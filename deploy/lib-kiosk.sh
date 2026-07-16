@@ -44,6 +44,22 @@ write_role() {
   ok "role: $role  ($AGORA_HOME/role)"
 }
 
+# Admin password gating host changes in the app (~/.agora/admin-pw, hex sha256).
+# Provisioned from $AGORA_ADMIN_PW if set; without it the host stays locked
+# (fail-closed) and can be set later by hand:
+#   printf '%s' 'PW' | sha256sum | cut -d' ' -f1 > ~/.agora/admin-pw
+provision_admin_password() {
+  mkdir -p "$AGORA_HOME"
+  if [ -n "${AGORA_ADMIN_PW:-}" ]; then
+    printf '%s' "$AGORA_ADMIN_PW" | sha256sum | cut -d' ' -f1 > "$AGORA_HOME/admin-pw"
+    chmod 600 "$AGORA_HOME/admin-pw"
+    ok "admin password set ($AGORA_HOME/admin-pw)"
+  elif [ ! -f "$AGORA_HOME/admin-pw" ]; then
+    warn "no admin password: host changes stay locked until ~/.agora/admin-pw is set"
+    warn "  set AGORA_ADMIN_PW and re-run, or: printf '%s' 'PW' | sha256sum | cut -d' ' -f1 > $AGORA_HOME/admin-pw"
+  fi
+}
+
 # X autostart chain: getty autologin -> startx -> openbox -> electron kiosk.
 # network-independent; only fills gaps unless FORCE=1.
 ensure_display_stack() {
