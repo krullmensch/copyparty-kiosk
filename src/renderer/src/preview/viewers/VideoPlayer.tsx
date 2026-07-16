@@ -49,6 +49,7 @@ export function VideoPlayer({
       <style>{`
         .media-default-skin .media-button--pip,
         .media-default-skin .media-button--fullscreen { display: none !important; }
+        .media-default-skin, .media-default-skin video { border-radius: 0 !important; }
       `}</style>
       <Player.Provider>
         <VideoSkin>
