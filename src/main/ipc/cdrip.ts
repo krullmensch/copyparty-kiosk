@@ -130,17 +130,18 @@ function ripTrack(
   return new Promise((resolvePromise) => {
     const nn = String(n).padStart(2, '0')
     const wavPath = join(tmpDir, `track${nn}.wav`)
-    emit({ kind: 'rip', track: n, total: trackCount, percent: 0 })
+    // cdparanoia's progress meter is a per-sector smiley display, not a plain
+    // percentage, so there's no reliable intra-track signal to parse. Drive the
+    // bar off overall track completion instead (n of trackCount) -- it advances
+    // once per track rather than sitting at 0% for a whole track.
+    const percent = Math.round((n / trackCount) * 100)
+    emit({ kind: 'rip', track: n, total: trackCount, percent })
 
     const child = spawn('cdparanoia', ['-d', device, String(n), wavPath])
     let stderrTail = ''
 
     const onData = (buf: Buffer): void => {
-      const text = buf.toString()
-      stderrTail = (stderrTail + text).slice(-2000)
-      // cdparanoia's progress meter includes a plain percentage, e.g. "25%".
-      const m = /(\d+)%/.exec(text)
-      if (m) emit({ kind: 'rip', track: n, total: trackCount, percent: parseInt(m[1], 10) })
+      stderrTail = (stderrTail + buf.toString()).slice(-2000)
     }
     child.stderr.on('data', onData)
     child.stdout.on('data', onData)
