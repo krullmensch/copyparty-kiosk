@@ -4,6 +4,7 @@ export type PreviewCategory =
   | 'image'
   | 'model3d'
   | 'text'
+  | 'markdown'
   | 'document'
   | 'program'
   | 'unknown'
@@ -54,9 +55,10 @@ const EXTENSION_MAP: Record<string, PreviewCategory> = {
   obj: 'model3d',
   usdz: 'model3d',
   stl: 'model3d',
+  // markdown
+  md: 'markdown',
+  markdown: 'markdown',
   // text
-  md: 'text',
-  markdown: 'text',
   html: 'text',
   htm: 'text',
   py: 'text',
@@ -104,6 +106,8 @@ export function capabilitiesFor(category: PreviewCategory): PreviewCapabilities 
       return { quickLook: true, fullOpen: false, editable: false }
     case 'text':
       return { quickLook: true, fullOpen: true, editable: true }
+    case 'markdown':
+      return { quickLook: true, fullOpen: true, editable: false }
     default:
       return { quickLook: true, fullOpen: true, editable: false }
   }

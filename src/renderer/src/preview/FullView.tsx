@@ -7,6 +7,7 @@ import { MetadataPanel } from './MetadataPanel'
 import { ProgramPreview } from './viewers/ProgramPreview'
 import { ImageViewer } from './viewers/ImageViewer'
 import { TextEditor } from './viewers/TextEditor'
+import { MarkdownViewer } from './viewers/MarkdownViewer'
 import { VideoPlayer } from './viewers/VideoPlayer'
 import { AudioPlayer } from './viewers/AudioPlayer'
 import { DocumentViewer } from './viewers/DocumentViewer'
@@ -80,6 +81,8 @@ function renderViewer(
   switch (category) {
     case 'text':
       return <TextEditor entry={entry} source={source} />
+    case 'markdown':
+      return <MarkdownViewer entry={entry} source={source} />
     case 'document':
       return <DocumentViewer entry={entry} source={source} />
     case 'audio':

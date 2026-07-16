@@ -9,7 +9,6 @@ import {
   indentWithTab
 } from '@codemirror/commands'
 import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
-import { markdown } from '@codemirror/lang-markdown'
 import { html } from '@codemirror/lang-html'
 import { python } from '@codemirror/lang-python'
 import { css } from '@codemirror/lang-css'
@@ -31,9 +30,6 @@ function extensionOf(name: string): string {
 /** Sprach-Extension + Label aus der Dateiendung. Unbekannt → nur Basis-Editor. */
 function languageFor(name: string): { ext: Extension | null; label: string } {
   switch (extensionOf(name)) {
-    case 'md':
-    case 'markdown':
-      return { ext: markdown(), label: 'Markdown' }
     case 'html':
     case 'htm':
       return { ext: html(), label: 'HTML' }

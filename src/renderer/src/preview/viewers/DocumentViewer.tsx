@@ -6,7 +6,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import mammoth from 'mammoth'
 import * as XLSX from 'xlsx'
-import ePub from 'epubjs'
+import type { View as FoliateView } from 'foliate-js/view.js'
 import type { PreviewSource } from '../../../../shared/types'
 import { formatSize } from '../../lib/format'
 import { Button } from '@/components/ui/button'
@@ -352,12 +352,28 @@ function DocxDoc({ entry, source }: ViewerProps): React.JSX.Element {
   )
 }
 
-// ---- EPUB -----------------------------------------------------------------
+// ---- EPUB / MOBI / AZW3 (foliate-js) ---------------------------------------
+//
+// Ein Reader für beide Formate: foliate-js erkennt EPUB (ZIP-Signatur) vs.
+// MOBI/KF8 (PalmDB-Header) selbst anhand der Bytes, kein Extension-Switch
+// nötig. `view.js` registriert bei Import das Custom Element <foliate-view>
+// (Shadow-DOM, kein externes CSS/Netzwerk). Font-Deobfuskation (IDPF) nutzt
+// intern Web Crypto SHA-1, die nur in Secure Contexts existiert — Electron
+// liefert `file:`/`localhost` und ist damit sicher; falls doch nicht
+// verfügbar, bricht nur die (seltene) Font-Deobfuskation ab, das try/catch
+// unten fängt harte Fehler beim Öffnen trotzdem ab.
 
-function EpubDoc({ entry, source }: ViewerProps): React.JSX.Element {
+let foliateViewRegistered: Promise<void> | null = null
+function ensureFoliateView(): Promise<void> {
+  if (!foliateViewRegistered) {
+    foliateViewRegistered = import('foliate-js/view.js').then(() => undefined)
+  }
+  return foliateViewRegistered
+}
+
+function FoliateDoc({ entry, source }: ViewerProps): React.JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
-  const bookRef = useRef<ReturnType<typeof ePub> | null>(null)
-  const renditionRef = useRef<ReturnType<ReturnType<typeof ePub>['renderTo']> | null>(null)
+  const viewRef = useRef<FoliateView | null>(null)
 
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -378,15 +394,21 @@ function EpubDoc({ entry, source }: ViewerProps): React.JSX.Element {
       const host = hostRef.current
       if (!host) return
       try {
-        const book = ePub(bytes.slice().buffer)
-        bookRef.current = book
-        const rendition = book.renderTo(host, { width: '100%', height: '100%' })
-        renditionRef.current = rendition
-        await rendition.display()
-        if (alive) setLoading(false)
+        await ensureFoliateView()
+        if (!alive) return
+        const view = document.createElement('foliate-view') as FoliateView
+        view.style.display = 'block'
+        view.style.width = '100%'
+        view.style.height = '100%'
+        host.appendChild(view)
+        viewRef.current = view
+        const file = new File([bytes.slice().buffer], entry.name)
+        await view.open(file)
+        if (!alive) return
+        setLoading(false)
       } catch {
         if (alive) {
-          setError('EPUB konnte nicht geöffnet werden.')
+          setError('Datei konnte nicht geöffnet werden.')
           setLoading(false)
         }
       }
@@ -395,30 +417,26 @@ function EpubDoc({ entry, source }: ViewerProps): React.JSX.Element {
 
     return () => {
       alive = false
-      renditionRef.current?.destroy()
-      renditionRef.current = null
-      bookRef.current?.destroy()
-      bookRef.current = null
+      try {
+        viewRef.current?.close()
+      } catch {
+        // ignore
+      }
+      viewRef.current?.remove()
+      viewRef.current = null
+      if (hostRef.current) hostRef.current.innerHTML = ''
     }
-  }, [source])
+  }, [source, entry.name])
 
   if (error) return <ErrorPanel name={entry.name} message={error} />
 
   return (
     <div className="bg-background flex h-full flex-col">
       <div className="border-border flex items-center gap-2 border-b px-4 py-2">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => void renditionRef.current?.prev()}
-        >
+        <Button variant="ghost" size="icon-sm" onClick={() => void viewRef.current?.prev()}>
           <ChevronLeft />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => void renditionRef.current?.next()}
-        >
+        <Button variant="ghost" size="icon-sm" onClick={() => void viewRef.current?.next()}>
           <ChevronRight />
         </Button>
       </div>
@@ -465,9 +483,13 @@ export function DocumentViewer(props: ViewerProps): React.JSX.Element {
     case 'docx':
       return <DocxDoc {...props} />
     case 'epub':
-      return <EpubDoc {...props} />
+    case 'mobi':
+    case 'azw3':
+      return <FoliateDoc {...props} />
     default:
-      // odt, mobi und alles Unbekannte → bewusster „not yet"-Zustand.
+      // odt und alles Unbekannte → bewusster „not yet"-Zustand. ODT wurde
+      // geprüft: @iamjariwala/react-doc-viewer rendert ODT nicht wirklich
+      // (nur Download-Karte, kein Inline-Renderer) — daher kein Einbau.
       return <UnsupportedDoc {...props} />
   }
 }

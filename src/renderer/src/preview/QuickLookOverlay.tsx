@@ -4,6 +4,7 @@ import type { PreviewSource } from '../../../shared/types'
 import { formatSize } from '../lib/format'
 import { streamUrl } from './streamUrl'
 import { ProgramPreview } from './viewers/ProgramPreview'
+import { MarkdownViewer } from './viewers/MarkdownViewer'
 
 const TEXT_PREVIEW_BYTES = 64 * 1024
 
@@ -93,6 +94,8 @@ function QuickLookBody({
           className="w-[28rem] max-w-full"
         />
       )
+    case 'markdown':
+      return <MarkdownViewer entry={entry} source={source} compact />
     case 'text':
     case 'document':
       return <TextPreview source={source} />

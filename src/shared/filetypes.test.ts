@@ -11,8 +11,9 @@ describe('categorize', () => {
       'image'
     ],
     [['splat', 'ply', 'glb', 'gltf', 'fbx', 'obj', 'usdz', 'stl'], 'model3d'],
+    [['md', 'markdown'], 'markdown'],
     [
-      ['md', 'markdown', 'html', 'htm', 'py', 'css', 'js', 'ts', 'jsx', 'tsx', 'txt', 'json'],
+      ['html', 'htm', 'py', 'css', 'js', 'ts', 'jsx', 'tsx', 'txt', 'json'],
       'text'
     ],
     [['pdf', 'mobi', 'epub', 'docx', 'odt', 'csv', 'ods', 'xlsx'], 'document'],
@@ -29,7 +30,7 @@ describe('categorize', () => {
 
   it('is case-insensitive', () => {
     expect(categorize('FOO.PNG')).toBe('image')
-    expect(categorize('Bar.Md')).toBe('text')
+    expect(categorize('Bar.Md')).toBe('markdown')
   })
 
   it('returns unknown for unrecognized or missing extensions', () => {
@@ -61,6 +62,14 @@ describe('capabilitiesFor', () => {
       quickLook: true,
       fullOpen: true,
       editable: true
+    })
+  })
+
+  it('returns quickLook+fullOpen (not editable) for markdown', () => {
+    expect(capabilitiesFor('markdown')).toEqual({
+      quickLook: true,
+      fullOpen: true,
+      editable: false
     })
   })
 
