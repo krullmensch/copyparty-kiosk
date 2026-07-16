@@ -28,3 +28,14 @@ export function streamUrl(source: PreviewSource): string {
 export function convertedUrl(cacheKey: string): string {
   return `${base()}/converted/${encodeURIComponent(cacheKey)}`
 }
+
+/**
+ * Die `<stem>.tracks.json`-Sidecar-Quelle neben einem DVD-Rip (siehe
+ * main/ipc/dvdrip.ts) — Video-Extension gegen `.tracks.json` getauscht.
+ */
+export function sidecarSource(source: PreviewSource): PreviewSource {
+  const swap = (p: string): string => p.replace(/\.[^./\\]+$/, '.tracks.json')
+  return source.kind === 'local'
+    ? { kind: 'local', path: swap(source.path) }
+    : { kind: 'remote', server: source.server, vpath: swap(source.vpath) }
+}
