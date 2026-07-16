@@ -65,11 +65,11 @@ describe('capabilitiesFor', () => {
     })
   })
 
-  it('returns quickLook+fullOpen (not editable) for markdown', () => {
+  it('returns all-true for markdown', () => {
     expect(capabilitiesFor('markdown')).toEqual({
       quickLook: true,
       fullOpen: true,
-      editable: false
+      editable: true
     })
   })
 

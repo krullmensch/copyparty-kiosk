@@ -107,7 +107,7 @@ export function capabilitiesFor(category: PreviewCategory): PreviewCapabilities 
     case 'text':
       return { quickLook: true, fullOpen: true, editable: true }
     case 'markdown':
-      return { quickLook: true, fullOpen: true, editable: false }
+      return { quickLook: true, fullOpen: true, editable: true }
     default:
       return { quickLook: true, fullOpen: true, editable: false }
   }

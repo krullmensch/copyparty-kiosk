@@ -14,6 +14,7 @@ import { python } from '@codemirror/lang-python'
 import { css } from '@codemirror/lang-css'
 import { javascript } from '@codemirror/lang-javascript'
 import { json } from '@codemirror/lang-json'
+import { markdown } from '@codemirror/lang-markdown'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { gooeyToast as toast } from 'goey-toast'
 import type { PreviewSource } from '../../../../shared/types'
@@ -46,6 +47,9 @@ function languageFor(name: string): { ext: Extension | null; label: string } {
       return { ext: javascript({ jsx: true, typescript: true }), label: 'TypeScript' }
     case 'json':
       return { ext: json(), label: 'JSON' }
+    case 'md':
+    case 'markdown':
+      return { ext: markdown(), label: 'Markdown' }
     default:
       return { ext: null, label: 'Text' }
   }
