@@ -199,7 +199,7 @@ function Stage(): React.JSX.Element {
           width: '42vmin',
           height: '42vmin',
           transform: `translateX(-50%) translateY(${cdIn ? '50%' : '100%'})`,
-          transition: `transform ${CD_SLIDE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+          transition: `transform ${GFX_SLIDE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
           willChange: 'transform'
         }}
       >
@@ -225,7 +225,7 @@ function Stage(): React.JSX.Element {
           width: '34vmin',
           height: '34vmin',
           transform: `translateX(-50%) translateY(${usbIn ? '45%' : '100%'})`,
-          transition: `transform ${CD_SLIDE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+          transition: `transform ${GFX_SLIDE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
           willChange: 'transform'
         }}
       >
