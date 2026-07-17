@@ -10,10 +10,10 @@ const HOLD_MS = 620 // Standzeit nach dem letzten Wort einer Gruppe
 const GROUP_FADE_MS = 260 // Ausblenden der Gruppe vor der nächsten
 
 // Grafik-Timeline (CD → USB), läuft parallel zu den Worten
-const CD_START_MS = 8_000 // Verzögerung bis die CD hochfährt
-const CD_SLIDE_MS = 900 // Dauer der Ein-/Ausfahrt
-const CD_STAY_MS = 10_000 // Standzeit der CD, bevor sie wieder rausfährt
-const USB_GAP_MS = 1_500 // Pause nach der CD, bevor der USB-Stick kommt
+const GFX_START_MS = 8_000 // Verzögerung bis die erste Grafik hochfährt
+const GFX_SLIDE_MS = 900 // Dauer der Ein-/Ausfahrt
+const GFX_STAY_MS = 10_000 // Standzeit einer Grafik im Bild
+const GFX_GAP_MS = 900 // leere Pause zwischen CD und USB
 
 /**
  * Idle-Erkennung im Renderer. Zählt bei Inaktivität 2 min herunter; jede Maus-/
@@ -107,22 +107,27 @@ function Stage(): React.JSX.Element {
     }
   }, [])
 
-  // Grafik-Timeline: CD hoch → 10 s → CD runter → USB hoch (bleibt)
+  // Grafik-Timeline: CD und USB wechseln sich gleichmäßig ab (Endlos-Schleife).
+  // Jede Grafik fährt hoch, bleibt GFX_STAY_MS, fährt runter, kurze Pause, dann
+  // die andere.
   useEffect(() => {
     let cancelled = false
     const timers: number[] = []
     const wait = (ms: number): Promise<void> =>
       new Promise((r) => timers.push(window.setTimeout(r, ms)))
+    const show = async (set: (v: boolean) => void): Promise<void> => {
+      set(true)
+      await wait(GFX_SLIDE_MS + GFX_STAY_MS)
+      set(false)
+      await wait(GFX_SLIDE_MS + GFX_GAP_MS)
+    }
     void (async () => {
-      await wait(CD_START_MS)
-      if (cancelled) return
-      setCdIn(true)
-      await wait(CD_SLIDE_MS + CD_STAY_MS)
-      if (cancelled) return
-      setCdIn(false)
-      await wait(CD_SLIDE_MS + USB_GAP_MS)
-      if (cancelled) return
-      setUsbIn(true)
+      await wait(GFX_START_MS)
+      while (!cancelled) {
+        await show(setCdIn)
+        if (cancelled) break
+        await show(setUsbIn)
+      }
     })()
     return () => {
       cancelled = true
