@@ -89,6 +89,10 @@ function Stage(): React.JSX.Element {
         setGroupIdx(g)
         setFadeOut(false)
         setWordCount(0)
+        // Kurzer Yield, damit der Nullzustand (Wörter unten + transparent) erst
+        // committed wird. Ohne das batcht React setWordCount(0) und (1) zusammen
+        // → das erste Wort mountet im Endzustand und slidet nicht von unten rein.
+        await wait(30)
         for (let i = 1; i <= group.length && !cancelled; i++) {
           setWordCount(i)
           await wait(WORD_MS)
