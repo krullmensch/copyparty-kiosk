@@ -60,6 +60,25 @@ export function validateShareItems(items: ShareItem[]): string | null {
   return null
 }
 
+// App-internal vpaths are URL-encoded (built from copyparty's `?ls` href, e.g.
+// `dir/My%20File.flac`) -- that form works for fetch() everywhere else. But the
+// /?share JSON API takes the raw virtual path and matches it literally, so a
+// %-encoded segment would point at a non-existent file. Decode per segment
+// ('/' separators stay literal) before sending. Malformed escapes fall back to
+// the segment unchanged instead of throwing.
+function decodeVpath(vpath: string): string {
+  return vpath
+    .split('/')
+    .map((seg) => {
+      try {
+        return decodeURIComponent(seg)
+      } catch {
+        return seg
+      }
+    })
+    .join('/')
+}
+
 /** copyparty /?share request body. Assumes items already passed validateShareItems. */
 export function buildShareBody(
   key: string,
@@ -67,8 +86,8 @@ export function buildShareBody(
 ): { k: string; vp: string[]; pw: string; exp: string; perms: string[] } {
   const vp =
     items.length === 1 && items[0].isDirectory
-      ? [items[0].vpath.endsWith('/') ? items[0].vpath : `${items[0].vpath}/`]
-      : items.map((it) => it.vpath)
+      ? [decodeVpath(items[0].vpath.endsWith('/') ? items[0].vpath : `${items[0].vpath}/`)]
+      : items.map((it) => decodeVpath(it.vpath))
   return { k: key, vp, pw: '', exp: '60', perms: ['read', 'get'] }
 }
 

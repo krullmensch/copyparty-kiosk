@@ -116,6 +116,27 @@ describe('buildShareBody', () => {
     expect(body.vp).toEqual(['/foo/a.txt', '/foo/b.txt'])
   })
 
+  it('decodes %-encoded file vpaths (from the ?ls href) for the raw share API', () => {
+    const items = [
+      { vpath: '/music/My%20File.flac', name: 'My File.flac', size: 100, isDirectory: false },
+      { vpath: '/music/a%20%26%20b.flac', name: 'a & b.flac', size: 200, isDirectory: false }
+    ]
+    const body = buildShareBody('key', items)
+    expect(body.vp).toEqual(['/music/My File.flac', '/music/a & b.flac'])
+  })
+
+  it('decodes an encoded folder vpath and keeps the trailing slash', () => {
+    const items = [{ vpath: '/foo/My%20Dir', name: 'My Dir', size: 0, isDirectory: true }]
+    const body = buildShareBody('key', items)
+    expect(body.vp).toEqual(['/foo/My Dir/'])
+  })
+
+  it('round-trips a literal percent in a filename (%25 -> %)', () => {
+    const items = [{ vpath: '/foo/50%25.txt', name: '50%.txt', size: 100, isDirectory: false }]
+    const body = buildShareBody('key', items)
+    expect(body.vp).toEqual(['/foo/50%.txt'])
+  })
+
   it('adds trailing slash to folder vpath if missing', () => {
     const items = [{ vpath: '/foo/dir', name: 'dir', size: 0, isDirectory: true }]
     const body = buildShareBody('key', items)
