@@ -147,9 +147,12 @@ function Stage(): React.JSX.Element {
       <div
         style={{
           transform: `scale(${scale})`,
-          transition: 'transform 200ms ease',
+          // Kein transform-transition: Scale wird beim Gruppenwechsel vor dem
+          // Paint gesetzt und soll NICHT animiert werden (sonst „zoomt" die
+          // neue Gruppe rein). Nur das Gruppen-Fade wird getweent.
+          transition: 'opacity 200ms ease',
           opacity: fadeOut ? 0 : 1,
-          willChange: 'opacity, transform'
+          willChange: 'opacity'
         }}
       >
         <div
