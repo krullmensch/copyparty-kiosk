@@ -3,6 +3,7 @@ import { capabilitiesFor, categorize } from '../../../shared/filetypes'
 import type { PreviewSource } from '../../../shared/types'
 import { QuickLookOverlay } from './QuickLookOverlay'
 import { FullView } from './FullView'
+import { useSuppressScreensaver } from '../screensaver/suppress'
 
 export type PreviewMode = 'quicklook' | 'fullview'
 
@@ -43,6 +44,9 @@ export function PreviewProvider({ children }: { children: React.ReactNode }): Re
   const [entry, setEntry] = useState<PreviewEntry | null>(null)
   const [source, setSource] = useState<PreviewSource | null>(null)
   const [activeSelection, setActiveSelectionRaw] = useState<ActiveSelection | null>(null)
+
+  // Kein Screensaver, solange eine Medien-Vorschau offen ist.
+  useSuppressScreensaver(mode !== null)
 
   const close = useCallback((): void => {
     setMode(null)

@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { Share2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatSize } from '../lib/format'
+import { useSuppressScreensaver } from '../screensaver/suppress'
 import type { ShareResult } from '../../../shared/types'
 
 export interface QrShareItem {
@@ -32,6 +33,9 @@ export function QrShareDialog({ server, items, onClose }: Props): React.JSX.Elem
   // IPC call/share can't be un-sent -- this only stops us from acting on it.
   const mountedRef = useRef(true)
   const requestSeqRef = useRef(0)
+
+  // Dialog ist nur gemountet, wenn ein QR-Code angezeigt wird → Screensaver aus.
+  useSuppressScreensaver(true)
 
   useEffect(() => {
     mountedRef.current = true

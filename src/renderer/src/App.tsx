@@ -14,6 +14,7 @@ import { useUploadProgress } from './hooks/useUploadProgress'
 import { useAgoraCapabilities } from './hooks/useAgoraCapabilities'
 import { usePreviewKeys } from './hooks/usePreviewKeys'
 import { PreviewProvider } from './preview/PreviewProvider'
+import { ScreensaverController } from './screensaver/Screensaver'
 
 /** mountet die globalen Preview-Shortcuts innerhalb des PreviewProvider. */
 function PreviewKeyboard(): null {
@@ -230,6 +231,7 @@ function App(): React.JSX.Element {
           onClose={() => setAdminOpen(false)}
         />
       )}
+      <ScreensaverController />
     </PreviewProvider>
   )
 }
