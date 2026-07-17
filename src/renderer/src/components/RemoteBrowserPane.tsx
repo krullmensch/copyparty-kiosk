@@ -3,7 +3,6 @@ import {
   ArrowDownNarrowWide,
   ArrowUp,
   ArrowUpNarrowWide,
-  File as FileIcon,
   Folder,
   LogOut,
   RotateCw,
@@ -16,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ViewToggle, type ViewMode } from '@/components/ui/view-toggle'
 import { RemoteThumb } from '@/components/ui/remote-thumb'
+import { FileTypeIcon } from '@/components/ui/file-icon'
 import { Filename } from '@/components/ui/filename'
 import { Breadcrumbs } from '@/components/ui/breadcrumbs'
 import {
@@ -387,7 +387,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
                                 vpath={h.vpath}
                                 name={h.name}
                                 className="h-full w-full object-cover"
-                                fallback={<FileIcon className="text-ink-muted size-4" />}
+                                fallback={<FileTypeIcon name={h.name} className="text-ink-muted size-4" />}
                               />
                             )}
                           </div>
@@ -459,7 +459,10 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
                             name={e.name}
                             className="h-full w-full object-cover"
                             fallback={
-                              <FileIcon className={`size-4 ${isSel ? 'text-ink-leaf' : 'text-ink-muted'}`} />
+                              <FileTypeIcon
+                                name={e.name}
+                                className={`size-4 ${isSel ? 'text-ink-leaf' : 'text-ink-muted'}`}
+                              />
                             }
                           />
                         )}
@@ -525,7 +528,8 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
                             name={e.name}
                             className="h-full w-full object-cover"
                             fallback={
-                              <FileIcon
+                              <FileTypeIcon
+                                name={e.name}
                                 className={`size-10 ${isSel ? 'text-ink-leaf' : 'text-ink-muted'}`}
                                 strokeWidth={1.25}
                               />

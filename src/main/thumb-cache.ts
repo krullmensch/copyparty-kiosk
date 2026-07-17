@@ -20,7 +20,6 @@ const IMAGE_EXTS = new Set([
 ])
 
 const VIDEO_EXTS = new Set(['.mp4', '.mkv', '.webm', '.mov', '.m4v', '.avi'])
-const AUDIO_EXTS = new Set(['.mp3', '.flac', '.ogg', '.opus', '.m4a', '.wav', '.aif', '.aiff'])
 const PDF_EXTS = new Set(['.pdf'])
 
 function spawnCollect(cmd: string, args: string[], timeoutMs = 10000): Promise<Buffer | null> {
@@ -74,17 +73,6 @@ async function rawFor(path: string, ext: string): Promise<Buffer | null> {
       '-'
     ])
   }
-  if (AUDIO_EXTS.has(ext)) {
-    return spawnCollect('ffmpeg', [
-      '-loglevel', 'error',
-      '-i', path,
-      '-an',
-      '-vframes', '1',
-      '-f', 'image2pipe',
-      '-vcodec', 'png',
-      '-'
-    ])
-  }
   if (PDF_EXTS.has(ext)) {
     return spawnCollect('pdftoppm', ['-png', '-r', '72', '-f', '1', '-l', '1', path, '-'])
   }
@@ -92,7 +80,7 @@ async function rawFor(path: string, ext: string): Promise<Buffer | null> {
 }
 
 function isSupportedExt(ext: string): boolean {
-  return IMAGE_EXTS.has(ext) || VIDEO_EXTS.has(ext) || AUDIO_EXTS.has(ext) || PDF_EXTS.has(ext)
+  return IMAGE_EXTS.has(ext) || VIDEO_EXTS.has(ext) || PDF_EXTS.has(ext)
 }
 
 const THUMB_SIZE = 256

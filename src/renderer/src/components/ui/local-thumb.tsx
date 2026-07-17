@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-const THUMBABLE = /\.(jpe?g|png|gif|webp|avif|bmp|tiff?|heic|heif|mp4|mkv|webm|mov|m4v|avi|mp3|flac|ogg|opus|m4a|wav|aiff?|pdf)$/i
+const THUMBABLE = /\.(jpe?g|png|gif|webp|avif|bmp|tiff?|heic|heif|mp4|mkv|webm|mov|m4v|avi|pdf)$/i
 
 interface Props {
   path: string
