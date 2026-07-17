@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { GROUPS } from './manifest'
 import { useScreensaverSuppressed } from './suppress'
 
-const IDLE_MS = 8_000 // TEMP TEST — zurück auf 120_000 vor Produktivbetrieb
+const IDLE_MS = 120_000 // 2 min Inaktivität bis Screensaver
 
 // Untertitel-Timing (schnell)
 const WORD_MS = 380 // Abstand zwischen zwei Wort-Einblendungen
