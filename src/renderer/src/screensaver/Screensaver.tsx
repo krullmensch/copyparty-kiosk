@@ -153,12 +153,13 @@ function Stage(): React.JSX.Element {
         }}
       >
         <div
+          key={groupIdx}
           ref={lineRef}
           style={{
             whiteSpace: 'nowrap',
             fontFamily: "'Averia Serif Libre', serif",
             fontWeight: 700,
-            fontSize: '190px',
+            fontSize: '120px',
             letterSpacing: '-0.05em',
             lineHeight: 1,
             color: '#000'
@@ -194,8 +195,16 @@ function Stage(): React.JSX.Element {
           willChange: 'transform'
         }}
       >
-        <div style={{ width: '100%', height: '100%', animation: 'sv-spin 4s linear infinite' }}>
-          <CdIcon />
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            animation: cdIn ? 'sv-nudge 2.6s ease-in-out 900ms infinite' : 'none'
+          }}
+        >
+          <div style={{ width: '100%', height: '100%', animation: 'sv-spin 4s linear infinite' }}>
+            <CdIcon />
+          </div>
         </div>
       </div>
 
