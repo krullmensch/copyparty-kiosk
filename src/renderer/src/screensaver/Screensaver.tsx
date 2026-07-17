@@ -172,7 +172,7 @@ function Stage(): React.JSX.Element {
             fontFamily: "'Averia Serif Libre', serif",
             fontWeight: 700,
             fontSize: '120px',
-            letterSpacing: '-0.05em',
+            letterSpacing: '-0.03em',
             lineHeight: 1,
             color: '#000'
           }}
