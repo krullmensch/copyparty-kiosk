@@ -10,6 +10,7 @@ import icon from '../../resources/icon.png?asset'
 import { registerDrivesIpc } from './ipc/drives'
 import { registerFsIpc } from './ipc/fs'
 import { registerCppIpc } from './ipc/copyparty'
+import { registerShareIpc } from './ipc/share'
 import { registerAgoraIpc } from './ipc/agora'
 import { registerConfigIpc } from './ipc/config'
 import { registerMetadataIpc } from './ipc/metadata'
@@ -63,6 +64,7 @@ function createWindow(): void {
   registerDrivesIpc(mainWindow)
   registerFsIpc()
   registerCppIpc(mainWindow)
+  registerShareIpc()
   registerAgoraIpc()
   registerConfigIpc()
   registerMetadataIpc()

@@ -72,3 +72,7 @@ export function reportTransfer(
 ): void {
   post({ kind: 'transfer', kiosk: hostname(), direction, files, bytes, exts })
 }
+
+export function reportQrShare(files: number, bytes: number, exts: Record<string, ExtStats>): void {
+  post({ kind: 'qr_share', kiosk: hostname(), files, bytes, exts })
+}

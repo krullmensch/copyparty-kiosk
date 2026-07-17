@@ -25,6 +25,7 @@ import {
   PreviewSource,
   ReadTextResult,
   RemoteListResult,
+  ShareResult,
   TransferResult,
   UploadProgress
 } from '../shared/types'
@@ -82,6 +83,10 @@ const api = {
       ipcRenderer.invoke(IpcChannels.CppSearch, url, query),
     write: (url: string, vpath: string, content: string): Promise<FsWriteResult> =>
       ipcRenderer.invoke(IpcChannels.CppWrite, url, vpath, content),
+    share: (
+      url: string,
+      items: { vpath: string; name: string; size: number; isDirectory: boolean }[]
+    ): Promise<ShareResult> => ipcRenderer.invoke(IpcChannels.CppShare, url, items),
     onProgress: (cb: (p: UploadProgress) => void): (() => void) => {
       const handler = (_: unknown, p: UploadProgress): void => cb(p)
       ipcRenderer.on(IpcChannels.CppProgress, handler)

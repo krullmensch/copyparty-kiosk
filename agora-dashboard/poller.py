@@ -72,15 +72,15 @@ CREATE TABLE IF NOT EXISTS events (
   session_id INTEGER NOT NULL,
   ts         REAL NOT NULL,
   kiosk      TEXT NOT NULL,
-  kind       TEXT NOT NULL,   -- usb_connected | disc_inserted | transfer
+  kind       TEXT NOT NULL,   -- usb_connected | disc_inserted | transfer | qr_share
   direction  TEXT,            -- transfer only: up | down
-  files      INTEGER,         -- transfer only: file count
-  bytes      INTEGER,         -- transfer only: total bytes
-  exts_json  TEXT             -- transfer only: JSON {ext: {"count": N, "bytes": N}}
+  files      INTEGER,         -- transfer/qr_share: file count
+  bytes      INTEGER,         -- transfer/qr_share: total bytes
+  exts_json  TEXT             -- transfer/qr_share: JSON {ext: {"count": N, "bytes": N}}
 );
 """
 
-VALID_EVENT_KINDS = {"usb_connected", "disc_inserted", "transfer"}
+VALID_EVENT_KINDS = {"usb_connected", "disc_inserted", "transfer", "qr_share"}
 
 
 # --- database -------------------------------------------------------------
@@ -150,6 +150,8 @@ def insert_event(con: sqlite3.Connection, session_id: int, event: dict) -> None:
       {"kind": "disc_inserted", "kiosk": "kiosk1"}
       {"kind": "transfer", "kiosk": "kiosk1", "direction": "up"|"down",
        "files": 3, "bytes": 1024, "exts": {"mp3": {"count": 2, "bytes": 1000}, "jpg": {"count": 1, "bytes": 24}}}
+      {"kind": "qr_share", "kiosk": "kiosk1",
+       "files": 3, "bytes": 1024, "exts": {"mp3": {"count": 2, "bytes": 1000}, "jpg": {"count": 1, "bytes": 24}}}
     invalid input raises ValueError.
     """
     kind = event.get("kind")
@@ -167,6 +169,7 @@ def insert_event(con: sqlite3.Connection, session_id: int, event: dict) -> None:
         direction = event.get("direction")
         if direction not in {"up", "down"}:
             raise ValueError(f"invalid direction: {direction!r}")
+    if kind in ("transfer", "qr_share"):
         files = event.get("files")
         if not isinstance(files, int) or isinstance(files, bool) or files < 0:
             raise ValueError("files must be an int >= 0")
@@ -209,10 +212,20 @@ def event_stats(con: sqlite3.Connection, session_id: int) -> dict:
         "WHERE session_id = ? AND kind = 'transfer'",
         (session_id,),
     ).fetchone()["n"]
+    qr_shares = con.execute(
+        "SELECT COUNT(*) AS n FROM events WHERE session_id = ? AND kind = 'qr_share'",
+        (session_id,),
+    ).fetchone()["n"]
+    qr_bytes = con.execute(
+        "SELECT COALESCE(SUM(bytes), 0) AS n FROM events "
+        "WHERE session_id = ? AND kind = 'qr_share'",
+        (session_id,),
+    ).fetchone()["n"]
 
     tally: dict[str, dict] = {}
     rows = con.execute(
-        "SELECT exts_json FROM events WHERE session_id = ? AND exts_json IS NOT NULL",
+        "SELECT exts_json FROM events "
+        "WHERE session_id = ? AND kind = 'transfer' AND exts_json IS NOT NULL",
         (session_id,),
     ).fetchall()
     for r in rows:
@@ -240,6 +253,8 @@ def event_stats(con: sqlite3.Connection, session_id: int) -> dict:
         "disc_count": disc_count,
         "files_transferred": files_transferred,
         "bytes_transferred": bytes_transferred,
+        "qr_shares": qr_shares,
+        "qr_bytes": qr_bytes,
         "by_ext": by_ext,
     }
 

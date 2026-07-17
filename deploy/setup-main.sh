@@ -50,6 +50,34 @@ else
   ok "admin password already set (FORCE=1 to change)"
 fi
 
+# --- QR-share password (auth for copyparty qr: account) ---
+# Charset hard-limited to [A-Za-z0-9]: this value is interpolated unquoted
+# into the copyparty.service ExecStart= line below (SHARE_ARGS="-a qr:$SHARE_PW ...").
+# A space would inject an extra positional arg into copyparty-sfx.py; a "%"
+# is parsed by systemd as a (usually invalid) unit-file specifier. Either one
+# crashes the WHOLE copyparty service (crash-loop), not just QR-share -- same
+# ExecStart line. Escaping is fragile here, so the charset is restricted
+# instead of trying to quote it correctly.
+if [ "$FORCE" = "1" ] || [ ! -f "$AGORA_HOME/share.pw" ]; then
+  SHP=""
+  while [ -z "$SHP" ]; do
+    read -rsp "Set QR-SHARE password (letters/digits only, empty = generate): " INPUT; echo
+    if [ -z "$INPUT" ]; then
+      SHP=$(openssl rand -hex 16)
+      echo "  Generated: $SHP"
+    elif [[ "$INPUT" =~ ^[A-Za-z0-9]+$ ]]; then
+      SHP="$INPUT"
+    else
+      warn "password must match ^[A-Za-z0-9]+\$ (no spaces, no '%', no punctuation) -- try again"
+    fi
+  done
+  printf '%s' "$SHP" > "$AGORA_HOME/share.pw"
+  chmod 600 "$AGORA_HOME/share.pw"
+  ok "QR-share password set"
+else
+  ok "QR-share password already set (FORCE=1 to change)"
+fi
+
 # --- FritzBox password (optional; absent => tracking disabled + button hidden) ---
 TRACKING=0
 if [ "$FORCE" = "1" ] || [ ! -f "$AGORA_HOME/fritz.env" ]; then
@@ -72,6 +100,13 @@ fi
 # --- copyparty system service ---
 if [ -f "$USER_HOME/copyparty-sfx.py" ]; then
   log "installing copyparty.service"
+  SHARE_PW=$(cat "$AGORA_HOME/share.pw" 2>/dev/null || echo "")
+  if [ -z "$SHARE_PW" ]; then
+    warn "share.pw not found; QR-share will not work. Re-run setup-main.sh to set it."
+    SHARE_ARGS=""
+  else
+    SHARE_ARGS="-a qr:$SHARE_PW --shr /s --shr-rt 60"
+  fi
   sudo tee /etc/systemd/system/copyparty.service >/dev/null <<EOF
 [Unit]
 Description=copyparty file server
@@ -80,17 +115,23 @@ After=network.target
 [Service]
 Type=simple
 User=$USER_NAME
-ExecStart=/usr/bin/python3 $USER_HOME/copyparty-sfx.py -p 3923 -i 0.0.0.0 -v $USER_HOME/copyparty-data:/:rw -e2dsa --no-ses -q
+ExecStart=/usr/bin/python3 $USER_HOME/copyparty-sfx.py -p 3923 -i 0.0.0.0 -v $USER_HOME/copyparty-data:/:rwd -e2dsa --no-ses --daw --u2ow 2 -lo $USER_HOME/copyparty-logs/cpp-%%Y-%%m-%%d.txt $SHARE_ARGS
 Restart=on-failure
 RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
 EOF
-  mkdir -p "$USER_HOME/copyparty-data"
+  mkdir -p "$USER_HOME/copyparty-data" "$USER_HOME/copyparty-logs"
   sudo systemctl daemon-reload
-  sudo systemctl enable --now copyparty.service
-  ok "copyparty.service running on :3923"
+  sudo systemctl enable copyparty.service
+  # always restart (not enable --now): --now is a no-op on an already-active
+  # unit, so a re-run against an existing kiosk2 would keep the OLD ExecStart
+  # args running (e.g. stale/missing SHARE_ARGS) while claiming "enabled".
+  # Restarting unconditionally makes the running process match what was just
+  # written, so this status line is never a lie.
+  sudo systemctl restart copyparty.service
+  ok "copyparty.service (re)started on :3923 (QR-share: $([ -n "$SHARE_ARGS" ] && echo enabled || echo DISABLED))"
 else
   warn "copyparty-sfx.py not at $USER_HOME -- skipping copyparty.service"
   warn "  download it from https://github.com/9001/copyparty/releases and re-run"

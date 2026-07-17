@@ -18,6 +18,13 @@ import { ViewToggle, type ViewMode } from '@/components/ui/view-toggle'
 import { RemoteThumb } from '@/components/ui/remote-thumb'
 import { Filename } from '@/components/ui/filename'
 import { Breadcrumbs } from '@/components/ui/breadcrumbs'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger
+} from '@/components/ui/context-menu'
+import { QrShareDialog, type QrShareItem } from './QrShareDialog'
 import { useRemoteListing } from '../hooks/useRemoteListing'
 import { useSelection } from '../hooks/useSelection'
 import { usePreview } from '../preview/PreviewProvider'
@@ -25,6 +32,20 @@ import { formatDate, formatSize } from '../lib/format'
 import { compareBy, type SortDir, type SortField } from '../lib/sort'
 import type { CppSearchHit, RemoteEntry } from '../../../shared/types'
 import { DRAG_MIME, type DragPayload } from '../../../shared/dragdrop'
+
+/** Same rule copyparty enforces server-side (see share.ts validateShareItems):
+ *  at most 1 folder, never mixed with files. Mirrored here (same texts, same
+ *  order) to disable the menu item up-front instead of round-tripping to
+ *  main for a 400. */
+function shareDisabledReason(targets: RemoteEntry[]): string | null {
+  if (targets.length === 0) return 'Keine Dateien ausgewählt'
+  const dirs = targets.filter((t) => t.isDirectory)
+  if (dirs.length > 1) return 'Mehrere Ordner lassen sich nicht zusammen teilen'
+  if (dirs.length > 0 && dirs.length !== targets.length) {
+    return 'Ordner und Dateien lassen sich nicht zusammen teilen'
+  }
+  return null
+}
 
 const SORT_FIELDS: { field: SortField; label: string }[] = [
   { field: 'name', label: 'Name' },
@@ -98,6 +119,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
   const [vpath, setVpath] = useState('/')
   const [dropActive, setDropActive] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [shareItems, setShareItems] = useState<QrShareItem[] | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
@@ -182,6 +204,25 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
   const onRowClick = (e: React.MouseEvent, entry: RemoteEntry): void => {
     sel.click(entry.href, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
   }
+
+  // right-click on a row outside the current selection selects it first
+  // (standard file-manager behaviour), then the menu acts on the selection
+  const onEntryContextMenu = (entry: RemoteEntry): void => {
+    if (!sel.selected.has(entry.href)) {
+      sel.click(entry.href, { shift: false, meta: false })
+    }
+  }
+
+  const shareTargetsFor = (entry: RemoteEntry): RemoteEntry[] =>
+    sel.selected.has(entry.href) ? sorted.filter((x) => sel.selected.has(x.href)) : [entry]
+
+  const toShareItems = (targets: RemoteEntry[]): QrShareItem[] =>
+    targets.map((t) => ({
+      vpath: entryVpath(t),
+      name: t.name,
+      size: t.size,
+      isDirectory: t.isDirectory
+    }))
 
   const onDragStart = (e: React.DragEvent, entry: RemoteEntry): void => {
     if (entry.isDirectory) {
@@ -325,40 +366,60 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
                 )}
                 <ul className="divide-border divide-y">
                   {searchHits!.map((h) => (
-                    <li
-                      key={h.vpath}
-                      onClick={() => {
-                        const target = h.isDirectory
-                          ? h.vpath
-                          : h.vpath.replace(/\/[^/]+$/, '') || '/'
-                        setVpath(target.endsWith('/') ? target : target)
-                        setQuery('')
-                      }}
-                      className="text-filename-list hover:bg-bg-surface-hover flex cursor-pointer items-center gap-3 px-3 py-1.5 select-none"
-                    >
-                      <div className="rounded-thumb relative flex size-8 shrink-0 items-center justify-center overflow-hidden bg-bg-page-tint">
-                        {h.isDirectory ? (
-                          <Folder className="text-ink size-4" />
-                        ) : (
-                          <RemoteThumb
-                            server={server}
-                            vpath={h.vpath}
-                            name={h.name}
-                            className="h-full w-full object-cover"
-                            fallback={<FileIcon className="text-ink-muted size-4" />}
-                          />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <Filename name={h.name} isDirectory={h.isDirectory} />
-                        <div className="text-ink-faint text-meta truncate">
-                          {h.vpath.split('/').slice(0, -1).join('/') || '/'}
-                        </div>
-                      </div>
-                      <span className="text-ink-muted text-meta w-20 text-right">
-                        {h.isDirectory ? '' : formatSize(h.size)}
-                      </span>
-                    </li>
+                    <ContextMenu key={h.vpath}>
+                      <ContextMenuTrigger asChild>
+                        <li
+                          onClick={() => {
+                            const target = h.isDirectory
+                              ? h.vpath
+                              : h.vpath.replace(/\/[^/]+$/, '') || '/'
+                            setVpath(target.endsWith('/') ? target : target)
+                            setQuery('')
+                          }}
+                          className="text-filename-list hover:bg-bg-surface-hover flex cursor-pointer items-center gap-3 px-3 py-1.5 select-none"
+                        >
+                          <div className="rounded-thumb relative flex size-8 shrink-0 items-center justify-center overflow-hidden bg-bg-page-tint">
+                            {h.isDirectory ? (
+                              <Folder className="text-ink size-4" />
+                            ) : (
+                              <RemoteThumb
+                                server={server}
+                                vpath={h.vpath}
+                                name={h.name}
+                                className="h-full w-full object-cover"
+                                fallback={<FileIcon className="text-ink-muted size-4" />}
+                              />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <Filename name={h.name} isDirectory={h.isDirectory} />
+                            <div className="text-ink-faint text-meta truncate">
+                              {h.vpath.split('/').slice(0, -1).join('/') || '/'}
+                            </div>
+                          </div>
+                          <span className="text-ink-muted text-meta w-20 text-right">
+                            {h.isDirectory ? '' : formatSize(h.size)}
+                          </span>
+                        </li>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent onClick={(ev) => ev.stopPropagation()}>
+                        <ContextMenuItem
+                          disabled={h.isDirectory}
+                          title={
+                            h.isDirectory
+                              ? 'Ordner aus der Suche nur einzeln aus dem Ordner heraus teilbar'
+                              : undefined
+                          }
+                          onSelect={() =>
+                            setShareItems([
+                              { vpath: h.vpath, name: h.name, size: h.size, isDirectory: h.isDirectory }
+                            ])
+                          }
+                        >
+                          Auf Smartphone laden
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
                   ))}
                 </ul>
               </>
@@ -370,43 +431,58 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
           <ul className="divide-border divide-y">
             {sorted.map((e) => {
               const isSel = sel.selected.has(e.href)
+              const shareTargets = shareTargetsFor(e)
+              const shareDisabled = shareDisabledReason(shareTargets)
               return (
-                <li
-                  key={e.href}
-                  draggable={!e.isDirectory}
-                  onDragStart={(ev) => onDragStart(ev, e)}
-                  onClick={(ev) => {
-                    ev.stopPropagation()
-                    onRowClick(ev, e)
-                  }}
-                  onDoubleClick={() => onEntryDoubleClick(e)}
-                  className={`text-filename-list flex cursor-pointer items-center gap-3 px-3 py-1.5 select-none ${
-                    isSel ? 'bg-accent text-ink-leaf' : 'hover:bg-bg-surface-hover'
-                  }`}
-                >
-                  <div className="rounded-thumb relative flex size-8 shrink-0 items-center justify-center overflow-hidden bg-bg-page-tint">
-                    {e.isDirectory ? (
-                      <Folder className={`size-4 ${isSel ? 'text-ink-leaf' : 'text-ink'}`} />
-                    ) : (
-                      <RemoteThumb
-                        server={server}
-                        vpath={entryVpath(e)}
-                        name={e.name}
-                        className="h-full w-full object-cover"
-                        fallback={
-                          <FileIcon className={`size-4 ${isSel ? 'text-ink-leaf' : 'text-ink-muted'}`} />
-                        }
-                      />
-                    )}
-                  </div>
-                  <Filename name={e.name} isDirectory={e.isDirectory} className="flex-1" />
-                  <span className={`text-meta w-20 text-right ${isSel ? 'text-ink-leaf' : 'text-ink-muted'}`}>
-                    {e.isDirectory ? '' : formatSize(e.size)}
-                  </span>
-                  <span className={`text-meta w-16 text-right ${isSel ? 'text-ink-leaf' : 'text-ink-muted'}`}>
-                    {formatDate(e.ts)}
-                  </span>
-                </li>
+                <ContextMenu key={e.href}>
+                  <ContextMenuTrigger asChild>
+                    <li
+                      draggable={!e.isDirectory}
+                      onDragStart={(ev) => onDragStart(ev, e)}
+                      onClick={(ev) => {
+                        ev.stopPropagation()
+                        onRowClick(ev, e)
+                      }}
+                      onDoubleClick={() => onEntryDoubleClick(e)}
+                      onContextMenu={() => onEntryContextMenu(e)}
+                      className={`text-filename-list flex cursor-pointer items-center gap-3 px-3 py-1.5 select-none ${
+                        isSel ? 'bg-accent text-ink-leaf' : 'hover:bg-bg-surface-hover'
+                      }`}
+                    >
+                      <div className="rounded-thumb relative flex size-8 shrink-0 items-center justify-center overflow-hidden bg-bg-page-tint">
+                        {e.isDirectory ? (
+                          <Folder className={`size-4 ${isSel ? 'text-ink-leaf' : 'text-ink'}`} />
+                        ) : (
+                          <RemoteThumb
+                            server={server}
+                            vpath={entryVpath(e)}
+                            name={e.name}
+                            className="h-full w-full object-cover"
+                            fallback={
+                              <FileIcon className={`size-4 ${isSel ? 'text-ink-leaf' : 'text-ink-muted'}`} />
+                            }
+                          />
+                        )}
+                      </div>
+                      <Filename name={e.name} isDirectory={e.isDirectory} className="flex-1" />
+                      <span className={`text-meta w-20 text-right ${isSel ? 'text-ink-leaf' : 'text-ink-muted'}`}>
+                        {e.isDirectory ? '' : formatSize(e.size)}
+                      </span>
+                      <span className={`text-meta w-16 text-right ${isSel ? 'text-ink-leaf' : 'text-ink-muted'}`}>
+                        {formatDate(e.ts)}
+                      </span>
+                    </li>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent onClick={(ev) => ev.stopPropagation()}>
+                    <ContextMenuItem
+                      disabled={!!shareDisabled}
+                      title={shareDisabled ?? undefined}
+                      onSelect={() => setShareItems(toShareItems(shareTargets))}
+                    >
+                      Auf Smartphone laden
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               )
             })}
           </ul>
@@ -414,58 +490,73 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3 p-3">
             {sorted.map((e) => {
               const isSel = sel.selected.has(e.href)
+              const shareTargets = shareTargetsFor(e)
+              const shareDisabled = shareDisabledReason(shareTargets)
               return (
-                <li
-                  key={e.href}
-                  draggable={!e.isDirectory}
-                  onDragStart={(ev) => onDragStart(ev, e)}
-                  onClick={(ev) => {
-                    ev.stopPropagation()
-                    onRowClick(ev, e)
-                  }}
-                  onDoubleClick={() => onEntryDoubleClick(e)}
-                  className={`group flex cursor-pointer flex-col items-stretch gap-2 p-2 select-none rounded-card transition-colors ${
-                    isSel ? 'bg-accent text-ink-leaf' : 'hover:bg-bg-surface-hover'
-                  }`}
-                >
-                  <div
-                    className={`rounded-thumb relative flex aspect-square items-center justify-center overflow-hidden ${
-                      isSel ? 'bg-ink-leaf/15' : 'bg-bg-page-tint group-hover:bg-bg-page'
-                    }`}
-                  >
-                    {e.isDirectory ? (
-                      <Folder
-                        className={`size-10 ${isSel ? 'text-ink-leaf' : 'text-ink'}`}
-                        strokeWidth={1.25}
-                      />
-                    ) : (
-                      <RemoteThumb
-                        server={server}
-                        vpath={entryVpath(e)}
-                        name={e.name}
-                        className="h-full w-full object-cover"
-                        fallback={
-                          <FileIcon
-                            className={`size-10 ${isSel ? 'text-ink-leaf' : 'text-ink-muted'}`}
+                <ContextMenu key={e.href}>
+                  <ContextMenuTrigger asChild>
+                    <li
+                      draggable={!e.isDirectory}
+                      onDragStart={(ev) => onDragStart(ev, e)}
+                      onClick={(ev) => {
+                        ev.stopPropagation()
+                        onRowClick(ev, e)
+                      }}
+                      onDoubleClick={() => onEntryDoubleClick(e)}
+                      onContextMenu={() => onEntryContextMenu(e)}
+                      className={`group flex cursor-pointer flex-col items-stretch gap-2 p-2 select-none rounded-card transition-colors ${
+                        isSel ? 'bg-accent text-ink-leaf' : 'hover:bg-bg-surface-hover'
+                      }`}
+                    >
+                      <div
+                        className={`rounded-thumb relative flex aspect-square items-center justify-center overflow-hidden ${
+                          isSel ? 'bg-ink-leaf/15' : 'bg-bg-page-tint group-hover:bg-bg-page'
+                        }`}
+                      >
+                        {e.isDirectory ? (
+                          <Folder
+                            className={`size-10 ${isSel ? 'text-ink-leaf' : 'text-ink'}`}
                             strokeWidth={1.25}
                           />
-                        }
-                      />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <Filename
-                      name={e.name}
-                      isDirectory={e.isDirectory}
-                      className="text-filename-card"
-                    />
-                    <div
-                      className={`text-meta truncate ${isSel ? 'text-ink-leaf' : 'text-ink-faint'}`}
+                        ) : (
+                          <RemoteThumb
+                            server={server}
+                            vpath={entryVpath(e)}
+                            name={e.name}
+                            className="h-full w-full object-cover"
+                            fallback={
+                              <FileIcon
+                                className={`size-10 ${isSel ? 'text-ink-leaf' : 'text-ink-muted'}`}
+                                strokeWidth={1.25}
+                              />
+                            }
+                          />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <Filename
+                          name={e.name}
+                          isDirectory={e.isDirectory}
+                          className="text-filename-card"
+                        />
+                        <div
+                          className={`text-meta truncate ${isSel ? 'text-ink-leaf' : 'text-ink-faint'}`}
+                        >
+                          {e.isDirectory ? '—' : formatSize(e.size)}
+                        </div>
+                      </div>
+                    </li>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent onClick={(ev) => ev.stopPropagation()}>
+                    <ContextMenuItem
+                      disabled={!!shareDisabled}
+                      title={shareDisabled ?? undefined}
+                      onSelect={() => setShareItems(toShareItems(shareTargets))}
                     >
-                      {e.isDirectory ? '—' : formatSize(e.size)}
-                    </div>
-                  </div>
-                </li>
+                      Auf Smartphone laden
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               )
             })}
           </ul>
@@ -482,6 +573,10 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
           <span className="ml-2">· {data.perms.join(', ')}</span>
         )}
       </div>
+
+      {shareItems && (
+        <QrShareDialog server={server} items={shareItems} onClose={() => setShareItems(null)} />
+      )}
     </div>
   )
 }

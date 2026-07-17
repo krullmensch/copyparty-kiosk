@@ -70,6 +70,8 @@ def build_stats() -> dict:
         "disc_count": 0,
         "files_transferred": 0,
         "bytes_transferred": 0,
+        "qr_shares": 0,
+        "qr_bytes": 0,
         "by_ext": [],
     }
     if con is None:
@@ -122,6 +124,8 @@ def build_stats() -> dict:
             "disc_count": evstats["disc_count"],
             "files_transferred": evstats["files_transferred"],
             "bytes_transferred": evstats["bytes_transferred"],
+            "qr_shares": evstats["qr_shares"],
+            "qr_bytes": evstats["qr_bytes"],
             "by_ext": evstats["by_ext"],
         }
     finally:
@@ -225,6 +229,8 @@ _DASHBOARD_HTML = """<!doctype html>
     <div><div class="n" id="ever">–</div><div class="l">jemals</div></div>
     <div><div class="n" id="peak">–</div><div class="l">peak</div></div>
     <div><div class="n" id="traffic">–</div><div class="l">traffic</div></div>
+    <div><div class="n" id="qrShares">–</div><div class="l">QR-Shares</div></div>
+    <div><div class="n" id="qrBytes">–</div><div class="l">per QR freigegeben</div></div>
   </div>
   <div class="meta" id="meta"></div>
 </div>
@@ -240,6 +246,8 @@ async function tick(){
     const r=await fetch('/stats');const d=await r.json();
     live.textContent=d.live;ever.textContent=d.ever;peak.textContent=d.peak_live;
     traffic.textContent=fmtBytes(d.traffic_bytes);
+    qrShares.textContent=d.qr_shares==null?'–':d.qr_shares;
+    qrBytes.textContent=fmtBytes(d.qr_bytes);
     const up=d.session?Math.round(d.session.uptime_s/60):0;
     meta.textContent='Session '+(d.session?d.session.id:'-')+' · '+up+' min · '
       +(d.stale_s==null?'keine Daten':'aktualisiert vor '+d.stale_s+'s');

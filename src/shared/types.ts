@@ -99,6 +99,18 @@ export interface CppSearchResult {
   truncated: boolean
 }
 
+export interface ShareResult {
+  ok: boolean
+  url?: string
+  key?: string
+  expiresAt?: number
+  files?: number
+  bytes?: number
+  /** false when the selection includes a folder -- `bytes` then only sums the known file sizes, not the folder's contents. */
+  bytesKnown?: boolean
+  error?: string
+}
+
 export const IpcChannels = {
   DrivesList: 'drives:list',
   DriveAdded: 'drive:added',
@@ -119,6 +131,7 @@ export const IpcChannels = {
   CppThumb: 'cpp:thumb',
   CppSearch: 'cpp:search',
   CppWrite: 'cpp:write',
+  CppShare: 'cpp:share',
   BurnStart: 'burn:start',
   BurnProgress: 'burn:progress',
   BurnAvailable: 'burn:available',
@@ -160,6 +173,8 @@ export interface AgoraStats {
   files_transferred?: number
   bytes_transferred?: number
   by_ext?: { ext: string; count: number; bytes: number }[]
+  qr_shares?: number
+  qr_bytes?: number
 }
 
 /** Event a kiosk reports to the agora dashboard (fire-and-forget). */
@@ -170,6 +185,13 @@ export type AgoraEvent =
       kind: 'transfer'
       kiosk: string
       direction: 'up' | 'down'
+      files: number
+      bytes: number
+      exts: Record<string, { count: number; bytes: number }>
+    }
+  | {
+      kind: 'qr_share'
+      kiosk: string
       files: number
       bytes: number
       exts: Record<string, { count: number; bytes: number }>

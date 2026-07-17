@@ -49,6 +49,30 @@ Voraussetzungen Haupt-Kiosk: `~/copyparty-sfx.py` vorhanden
 ([copyparty release](https://github.com/9001/copyparty/releases)), Node.js,
 sudo. VNC optional: `x11vnc -storepasswd ~/.vnc/passwd`.
 
+### QR-Share-Passwort (kiosk2 + kiosk1/kiosk3)
+
+Die beiden Setup-Scripts fragen das **QR-Share-Passwort** ab. Dieses muss auf
+**allen drei Kiosken denselben Wert** haben (wird in `~/.agora/share.pw` gespeichert, `chmod 600`).
+
+- **kiosk2:** Script setzt `-a qr:<PW>` in der copyparty.service (Zeile ExecStart)
+- **kiosk1/kiosk3:** Clients lesen das Passwort aus `share.pw` beim Erstellen von Shares
+
+**Für bestehende Installationen:** Ein Kiosk2, der vor dem QR-Share-Feature aufgesetzt wurde,
+braucht nur:
+```bash
+# auf kiosk2: Passwort setzen (oder generieren)
+FORCE=1 ./deploy/setup-main.sh
+```
+Das Script schreibt den neuen `-a qr:<PW>`-Arg in die `copyparty.service`-Unit
+und startet den Dienst danach **immer** neu (nicht nur `enable --now`, das bei
+bereits laufendem Dienst ein No-Op wäre) — kein manueller `systemctl restart`
+mehr nötig. Das QR-Share-Passwort akzeptiert nur `[A-Za-z0-9]` (Leerzeichen/`%`
+würden die `ExecStart=`-Zeile zerlegen bzw. als systemd-Specifier fehlschlagen
+und den gesamten copyparty-Dienst crashen).
+
+Clients (kiosk1/kiosk3) müssen ebenfalls mit neuester `setup-client.sh` erneut gelaufen 
+sein oder manuell `~/.agora/share.pw` bekommen.
+
 ## Neues Netzwerk
 
 Nichts zu tun. Einstecken, booten. Gleiche FritzBox → Tracking läuft weiter.

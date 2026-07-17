@@ -90,6 +90,8 @@ export function AgoraStatsPanel({ onClose }: { onClose: () => void }): React.JSX
               <Stat n={fmtCount(stats.disc_count)} label="Discs" />
               <Stat n={fmtCount(stats.files_transferred)} label="Dateien" />
               <Stat n={stats.bytes_transferred != null ? formatSize(stats.bytes_transferred) : '–'} label="Daten" />
+              <Stat n={fmtCount(stats.qr_shares)} label="QR-Shares" />
+              <Stat n={stats.qr_bytes != null ? formatSize(stats.qr_bytes) : '–'} label="Per QR freigegeben" />
             </div>
 
             {stats.by_ext && stats.by_ext.length > 0 && (

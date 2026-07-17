@@ -75,6 +75,7 @@ Ich arbeite weiter an [konkretes Thema].
 - ✅ **up2k-Client** (`src/main/up2k.ts`) — sha512[:33]-Chunk-Hashing, Handshake-State-Machine, Chunk-Upload mit Subchunking >96 MB, Resume via Re-Handshake. Sequenziell (1 Connection). End-to-end getestet gegen echten copyparty.
 - ✅ **up2k Hostile-Network-Hardening** — Per-Request-Timeout (`AbortSignal.timeout`), Auto-Retry mit Backoff, geteilte Deadline ab letztem Erfolg, Fehler-Klassifikation (401/403/4xx fatal, 5xx/Netzwerk retry), Chunk-400 "already got that" = Erfolg. `retry`-Progress → Toast "Reconnecting…"
 - ✅ Upload-Progress-UI (gooey-toast, `useUploadProgress.ts`: hash/upload/retry/done/error)
+- ✅ **QR-Share** — Rechtsklick auf Datei/Ordner in RemoteBrowserPane → QR-Code. Auth via copyparty `qr:<PW>` Account (`~/.agora/share.pw`), Expiry 60 min, `--shr /s` virtuel Toplevel auf kiosk2. Single-File-URL mit `?dl`, Multi-File/Ordner als ZIP via `?zip`. Event-Logging (`qr_share` + bytes/files).
 - ✅ Typecheck grün
 
 ## Was noch fehlt (Roadmap, in Reihenfolge sinnvoll)
@@ -183,6 +184,7 @@ api.cpp.disconnect(url): void
 api.cpp.connections(): string[]
 api.cpp.upload(url, targetVpath, localPaths): TransferResult
 api.cpp.download(url, targetDir, items): TransferResult
+api.cpp.share(url, items: { vpath; name; size; isDirectory }[]): ShareResult
 ```
 
 Drag-Payload (Custom MIME `application/x-cpp-kiosk`):

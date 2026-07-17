@@ -16,6 +16,22 @@ log "Agora CLIENT kiosk setup  (repo: $REPO_DIR)"
 install_base_packages
 write_role client
 provision_admin_password
+
+# --- QR-share password (used when creating shares) ---
+mkdir -p "$AGORA_HOME"; chmod 700 "$AGORA_HOME"
+if [ "$FORCE" = "1" ] || [ ! -f "$AGORA_HOME/share.pw" ]; then
+  read -rsp "Enter QR-SHARE password (must match kiosk2): " SHP; echo
+  if [ -z "$SHP" ]; then
+    warn "QR-share password empty; skipping (shares will fail without it)"
+  else
+    printf '%s' "$SHP" > "$AGORA_HOME/share.pw"
+    chmod 600 "$AGORA_HOME/share.pw"
+    ok "QR-share password set"
+  fi
+else
+  ok "QR-share password already set (FORCE=1 to change)"
+fi
+
 ensure_audio
 ensure_display_stack
 build_app
