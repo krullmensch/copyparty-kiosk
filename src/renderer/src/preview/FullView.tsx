@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Info, X } from 'lucide-react'
-import { categorize } from '../../../shared/filetypes'
+import { categorize, officeViewable } from '../../../shared/filetypes'
 import type { PreviewSource } from '../../../shared/types'
 import { Button } from '@/components/ui/button'
 import { MetadataPanel } from './MetadataPanel'
 import { ProgramPreview } from './viewers/ProgramPreview'
 import { ImageViewer } from './viewers/ImageViewer'
-import { TextEditor } from './viewers/TextEditor'
-import { MarkdownPane } from './viewers/MarkdownPane'
+import { TextViewer } from './viewers/TextViewer'
+import { MarkdownViewer } from './viewers/MarkdownViewer'
 import { VideoPlayer } from './viewers/VideoPlayer'
 import { AudioPlayer } from './viewers/AudioPlayer'
 import { DocumentViewer } from './viewers/DocumentViewer'
+import { OfficeViewer } from './viewers/OfficeViewer'
 import { ModelViewer } from './viewers/ModelViewer'
 
 /**
@@ -80,10 +81,17 @@ function renderViewer(
 ): React.JSX.Element {
   switch (category) {
     case 'text':
-      return <TextEditor entry={entry} source={source} />
+      return <TextViewer entry={entry} source={source} />
     case 'markdown':
-      return <MarkdownPane entry={entry} source={source} />
+      return <MarkdownViewer entry={entry} source={source} />
     case 'document':
+      // Office-Formate von einer REMOTE-Quelle rendert OnlyOffice DS schöner
+      // (iframe). OfficeViewer fällt bei DS-down selbst auf DocumentViewer
+      // zurück. LOCAL-Quellen (USB/CD) bleiben immer beim DocumentViewer — der
+      // DS kann lokale Dateien nicht laden.
+      if (source.kind === 'remote' && officeViewable(entry.name)) {
+        return <OfficeViewer entry={entry} source={source} />
+      }
       return <DocumentViewer entry={entry} source={source} />
     case 'audio':
       return <AudioPlayer entry={entry} source={source} />

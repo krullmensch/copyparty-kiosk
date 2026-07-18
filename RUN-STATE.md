@@ -1,3 +1,160 @@
+# RUN-STATE: Textformat-Retest — Viewer/Editor/Metadaten (2026-07-18) — AKTIV
+
+## 🧭 System Context
+
+- **Active Agent:** Architect (Fable 5) — delegiert, schreibt keinen Code.
+- **Auftrag (Marvin):** Textformate erneut testen. QuickLook (Leertaste) explizit AUSSEN VOR. Anforderung: Viewer für alle Textformate; Editoren nur wo sinnvoll (PDF/MOBI/EPUB brauchen KEINEN Editor — Datenaustausch-Kontext). **Metadaten müssen bei ALLEN Formaten editierbar sein** — präzisiert 2026-07-18: gemeint sind konkret die Felder **Titel, Kommentar, Autor**.
+- **Format-Scope:** text: md, html, py, css, js, ts, txt, json · document: pdf, mobi, epub, docx, odt, csv, ods, xlsx
+- **Vorwissen (Memory `filetype-viewer-test`, 2026-07-17):** Viewer-Checkliste damals grün (inkl. EPUB/MOBI nach CSP-Fix 4761a97), ODT = bewusster Fallback. Damals NICHT systematisch getestet: **Metadaten-Edit pro Format**. Architekten-Verdacht: exiftool kann viele dieser Formate nicht schreiben (Plain-Text/OOXML/ODF/MOBI vermutlich read-only) → Anforderung „Metadaten überall editierbar" könnte strukturell scheitern; erst Ist-Stand erheben, dann Lösungsentscheid.
+- **Testdaten:** copyparty `filetype-test/` auf kiosk2 (.71:3923) — vorhandene 14 Samples wiederverwenden; fehlende (ts, json) anlegen mit Präfix `txt-retest-`.
+- **Regeln:** Read-only-Test, NICHTS fixen, keine Commits. Testartefakte danach aufräumen (copyparty anon hat rwd — Uploads via API löschbar; sonst SSH rm in `~/copyparty-data`). Apps laufend hinterlassen. App-Restart nur via X-Session-Methode (Memory kiosk-infra).
+
+## 📋 Task Ledger (Textformat-Retest)
+
+| Task | Agent | Status | Scope (messbar) | Output |
+|---|---|---|---|---|
+| TXT-A Code-Analyse Metadaten-Schreibpfad | Sonnet (read-only) | 🟡 | `src/main/ipc/metadata.ts` + `MetadataPanel.tsx`: welche Felder schreibbar, wie wird exiftool-Write-Fehler behandelt (Toast? Silent?), remote-Pfad (Download→exiftool→PUT ≤64 MB) pro Format; exiftool-vendored Write-Support-Matrix für alle Scope-Formate (aus exiftool-Doku im Package, kein Netz nötig) | Bericht hier |
+| TXT-B E2E kiosk2 | Opus (SSH+xdotool, DISPLAY=:0) | 🟡 | Pro Format: FullView-Viewer rendert? Editor vorhanden+Save persistiert (nur text-Kategorie, lokal falls USB gemountet sonst remote)? MetadataPanel: Feld editieren→Save→neu öffnen→Wert da? PASS/FAIL/N-A je Zelle | Matrix hier |
+
+## 🔄 Handoff Notes (Textformat-Retest)
+
+- **[TXT-A] ✅ DONE (Sonnet, read-only).** Ergebnis:
+  - **Kein Format-Gate:** `metadata.ts:75-94,104-107` setzt `writable: true` für JEDE lokale Datei; `MetadataPanel.tsx` schaltet Titel/Kommentar/Autor-Felder blind frei. Kein Abgleich mit exiftool-Schreibfähigkeit.
+  - **exiftool-Write-Matrix (vendored 13.59, `-listwf` + Live-Tests):** Von allen 16 Scope-Formaten ist NUR **pdf** schreibbar. md/html/py/css/js/ts/txt/json/csv/docx/odt/ods/xlsx/epub/mobi: exiftool-Write unmöglich („Writing of X files is not yet supported" → Fehler-Toast mit roher englischer Meldung).
+  - **PDF-Detailbugs:** (1) `Comment`-Tag existiert im PDF-Info-Dict nicht → exiftool verwirft klaglos, App meldet trotzdem „Metadaten gespeichert" = **Silent Data Loss**. (2) `commonToTags()` (`metadata.ts:100`) mappt Autor→`Artist` statt `Author` → landet in `XMP-tiff:Artist`, Standard-PDF-Reader zeigen Autor nicht. Fixes: Kommentar→`PDF:Subject`/`Keywords` mappen, Autor→`Author`.
+  - **Alternativen für Titel/Kommentar/Autor:** docx/xlsx (`docProps/core.xml`), odt/ods (`meta.xml`), epub (OPF) = alles ZIP+Dublin-Core-XML → per yauzl/yazl im App-Layer patchbar, machbar. mobi = EXTH-Binärheader, fragil → read-only lassen empfohlen. csv + Plain-Text (md/html/py/css/js/ts/txt/json) = kein In-File-Slot → copyparty-serverseitige Tags (`?ls` `tags`-Feld existiert schon, App nutzt es nicht) oder Sidecar; copyparty-Tag-Write-Endpoint noch zu verifizieren.
+- **[TXT-B] ✅ DONE (Opus, E2E kiosk2, remote-only — kein beschreibbarer USB dran, nur DVD „JOKER"; lokaler Write-Pfad ungetestet).** Ergebnis:
+  - **Viewer: 16/16 PASS** (odt = as-designed-Fallback). Editor: alle 8 Text-Formate bieten Editor; voller Edit→Save→Persist→Restore-Zyklus auf md/css/js UI-verifiziert (WebDAV PUT), Rest gleicher Pfad + Highlight-Screenshot. Doku-Formate bieten korrekt KEINEN Editor.
+  - **Metadaten (Titel/Kommentar/Autor): TXT-A-Vorhersage voll bestätigt.** Nur PDF schreibt — Titel ✅, Autor ⚠️ nur `XMP-tiff:Artist` (nicht `PDF:Author`), **Kommentar 🔴 SILENT LOSS** (grüner Toast „Metadaten gespeichert", Tag nirgends, Feld nach Reload leer — serverseitig exiftool-bestätigt). Alle 15 anderen: roher englischer exiftool-Fehler-Toast (leakt Temp-Pfad); `ts`-Sonderfall „Not a valid TS (looks more like a TXT)".
+  - **Weitere Findings:** (F3) Panel bietet Felder bei allen 16 editierbar an trotz 15/16 unschreibbar; (F4) MetadataPanel im Markdown-Bearbeiten-Modus unsichtbar (Button aktiv, Panel fehlt); (F5) PDF-Felder nicht geleert → Text hängt an Bestand an; (F6) Ebook öffnet auf leerer Vorseite; (F7) foliate nicht theme-aware (dark = kaum lesbar); (F8) Tabellen-Viewer rundet Dezimalen (49.00→49); (F9) Esc schließt FullView nicht bei fokussiertem CodeMirror.
+  - **Cleanup sauber:** ts/json-Uploads gelöscht, md/css/js/pdf byte-identisch restauriert (nur mtime neu), App im Normalzustand.
+- **[ENTSCHEIDUNG Marvin 2026-07-18]:** OnlyOffice Document Server WIRD integriert (Office-Content-Editing + schönere Darstellung gewünscht, überstimmt Architekten-Empfehlung „leichtgewichtig"). Metadaten-Track (ZIP-XML-Patch + Tag-Fallback) bleibt separat nötig — OnlyOffice deckt Titel/Kommentar/Autor für Nicht-Office-Formate nicht ab.
+- **[OO-0] ✅ DONE (Machbarkeits-Probe):** kiosk2 = i5-8500T 6C, **23 GiB RAM** (10 frei), 205 GiB Disk frei, Debian 13/Kernel 6.12/cgroup v2, Port 8081 frei, Internet-Uplink aktuell VORHANDEN (Abweichung vom Sneakernet-Soll, für Image-Pull genutzt; Endzustand offline, Image persistiert lokal). Docker NICHT installiert → OO-1. kiosk1/3 nur 7.6 GiB — kiosk2 gesetzt.
+
+---
+
+# RUN-STATE: OnlyOffice-Integration (2026-07-18) — AKTIV
+
+## 🧭 System Context (OnlyOffice)
+
+- **Active Agent:** Architect (Fable 5) — delegiert.
+- **Ziel:** Office-Formate (docx/xlsx/pptx/odt/ods/csv) in FullView mit OnlyOffice **schöner darstellen — VIEWER-ONLY, keine Bearbeitung** (Marvin-Korrektur 2026-07-18: doch keine Datei-Bearbeitung, OnlyOffice nur als Read-only-Viewer). DS Community (AGPL) als Docker-Container auf kiosk2:8081.
+- **Viewer-only-Umsetzung:** In `DocsAPI.DocEditor`-Config: `editorConfig.mode: "view"` + `document.permissions: { edit: false }`. DS rendert formattreu, keine Edit-Toolbar, kein Save.
+- **Architektur (durch viewer-only vereinfacht — Save-Pfad komplett gestrichen):**
+  1. **DS-Container** kiosk2:8081 (`onlyoffice/documentserver`, Version gepinnt, `--restart=always`, JWT an, Secret `~/.agora/oo-jwt.secret`).
+  2. **View-Wrapper-Page** wird vom **agora-server (:8080)** serviert (`/oo-view?doc=<vpath>`): lädt `api.js` vom DS, baut JWT-signierte View-Config (`mode:"view"`, `permissions.edit:false`, document.url = copyparty kiosk2:3923). **KEIN callbackUrl.** **Renderer lädt diese Seite nur als iframe** → CSP der App braucht nur `frame-src http:` dazu, KEIN Fremd-Script im Renderer-Kontext (Trade-off: http-frame-src ok im geschlossenen LAN-Kiosk).
+  3. ~~Save-Callback~~ **ENTFÄLLT** (viewer-only): kein `/oo-callback`, kein PUT zurück zu copyparty, keine `--daw`/rwd-Abhängigkeit für diesen Pfad.
+  4. **Document-Key** = hash(vpath + mtime) — invalidiert DS-Cache bei externem File-Change (reicht read-only).
+  5. **Fallback:** DS-Healthcheck fehlgeschlagen (kiosk2 down / kiosk1+3 erreichen DS nicht) → bestehende Viewer (mammoth/SheetJS) bleiben als Fallback im Dispatch. SPOF-Muster wie Stats akzeptiert.
+- **Constraints:** copyparty-Upstream unangetastet. `contextIsolation` bleibt. Kein CDN — api.js kommt vom LAN-DS. Agora-Host dynamisch aus `~/.agora/host` (nicht hardcoden). JWT bleibt AN (DS lehnt sonst ab) — signiert nur die View-Config, kein Callback-Verify.
+
+## 📋 Task Ledger (OnlyOffice — VIEWER-ONLY)
+
+| Task | Agent | Status | DoR (messbar) | Depends |
+|---|---|---|---|---|
+| OO-1 Docker+DS auf kiosk2 | Opus (SSH) | 🟢 DONE | docker.io via apt; DS-Image versions-gepinnt gepullt; Container läuft `-p 8081:80`, JWT an, Secret in `~/.agora/oo-jwt.secret` (600); `curl localhost:8081/healthcheck`→true; `--restart=always` + docker.service enabled; von kiosk3 aus erreichbar | OO-0 ✅ |
+| OO-2 View-Wrapper im agora-server | Opus | 🟢 DONE | `/oo-view`-Page (api.js vom DS, JWT-signierte Config mit `mode:"view"` + `permissions.edit:false`, KEIN callbackUrl); Doc-Key aus vpath+mtime; py_compile + curl-Test (200, Config enthält mode view). KEIN Callback-Endpoint. | OO-1 |
+| OO-3 App-Integration | Opus | 🟢 DONE | `filetypes.ts`: office-Formate → Capability `officeView`; FullView-Dispatch: DS-Healthcheck ok → iframe auf `http://<host>:8080/oo-view?…`, sonst bisheriger Viewer; CSP `frame-src` erweitert; typecheck grün | OO-2 |
+| OO-4 E2E | Opus (kiosk, xdotool) | 🔴 | docx/xlsx/pptx/odt öffnen → rendert formattreu im OO-Viewer, KEINE Edit-Toolbar/kein Speichern sichtbar; DS gestoppt → Fallback-Viewer greift | OO-3 |
+
+## 🔄 Handoff Notes (OnlyOffice)
+
+- **[OO-3] ✅ DONE (Opus).** typecheck node+web + bestehende Tests grün, kein Commit.
+  - `filetypes.ts`: `doc/rtf/xls/pptx/ppt/odp`→`document` ergänzt (waren `unknown`/kein FullView), neu `OFFICE_VIEW_EXTENSIONS` + `officeViewable(name)`. OO-Liste: docx/doc/odt/rtf/xlsx/xls/ods/csv/pptx/ppt/odp (**txt bleibt TextViewer**, csv über OO = schöner).
+  - `OfficeViewer.tsx` NEU: Host via `window.api.config.getHost()` (dieselbe Quelle wie copyparty/dashboard, kein Hardcode) → Healthcheck `http://<host>:8081/healthcheck` (3s AbortSignal) → ok: iframe `http://<host>:8080/oo-view?doc=<enc vpath>`; fail/timeout/neterr → `<DocumentViewer>` (mammoth/SheetJS/pdf/foliate, nicht gelöscht). Spinner bis iframe onLoad.
+  - `FullView.tsx`: `case 'document'` gated `source.kind==='remote' && officeViewable(name)` → OfficeViewer, sonst DocumentViewer. (Local defensiv auch Fallback — wird durch PV eh abgeschaltet.)
+  - `index.html` CSP: `connect-src`/`frame-src`/`child-src` +`http:` (variable LAN-IP, Sneakernet-Trade-off, kommentiert; Loopback-Whitelist bleibt).
+  - **OO-4-Checks:** (1) Healthcheck prüft nur HTTP-200, DS-Body `true` ggf. gegenchecken. (2) `/oo-view`-Seite darf kein restriktives `X-Frame-Options`/`frame-ancestors` senden (agora-server-Header prüfen), sonst iframe geblockt. (3) QuickLook zeigt für pptx/odp rohe Bytes (wie docx bisher) — irrelevant sobald PV local-QuickLook killt, remote-pptx-QuickLook bleibt kosmetisch.
+- **[OO-2] ✅ DONE (Opus).** Nur `agora-dashboard/server.py` geändert (kein Commit).
+  - Neue Route `GET /oo-view?doc=<url-enc vpath>&host=<optional>` → HTML 200 (fehlendes doc → 400). Helfer `build_oo_config`/`render_oo_view`/`jwt_hs256`/`doctype_from_ext`/`_doc_key`.
+  - **JWT inline stdlib** (hmac/hashlib/base64, ~15 Zeilen) statt pyjwt → KEINE neue Dependency (Sneakernet-Plus). Signiert komplettes Config-Objekt als `config.token` (DS 9.x Inner-Config-Token).
+  - Config: documentType word/cell/slide aus Ext, `mode:"view"`, `permissions.edit:false` (+comment/review/fillForms false, download/print/copy true). document.key = `sha1(vpath:mtime)` (mtime via HEAD Last-Modified, Fallback Stunden-Bucket).
+  - **document.url = `http://<host>:3923/<vpath>`, host aus `?host=`→`~/.agora/host`→kiosk2.local.** ⚠️ **KRITISCH für Deploy:** api.js (:8081) lädt der **Browser** (mDNS `.local` ok), document.url (:3923) fetcht der **DS-Container** (mDNS `.local` scheitert dort) → `~/.agora/host` MUSS auf **`192.168.178.71`** (kiosk2 feste IP) statt `kiosk2.local` zeigen, damit beide Kontexte auflösen. (Agent-Report nannte fälschlich .61 — korrekt .71.)
+  - Selbsttests grün (doctype-Mapping, JWT-Rundlauf+Tamper, /oo-view 200 mit mode:view/edit:false, host-Override), py_compile grün.
+  - **Deploy-Bedarf:** agora-server-Restart (neue Route); `~/.agora/oo-jwt.secret` liest Prozess wie fritz.env; `~/.agora/host`→IP setzen. Offen für OO-3-E2E: ob DS document.url ohne Header-Token lädt (bei anon-copyparty erwartet ja).
+- **[OO-1] ✅ DONE (Opus, kiosk2):** Docker `26.1.5` (apt docker.io, enabled). DS-Image **`onlyoffice/documentserver:9.4.0`** (Digest `sha256:e3da62a8…`), Container `onlyoffice-ds`, `-p 8081:80`, `--restart=always`, `JWT_ENABLED=true`/`JWT_HEADER=Authorization`, Secret `~/.agora/oo-jwt.secret` (600, marvin). Healthcheck `true` (lokal + Netzstrecke von kiosk3). Idle **~806 MiB RAM / 0,02% CPU**, Warmup-Peak ~100% CPU/1-3 min einmalig. Kein Volume (stateless). copyparty/agora/Electron/vnc unberührt. Nebeneffekt: kiosk2 `known_hosts` um kiosk3-Key ergänzt (harmlos). **JWT MUSS beim Einbetten mitsigniert werden**, sonst weist DS Dokumente ab.
+
+---
+
+# RUN-STATE: Editor-Rückbau → Viewer-only (2026-07-18) — AKTIV
+
+## 🧭 System Context (Editor-Rückbau)
+
+- **Active Agent:** Architect (Fable 5) — delegiert.
+- **Entscheidung Marvin 2026-07-18:** App wird reine **Ansichts-App für Datei-INHALT**. Alle Inhalts-Editoren raus. **Metadaten-Panel (Titel/Kommentar/Autor) bleibt editierbar** (explizit bestätigt — widerspricht NICHT dem Rückbau, Metadaten ≠ Datei-Inhalt).
+- **Was raus muss:** der Text/Code-Editor (`TextEditor` CodeMirror + „Bearbeiten"-Toggle + WebDAV-PUT-Save-Pfad `cpp.write`) für md/html/py/css/js/ts/txt/json + Markdown-„Bearbeiten"-Modus. Reine Viewer bleiben (Syntax-Highlight-Anzeige, react-markdown-Render, pdf.js, foliate, mammoth, SheetJS, OnlyOffice-View).
+- **Was bleibt:** MetadataPanel voll funktional (schreibt Titel/Kommentar/Autor — der separate Metadaten-Fix-Track bleibt relevant: PDF-Bugs + ZIP-XML für Office-Formate). `fs.write`/`cpp.write`-IPC prüfen: wird es AUSSCHLIESSLICH vom Text-Editor genutzt oder auch vom Metadaten-Remote-Write (Download→exiftool→PUT)? Falls geteilt → NICHT löschen, nur Editor-Aufruf entfernen. Erst Nutzung mappen, dann rückbauen.
+
+## 📋 Task Ledger (Editor-Rückbau)
+
+| Task | Agent | Status | DoR (messbar) | Depends |
+|---|---|---|---|---|
+| ED-1 Nutzungs-Map | Sonnet (read-only) | 🔴 | Auflisten: wo wird `TextEditor` eingebunden, welcher IPC (`cpp.write`/`fs.write`) hängt am Editor-Save vs. am Metadaten-Write; welche „Bearbeiten"-Toggles/Buttons in FullView + MarkdownPane; ist der PUT-Pfad geteilt? file:line-Bericht, KEINE Änderung. | — |
+| ED-2 Rückbau | Opus | 🟢 DONE | Editor-UI + Save-Pfad entfernt (nur wo exklusiv Editor), Viewer-Anzeige unverändert, MetadataPanel + dessen Write-Pfad intakt; typecheck grün; keine toten Imports | ED-1 |
+| ED-3 E2E | Opus (kiosk) | 🔴 (wartet auf Deploy) | Text/Code-Formate öffnen → nur Ansicht, kein „Bearbeiten"-Button/kein Speichern; Metadaten-Panel weiter editierbar (an einem schreibbaren Format verifizieren) | ED-2 |
+
+---
+
+# RUN-STATE: Local-Preview-Gating (2026-07-18) — AKTIV
+
+## 🧭 System Context (Preview-Gating)
+
+- **Active Agent:** Architect (Fable 5) — delegiert.
+- **Entscheidung Marvin 2026-07-18:** USB/CD/DVD-Dateien (local source) brauchen **GAR KEIN Preview**. FullView UND QuickLook öffnen nur noch für **Agora/Remote-Source**. Lokale Dateien = reine Kopier-Quelle (drag→Agora). Widerruft den lokalen Teil von Anforderung #5 (Preview war lokal+remote getestet).
+- **Folge:** Metadaten-Editing (Panel lebt in FullView) wird damit **remote-only** — man editiert Titel/Kommentar/Autor an der Agora-Kopie, nicht an der USB-Quelle. Konsistent mit Datenaustausch-Zweck. `writeLocalMetadata` wird toter Pfad (kann bleiben oder später raus).
+- **Abhängigkeit:** MUSS nach OO-3 laufen (beide ändern FullView-Dispatch/PreviewProvider — kein paralleler Zugriff). OO-3 baut bereits so, dass OfficeViewer nur remote greift (via SendMessage instruiert).
+
+## 📋 Task Ledger (Preview-Gating)
+
+| Task | Agent | Status | DoR (messbar) | Depends |
+|---|---|---|---|---|
+| PV-1 Nutzungs-Map | Sonnet (read-only) | 🟢 DONE | Gate-Punkt gefunden: PreviewProvider `openQuickLook`+`openFullView` | — |
+| PV-2 Gating | cavecrew-builder | 🟢 DONE | Space/Enter/Doppelklick auf LOCAL-Datei öffnet kein Preview mehr (Ordner-Doppelklick navigiert weiter!); REMOTE unverändert; kein toter Import/typecheck-Fehler; typecheck grün. Toten local-only-Code NICHT zwingend löschen (Scope schlank halten), nur Trigger gaten | PV-1, OO-3 |
+| PV-3 E2E | Opus (kiosk) | 🔴 | Local-Pane: Space/Enter/Doppelklick auf Datei → nichts (Ordner-Nav ok); Remote-Pane: Preview inkl. OO + Metadaten unverändert | PV-2 |
+
+## 🔄 Handoff Notes (Preview-Gating)
+
+- **[PV-1] ✅ DONE (Sonnet, read-only).** Gate-Punkt: **`PreviewProvider.tsx`**, in `openQuickLook` (Z57-65) UND `openFullView` (Z67-84) als erste Zeile `if (src.kind === 'local') return`. Deckt alle 4 Trigger (Space `usePreviewKeys.ts:54`, Enter `:34`, Doppelklick-local `FileBrowserPane.tsx:169`, Doppelklick-remote `RemoteBrowserPane.tsx:192`) — alle laufen zwingend durch diese 2 Funktionen, kein anderer Viewer-Aufrufpfad. Ordner-Nav (`setCwd`/`navigateTo`) ist separater Zweig, unberührt. Optional: `usePreviewKeys.ts` Space/Enter early-return bei local, damit kein sinnloses `preventDefault` (nur UX-Detail).
+- **Toter-Code nach Gate (Aufräumen NICHT Teil von PV-2, nur notiert):** `streamUrl.ts` local-Zweig, media-server `serveLocal`, stream-protocol `handleLocal`, metadata.ts local-Zweige (readLocalMetadata/writeLocalMetadata/readLocalText/PreviewConvert/PreviewReadBytes-local). Remote-Pfade + OfficeViewer bleiben aktiv.
+- **[PV-2] ✅ DONE (cavecrew-builder).** `PreviewProvider.tsx` openQuickLook Z57 + openFullView Z67: `if (src.kind === 'local') return`. `usePreviewKeys.ts` Enter Z34 + Space Z54: local early-return vor preventDefault. **typecheck node+web grün (vom Architekten ausgeführt, Builder hatte kein Bash).**
+
+---
+
+## 🚀 DEPLOY-PLAN (alle Code-Tasks ✅, wartet auf Marvins Freigabe)
+
+**Code fertig + typecheck grün:** Editor-Rückbau (ED), OnlyOffice App-Integration (OO-3) + server.py (OO-2), Preview-Gating (PV). DS-Container (OO-1) läuft bereits auf kiosk2.
+
+**Deploy-Schritte (gebündelt, 1 Zyklus):**
+1. **Commit + Push** (Branch → main nach Marvins OK): App-Änderungen (filetypes/FullView/OfficeViewer/TextViewer/PreviewProvider/usePreviewKeys/index.html/fs.ts/copyparty.ts/preload/types.ts, TextEditor+MarkdownPane gelöscht) + `agora-dashboard/server.py`.
+2. **`~/.agora/host` auf allen 3 Kiosken auf IP `192.168.178.71` setzen** (statt kiosk2.local) — nötig für DS-Container-Resolvability von document.url (OO-2-Befund). ⚠️ Prüfen ob das andere App-Teile (copyparty/dashboard-Fetch) stört — .71 ist kiosk2s feste IP, sollte überall gehen. Alternativ nur auf den Kiosken die OO nutzen.
+3. **agora-server-Restart auf kiosk2** (`systemctl --user restart agora-server`) — neue `/oo-view`-Route. `~/.agora/oo-jwt.secret` liegt schon (OO-1).
+4. **App-Build + X-Restart je Kiosk** (`git pull && npm install && npm run build` + X-Session-Neustart-Script — Methode siehe [[kiosk-infra]]). `npm install` nötig? Keine neuen npm-Deps (CodeMirror bleibt, kein Add) → `npm ci`/install optional, aber schadet nicht.
+5. **E2E danach:** ED-3 (text/code nur Ansicht, Metadaten remote editierbar), OO-4 (docx/xlsx/pptx/odt remote → OO-iframe rendert, keine Edit-Toolbar; DS-stop → Fallback; X-Frame-Options der /oo-view-Seite prüfen), PV-3 (local Space/Enter/Doppelklick → kein Preview, Ordner-Nav ok; remote unverändert).
+
+**Offen/Risiken vor Deploy:** (a) `/oo-view` X-Frame-Options — agora-server (Flask?) sendet vermutlich keine, aber vor iframe-Test verifizieren. (b) DS document.url-Fetch ohne Header-Token — bei anon-copyparty erwartet ok, sonst Header-Token nötig. (c) `~/.agora/host`→IP Nebenwirkungen. Alle drei sind E2E-Findings, kein Code-Blocker.
+
+---
+
+## 🔄 Handoff Notes (Editor-Rückbau)
+
+- **[ED-1] ✅ DONE (Sonnet, read-only).** Kern-Befund: **Metadaten-Write und Editor-Write sind GETRENNT** — Rückbau sicher.
+  - **Editor-Einbindung:** `FullView.tsx:83` (`case 'text'`→TextEditor), `:85` (`case 'markdown'`→MarkdownPane). `MarkdownPane.tsx:5,48` importiert TextEditor im `mode==='edit'`-Zweig, Toggle-Buttons `:28-41`. `TextEditor.tsx` hat KEINEN View-only-Modus (immer Editor, außer >2MB truncated). QuickLook ist bereits read-only (eigene `TextPreview`/`MarkdownViewer`, kein TextEditor-Import) → Rückbau betrifft NUR FullView.
+  - **Save-Pfade getrennt (Antwort NEIN):** Editor → `api.fs.write`/`api.cpp.write` (IPC `FsWrite`/`CppWrite`, `fs.ts:163`, `copyparty.ts:514`). Metadaten → `api.preview.writeMetadata` → `metadata.ts:208` → `writeLocalMetadata` (exiftool direkt) / `writeRemoteMetadata` (ruft `putRemoteFile()` als **Funktion-Import** aus copyparty.ts:15, NICHT den `CppWrite`-IPC-Handler). Löschen der Editor-IPC-Handler bricht Metadaten NICHT.
+  - **Sicher entfernbar:** `TextEditor.tsx` (ganz), MarkdownPane-Edit-Modus/Toggle, IPC `FsWrite`+`writeTextFile()` (kein anderer Caller), IPC-Handler-Wrapper `CppWrite` (NUR Wrapper), `@codemirror/*`-Deps (keine anderen Importer).
+  - **Muss bleiben:** MetadataPanel + metadata.ts komplett, `putRemoteFile()` (Funktion, von writeRemoteMetadata genutzt), IPC `PreviewReadText`/`fetchRemoteText`/`readLocalText` (QuickLook + künftiger Read-only-Text-Viewer).
+- **[ARCHITEKT-PRÄZISIERUNG für ED-2]:** App bleibt Viewer — Text/Code/Markdown-Inhalt MUSS weiter angezeigt werden. Editor NICHT durch Placeholder ersetzen, sondern durch **read-only Viewer**:
+  - `case 'text'` → neuer/vorhandener Read-only-Text-Viewer mit Syntax-Highlight-Anzeige (CodeMirror `readOnly`/`editable:false` ODER simple highlighted `<pre>`; ENTSCHEIDUNG ED-2-Agent: einfachster Weg, der Highlight behält — CodeMirror read-only behalten ist ok, dann bleiben @codemirror-Deps, ODER leichter Highlighter. Kein Save-Button, kein Mod-s.).
+  - `case 'markdown'` → `MarkdownViewer` read-only direkt, Bearbeiten-Toggle weg.
+  - `preview:read-text` bleibt (Content-Load für Viewer). Nur die Write-Kette (`FsWrite`/`CppWrite`-Handler + Save-UI) fällt.
+- **[ED-2] ✅ DONE (Opus).** Umgesetzt:
+  - Neu `TextViewer.tsx` (CodeMirror `readOnly`+`editable:false`, Highlight bleibt, Save/Mod-s/dirty-State raus). `TextEditor.tsx` gelöscht. `MarkdownPane.tsx` gelöscht → FullView dispatcht `markdown` direkt auf `MarkdownViewer` (read-only).
+  - `FullView.tsx`: `case 'text'`→TextViewer, `case 'markdown'`→MarkdownViewer.
+  - IPC-Write raus: `writeTextFile()`+`FsWrite`-Handler (fs.ts, inkl. tot gewordener `isPathAllowed`/`ALLOWED_ROOT_PREFIXES`), `CppWrite`-Handler-Wrapper (copyparty.ts — `putRemoteFile()` behalten), Preload-Bridges `fs.write`/`cpp.write`, Enum `FsWrite`/`CppWrite` + Interface `FsWriteResult` (types.ts).
+  - **Metadaten-Pfad unangetastet** (MetadataPanel.tsx + metadata.ts kein Git-Diff, `putRemoteFile()` weiter genutzt, `preview:read-text` intakt). `@codemirror/*` behalten (TextViewer nutzt sie). **typecheck node+web grün.** Kein Commit/Build.
+- **[ED-3]** offen — braucht Deploy auf Kiosk (git commit+push nach Marvins Freigabe, dann pull+build+X-Restart je Kiosk). E2E: text/code nur Ansicht, Metadaten weiter editierbar.
+
+---
+
 # RUN-STATE: Encrypted-DVD Rip/Decrypt-Pipeline (2026-07-10/11) — FERTIG, ungepusht
 
 ## 🧭 System Context

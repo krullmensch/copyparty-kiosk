@@ -7,9 +7,8 @@ const MAX = 2 * 1024 * 1024 // 2 MB
 
 /**
  * Read-only Markdown-Ansicht. Rendert GFM (Tabellen, Strikethrough, Autolinks)
- * über react-markdown/remark-gfm, kein Editing. Genutzt von QuickLook (immer)
- * und FullView-Vorschau-Modus (MarkdownPane) — Bearbeiten läuft dort über
- * TextEditor auf dem Rohtext.
+ * über react-markdown/remark-gfm, kein Editing. Genutzt von QuickLook und
+ * FullView (Kategorie 'markdown').
  */
 export function MarkdownViewer({
   entry,

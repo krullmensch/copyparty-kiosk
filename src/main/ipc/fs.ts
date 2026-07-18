@@ -1,44 +1,15 @@
 import { ipcMain } from 'electron'
 import { promises as fs } from 'node:fs'
-import { dirname, join, relative, resolve, parse, sep } from 'node:path'
+import { dirname, join, relative, resolve, parse } from 'node:path'
 import { homedir } from 'node:os'
-import { randomBytes } from 'node:crypto'
 import {
   FileEntry,
   FsSearchHit,
   FsSearchResult,
-  FsWriteResult,
   IpcChannels,
   ListResult
 } from '../../shared/types'
 import { getThumb } from '../thumb-cache'
-
-const ALLOWED_ROOT_PREFIXES = ['/Volumes/', '/media/', '/run/media/']
-
-function isPathAllowed(resolved: string): boolean {
-  const home = homedir()
-  if (resolved === home || resolved.startsWith(home + sep)) return true
-  return ALLOWED_ROOT_PREFIXES.some((p) => resolved.startsWith(p))
-}
-
-/** UTF-8 write, atomic via tmp-file + rename. Rejects paths outside allowed roots. */
-export async function writeTextFile(target: string, content: string): Promise<FsWriteResult> {
-  const resolved = resolve(target)
-  if (!isPathAllowed(resolved)) return { ok: false, message: 'path outside allowed roots' }
-  const tmp = `${resolved}.tmp-${randomBytes(6).toString('hex')}`
-  try {
-    await fs.writeFile(tmp, content, 'utf-8')
-    await fs.rename(tmp, resolved)
-    return { ok: true }
-  } catch (err) {
-    try {
-      await fs.rm(tmp, { force: true })
-    } catch {
-      // best-effort cleanup
-    }
-    return { ok: false, message: err instanceof Error ? err.message : String(err) }
-  }
-}
 
 const SEARCH_LIMIT = 500
 const SEARCH_TIMEOUT_MS = 8000
@@ -159,9 +130,5 @@ export function registerFsIpc(): void {
   ipcMain.handle(
     IpcChannels.FsSearch,
     async (_, root: string, query: string): Promise<FsSearchResult> => searchRoot(root, query)
-  )
-  ipcMain.handle(
-    IpcChannels.FsWrite,
-    async (_, path: string, content: string): Promise<FsWriteResult> => writeTextFile(path, content)
   )
 }

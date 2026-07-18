@@ -511,7 +511,4 @@ export function registerCppIpc(mainWindow: BrowserWindow): void {
   )
   ipcMain.handle(IpcChannels.CppThumb, async (_, url: string, vpath: string) => thumb(url, vpath))
   ipcMain.handle(IpcChannels.CppSearch, async (_, url: string, query: string) => search(url, query))
-  ipcMain.handle(IpcChannels.CppWrite, async (_, url: string, vpath: string, content: string) =>
-    putRemoteFile(url, vpath, content)
-  )
 }

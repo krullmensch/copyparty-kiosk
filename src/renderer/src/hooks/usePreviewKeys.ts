@@ -32,6 +32,7 @@ export function usePreviewKeys(): void {
       if (e.key === 'Enter') {
         // Guard 2: nur ein Datei-Eintrag (kein Ordner) ist previewbar
         if (activeSelection && !activeSelection.isDirectory) {
+          if (activeSelection.source.kind === 'local') return
           e.preventDefault()
           openFullView(activeSelection.name, activeSelection.size, activeSelection.source)
         }
@@ -52,6 +53,7 @@ export function usePreviewKeys(): void {
         }
         // mode === null: QuickLook öffnen, nur bei genau einem Datei-Eintrag
         if (activeSelection && !activeSelection.isDirectory) {
+          if (activeSelection.source.kind === 'local') return
           e.preventDefault() // Guard 3: Scroll nur unterdrücken, wenn konsumiert
           openQuickLook(activeSelection.name, activeSelection.size, activeSelection.source)
         }

@@ -4,9 +4,16 @@
     <meta charset="UTF-8" />
     <title>Agora</title>
     <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+    <!-- connect-src/frame-src/child-src erlauben blankes `http:`: der Agora-Host
+         (copyparty :3923, Dashboard :8080, OnlyOffice DS :8081) ist eine
+         variable LAN-IP/-Hostname aus ~/.agora/host, kein fixer Origin. Der
+         OfficeViewer macht einen Healthcheck-Fetch auf :8081 (connect-src) und
+         bettet die OO-Seite von :8080 als iframe ein (frame-src). Trade-off im
+         geschlossenen, uplink-losen Sneakernet-LAN akzeptiert. -->
+
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http://127.0.0.1:* http://localhost:*; media-src 'self' blob: http://127.0.0.1:* http://localhost:*; connect-src 'self' blob: data: http://127.0.0.1:* http://localhost:*; worker-src 'self' blob:; frame-src 'self' blob:; child-src 'self' blob:; font-src 'self' data:"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http://127.0.0.1:* http://localhost:*; media-src 'self' blob: http://127.0.0.1:* http://localhost:*; connect-src 'self' blob: data: http://127.0.0.1:* http://localhost:* http:; worker-src 'self' blob:; frame-src 'self' blob: http:; child-src 'self' blob: http:; font-src 'self' data:"
     />
   </head>
 

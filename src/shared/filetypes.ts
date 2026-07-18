@@ -74,10 +74,16 @@ const EXTENSION_MAP: Record<string, PreviewCategory> = {
   mobi: 'document',
   epub: 'document',
   docx: 'document',
+  doc: 'document',
+  rtf: 'document',
   odt: 'document',
   csv: 'document',
   ods: 'document',
   xlsx: 'document',
+  xls: 'document',
+  pptx: 'document',
+  ppt: 'document',
+  odp: 'document',
   // program
   exe: 'program',
   app: 'program',
@@ -86,6 +92,25 @@ const EXTENSION_MAP: Record<string, PreviewCategory> = {
 }
 
 const RAW_IMAGE_EXTENSIONS = new Set(['cr2', 'cr3', 'nef', 'arw', 'dng', 'raf'])
+
+// Office-Formate, die OnlyOffice Document Server schöner rendert als die
+// clientseitigen Viewer (mammoth/SheetJS). Wird nur für REMOTE-Quellen genutzt
+// (OO DS lädt das Dokument selbst per copyparty-URL) und nur, wenn der DS lebt;
+// sonst greift der bestehende DocumentViewer als Fallback. txt bleibt bewusst
+// draußen (TextViewer). csv ist drin — OO rendert es als Tabelle (schöner).
+const OFFICE_VIEW_EXTENSIONS = new Set([
+  'docx',
+  'doc',
+  'odt',
+  'rtf',
+  'xlsx',
+  'xls',
+  'ods',
+  'csv',
+  'pptx',
+  'ppt',
+  'odp'
+])
 
 function extensionOf(filename: string): string {
   const idx = filename.lastIndexOf('.')
@@ -115,6 +140,15 @@ export function capabilitiesFor(category: PreviewCategory): PreviewCapabilities 
 
 export function isRawImage(filename: string): boolean {
   return RAW_IMAGE_EXTENSIONS.has(extensionOf(filename))
+}
+
+/**
+ * True für Office-Formate, die via OnlyOffice DS (iframe) angezeigt werden
+ * sollen. Der Aufrufer muss zusätzlich sicherstellen, dass die Quelle remote
+ * ist und der DS erreichbar — sonst greift der clientseitige Fallback-Viewer.
+ */
+export function officeViewable(filename: string): boolean {
+  return OFFICE_VIEW_EXTENSIONS.has(extensionOf(filename))
 }
 
 export function needsConversion(filename: string): boolean {

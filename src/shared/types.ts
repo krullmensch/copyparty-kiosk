@@ -120,7 +120,6 @@ export const IpcChannels = {
   FsHome: 'fs:home',
   FsThumb: 'fs:thumb',
   FsSearch: 'fs:search',
-  FsWrite: 'fs:write',
   CppConnect: 'cpp:connect',
   CppList: 'cpp:list',
   CppDisconnect: 'cpp:disconnect',
@@ -130,7 +129,6 @@ export const IpcChannels = {
   CppProgress: 'cpp:progress',
   CppThumb: 'cpp:thumb',
   CppSearch: 'cpp:search',
-  CppWrite: 'cpp:write',
   CppShare: 'cpp:share',
   BurnStart: 'burn:start',
   BurnProgress: 'burn:progress',
@@ -264,11 +262,6 @@ export interface ReadTextResult {
   text: string
   truncated: boolean
   error?: string
-}
-
-export interface FsWriteResult {
-  ok: boolean
-  message?: string
 }
 
 export type PreviewConvertResult =

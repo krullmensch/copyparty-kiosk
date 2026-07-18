@@ -17,7 +17,6 @@ import {
   DvdRipResult,
   FileMetadata,
   FsSearchResult,
-  FsWriteResult,
   IpcChannels,
   ListResult,
   MetadataWriteResult,
@@ -58,9 +57,7 @@ const api = {
     home: (): Promise<string> => ipcRenderer.invoke(IpcChannels.FsHome),
     thumb: (path: string): Promise<string | null> => ipcRenderer.invoke(IpcChannels.FsThumb, path),
     search: (root: string, query: string): Promise<FsSearchResult> =>
-      ipcRenderer.invoke(IpcChannels.FsSearch, root, query),
-    write: (path: string, content: string): Promise<FsWriteResult> =>
-      ipcRenderer.invoke(IpcChannels.FsWrite, path, content)
+      ipcRenderer.invoke(IpcChannels.FsSearch, root, query)
   },
   cpp: {
     connect: (url: string, password?: string): Promise<ConnectResult> =>
@@ -81,8 +78,6 @@ const api = {
       ipcRenderer.invoke(IpcChannels.CppThumb, url, vpath),
     search: (url: string, query: string): Promise<CppSearchResult> =>
       ipcRenderer.invoke(IpcChannels.CppSearch, url, query),
-    write: (url: string, vpath: string, content: string): Promise<FsWriteResult> =>
-      ipcRenderer.invoke(IpcChannels.CppWrite, url, vpath, content),
     share: (
       url: string,
       items: { vpath: string; name: string; size: number; isDirectory: boolean }[]

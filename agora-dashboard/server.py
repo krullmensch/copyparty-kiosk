@@ -14,10 +14,16 @@ The poller (poller.py) is the writer; this process only reads.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
+import hmac
+import json
 import sqlite3
 import time
+import urllib.request
+from html import escape
 from pathlib import Path
+from urllib.parse import quote
 
 from flask import Flask, Response, jsonify, request
 
@@ -27,6 +33,11 @@ AGORA_DIR = Path.home() / ".agora"
 DB_PATH = AGORA_DIR / "agora.db"
 FRITZ_ENV = AGORA_DIR / "fritz.env"
 ADMIN_HASH = AGORA_DIR / "admin.hash"
+HOST_FILE = AGORA_DIR / "host"
+OO_SECRET_FILE = AGORA_DIR / "oo-jwt.secret"
+DEFAULT_HOST = "kiosk2.local"
+COPYPARTY_PORT = 3923
+ONLYOFFICE_PORT = 8081
 HISTORY_LIMIT = 120  # ~2h at 60s polling
 
 app = Flask(__name__)
@@ -204,6 +215,174 @@ def event() -> Response:
     finally:
         rw.close()
     return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# OnlyOffice Document Server -- VIEW-only wrapper (Task OO-2)
+#
+# Serves an HTML page that embeds OnlyOffice DS (api.js from the LAN host on
+# :8081) as a pure viewer for a copyparty document. The Electron app loads this
+# page in an iframe (OO-3). No editing, no callbackUrl, no save endpoint.
+# ---------------------------------------------------------------------------
+
+# extension (no dot, lowercase) -> OnlyOffice documentType
+_OO_DOCTYPE = {
+    # word
+    "doc": "word", "docx": "word", "docm": "word", "dot": "word", "dotx": "word",
+    "odt": "word", "ott": "word", "rtf": "word", "txt": "word", "fodt": "word",
+    # cell
+    "xls": "cell", "xlsx": "cell", "xlsm": "cell", "xlt": "cell", "xltx": "cell",
+    "ods": "cell", "ots": "cell", "csv": "cell", "fods": "cell",
+    # slide
+    "ppt": "slide", "pptx": "slide", "pptm": "slide", "pot": "slide", "potx": "slide",
+    "odp": "slide", "otp": "slide", "fodp": "slide",
+}
+
+
+def agora_host(override: str | None = None) -> str:
+    """LAN address of the Agora host (kiosk2). Mirrors src/main/ipc/config.ts:
+    read ~/.agora/host, fall back to kiosk2.local. An explicit ?host= wins so a
+    client can point OnlyOffice at kiosk2's IP without touching the file."""
+    if override:
+        h = override.strip()
+        if h:
+            return h
+    try:
+        txt = HOST_FILE.read_text().strip()
+        if txt:
+            return txt
+    except OSError:
+        pass
+    return DEFAULT_HOST
+
+
+def oo_secret() -> str:
+    """HS256 secret for the DS inner-config token (64 hex chars on kiosk2)."""
+    return OO_SECRET_FILE.read_text().strip()
+
+
+def _b64url(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+
+def jwt_hs256(payload: dict, secret: str) -> str:
+    """Minimal HS256 JWT. Inline stdlib (hmac/hashlib/base64/json) instead of
+    pyjwt -- one less package to ship to the offline Sneakernet host."""
+    header = {"alg": "HS256", "typ": "JWT"}
+    seg = (
+        _b64url(json.dumps(header, separators=(",", ":")).encode("utf-8"))
+        + "."
+        + _b64url(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+    )
+    sig = hmac.new(secret.encode("utf-8"), seg.encode("ascii"), hashlib.sha256).digest()
+    return seg + "." + _b64url(sig)
+
+
+def doctype_from_ext(ext: str) -> str:
+    return _OO_DOCTYPE.get(ext.lower(), "word")
+
+
+def _fetch_mtime(url: str) -> int | None:
+    """HEAD the copyparty file for Last-Modified (epoch s). Best-effort: any
+    failure returns None and the caller falls back to a time bucket."""
+    try:
+        req = urllib.request.Request(url, method="HEAD")
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            lm = resp.headers.get("Last-Modified")
+        if lm:
+            import email.utils
+
+            ts = email.utils.parsedate_to_datetime(lm)
+            return int(ts.timestamp())
+    except Exception:
+        pass
+    return None
+
+
+def _doc_key(vpath: str, mtime: int | None) -> str:
+    """Stable DS cache key: [A-Za-z0-9._=-], <=128 chars. sha1 hex is safe.
+    Without an mtime we bucket by hour, so an external file change is NOT
+    cache-invalidated until the bucket rolls -- acceptable for a viewer."""
+    if mtime is None:
+        mtime = int(time.time()) // 3600  # hourly bucket fallback
+    digest = hashlib.sha1(f"{vpath}:{mtime}".encode("utf-8")).hexdigest()
+    return digest  # 40 hex chars
+
+
+def build_oo_config(vpath: str, host: str) -> dict:
+    """Assemble the DocEditor config (without token) for a copyparty vpath.
+
+    document.url must be reachable from inside the DS *container*, not from the
+    browser -- so it uses the LAN host address (not localhost, which in the
+    container is the container itself). copyparty listens on 0.0.0.0:3923, so
+    the LAN IP of kiosk2 works from the container's network. Prefer an IP in
+    ~/.agora/host (or ?host=) over the mDNS name kiosk2.local, which a Docker
+    container usually cannot resolve."""
+    vpath = vpath.lstrip("/")
+    ext = vpath.rsplit(".", 1)[-1].lower() if "." in vpath else ""
+    name = vpath.rsplit("/", 1)[-1] or vpath
+    doc_url = f"http://{host}:{COPYPARTY_PORT}/{quote(vpath, safe='/')}"
+    mtime = _fetch_mtime(doc_url)
+    return {
+        "type": "desktop",
+        "documentType": doctype_from_ext(ext),
+        "document": {
+            "fileType": ext,
+            "key": _doc_key(vpath, mtime),
+            "title": name,
+            "url": doc_url,
+            "permissions": {
+                "edit": False,
+                "comment": False,
+                "download": True,
+                "print": True,
+                "fillForms": False,
+                "review": False,
+                "copy": True,
+            },
+        },
+        "editorConfig": {
+            "mode": "view",
+        },
+    }
+
+
+def render_oo_view(vpath: str, host: str) -> str:
+    """Full HTML page embedding DS as a viewer for `vpath`."""
+    config = build_oo_config(vpath, host)
+    try:
+        config["token"] = jwt_hs256(config, oo_secret())
+    except OSError:
+        # No secret on this host (e.g. local dev): DS with JWT_ENABLED would
+        # reject, but the page still renders so the wiring is inspectable.
+        pass
+    api_src = f"http://{host}:{ONLYOFFICE_PORT}/web-apps/apps/api/documents/api.js"
+    config_json = json.dumps(config)
+    return (
+        "<!doctype html>\n"
+        '<html lang="de"><head><meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        f"<title>{escape(config['document']['title'])}</title>\n"
+        "<style>\n"
+        "  html,body{margin:0;height:100%;background:#1a1a1a;}\n"
+        "  #placeholder{width:100%;height:100vh;}\n"
+        "</style></head><body>\n"
+        '<div id="placeholder" style="width:100%;height:100vh"></div>\n'
+        f'<script src="{escape(api_src)}"></script>\n'
+        "<script>\n"
+        f"  var config = {config_json};\n"
+        '  new DocsAPI.DocEditor("placeholder", config);\n'
+        "</script></body></html>"
+    )
+
+
+@app.get("/oo-view")
+def oo_view() -> Response:
+    doc = request.args.get("doc", "").strip()
+    if not doc:
+        return Response("missing ?doc=<vpath>", status=400, mimetype="text/plain")
+    host = agora_host(request.args.get("host"))
+    return Response(render_oo_view(doc, host), mimetype="text/html")
 
 
 @app.get("/dashboard")

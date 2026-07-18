@@ -1,13 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Save } from 'lucide-react'
 import { EditorState, type Extension } from '@codemirror/state'
-import { EditorView, keymap, lineNumbers } from '@codemirror/view'
-import {
-  defaultKeymap,
-  history,
-  historyKeymap,
-  indentWithTab
-} from '@codemirror/commands'
+import { EditorView, lineNumbers } from '@codemirror/view'
 import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
 import { html } from '@codemirror/lang-html'
 import { python } from '@codemirror/lang-python'
@@ -16,9 +9,7 @@ import { javascript } from '@codemirror/lang-javascript'
 import { json } from '@codemirror/lang-json'
 import { markdown } from '@codemirror/lang-markdown'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { gooeyToast as toast } from 'goey-toast'
 import type { PreviewSource } from '../../../../shared/types'
-import { Button } from '@/components/ui/button'
 
 const MAX = 2 * 1024 * 1024 // 2 MB
 
@@ -28,7 +19,7 @@ function extensionOf(name: string): string {
   return name.slice(idx + 1).toLowerCase()
 }
 
-/** Sprach-Extension + Label aus der Dateiendung. Unbekannt → nur Basis-Editor. */
+/** Sprach-Extension + Label aus der Dateiendung. Unbekannt → nur Basis-Viewer. */
 function languageFor(name: string): { ext: Extension | null; label: string } {
   switch (extensionOf(name)) {
     case 'html':
@@ -55,7 +46,12 @@ function languageFor(name: string): { ext: Extension | null; label: string } {
   }
 }
 
-export function TextEditor({
+/**
+ * Read-only Text-/Code-Ansicht mit CodeMirror-Syntax-Highlighting. Lädt den
+ * Inhalt über preview.readText und zeigt ihn schreibgeschützt an — die App ist
+ * ein reiner Viewer, kein Editor.
+ */
+export function TextViewer({
   entry,
   source
 }: {
@@ -64,45 +60,18 @@ export function TextEditor({
 }): React.JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
-  const baselineRef = useRef<string>('')
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [dirty, setDirty] = useState(false)
-  // readOnly-Grund: nur noch große (truncated) Dateien. Remote ist editierbar
-  // (copyparty overwrite via cpp.write).
-  const [readOnlyReason, setReadOnlyReason] = useState<'truncated' | null>(null)
+  const [truncated, setTruncated] = useState(false)
 
   const lang = languageFor(entry.name)
-
-  // Save-Handler in ein Ref, damit der keymap-Eintrag stabil bleibt.
-  const saveRef = useRef<() => void>(() => {})
-
-  const doSave = async (): Promise<void> => {
-    const view = viewRef.current
-    if (!view) return
-    const content = view.state.doc.toString()
-    const res =
-      source.kind === 'local'
-        ? await window.api.fs.write(source.path, content)
-        : await window.api.cpp.write(source.server, source.vpath, content)
-    if (res.ok) {
-      baselineRef.current = content
-      setDirty(false)
-      toast.success('Gespeichert')
-    } else {
-      toast.error(res.message ?? 'Speichern fehlgeschlagen')
-    }
-  }
-  saveRef.current = () => {
-    void doSave()
-  }
 
   useEffect(() => {
     let alive = true
     setLoading(true)
     setError(null)
-    setDirty(false)
+    setTruncated(false)
 
     window.api.preview.readText(source, MAX).then((res) => {
       if (!alive) return
@@ -112,43 +81,20 @@ export function TextEditor({
         return
       }
 
-      // Große (truncated) Dateien bleiben schreibgeschützt, sonst würde ein
-      // Speichern die Datei auf den geladenen Ausschnitt kürzen.
-      const reason: 'truncated' | null = res.truncated ? 'truncated' : null
-      setReadOnlyReason(reason)
-      const readOnly = reason !== null
+      setTruncated(res.truncated)
 
       const host = hostRef.current
       if (!host) return
-
-      baselineRef.current = res.text
 
       const dark = document.documentElement.classList.contains('dark')
 
       const extensions: Extension[] = [
         lineNumbers(),
-        history(),
-        keymap.of([
-          {
-            key: 'Mod-s',
-            preventDefault: true,
-            run: () => {
-              saveRef.current()
-              return true
-            }
-          },
-          ...defaultKeymap,
-          ...historyKeymap,
-          indentWithTab
-        ]),
+        EditorState.readOnly.of(true),
+        EditorView.editable.of(false),
         EditorView.theme({
           '&': { height: '100%' },
           '.cm-scroller': { overflow: 'auto' }
-        }),
-        EditorView.updateListener.of((u) => {
-          if (u.docChanged) {
-            setDirty(u.state.doc.toString() !== baselineRef.current)
-          }
         })
       ]
       if (lang.ext) extensions.push(lang.ext)
@@ -156,9 +102,6 @@ export function TextEditor({
       // expliziten Highlight-Style, sonst rendert CodeMirror die Syntax farblos.
       if (dark) extensions.push(oneDark)
       else extensions.push(syntaxHighlighting(defaultHighlightStyle, { fallback: true }))
-      if (readOnly) {
-        extensions.push(EditorState.readOnly.of(true), EditorView.editable.of(false))
-      }
 
       const view = new EditorView({
         state: EditorState.create({ doc: res.text, extensions }),
@@ -175,31 +118,12 @@ export function TextEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, entry.name])
 
-  const editable = readOnlyReason === null
-
   return (
     <div className="bg-background flex h-full flex-col">
       <div className="border-border flex items-center gap-3 border-b px-4 py-2">
         <span className="text-meta text-ink-muted">{lang.label}</span>
-        {readOnlyReason === 'truncated' && (
-          <span className="text-meta text-ink-faint">Große Datei — schreibgeschützt</span>
-        )}
-        {editable && dirty && (
-          <span className="text-ink-muted flex items-center gap-1.5 text-meta">
-            <span className="bg-foreground inline-block size-1.5 rounded-full" />
-            Ungespeichert
-          </span>
-        )}
-        {editable && (
-          <Button
-            variant="secondary"
-            size="sm"
-            className="ml-auto"
-            disabled={!dirty}
-            onClick={() => saveRef.current()}
-          >
-            <Save /> Speichern
-          </Button>
+        {truncated && (
+          <span className="text-meta text-ink-faint">Große Datei — gekürzt angezeigt</span>
         )}
       </div>
 
