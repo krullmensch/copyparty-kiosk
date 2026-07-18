@@ -1,13 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { GROUPS } from './manifest'
+import { GROUPS, TOTAL_DURATION_MS } from './manifest'
 import { useScreensaverSuppressed } from './suppress'
 
 const IDLE_MS = 120_000 // 2 min Inaktivität bis Screensaver
-
-// Untertitel-Timing (schnell)
-const WORD_MS = 380 // Abstand zwischen zwei Wort-Einblendungen
-const HOLD_MS = 620 // Standzeit nach dem letzten Wort einer Gruppe
-const GROUP_FADE_MS = 260 // Ausblenden der Gruppe vor der nächsten
 
 // Grafik-Timeline (CD → USB), läuft parallel zu den Worten
 const GFX_START_MS = 8_000 // Verzögerung bis die erste Grafik hochfährt
@@ -81,28 +76,52 @@ function Stage(): React.JSX.Element {
     let cancelled = false
     const timers: number[] = []
     const wait = (ms: number): Promise<void> =>
-      new Promise((r) => timers.push(window.setTimeout(r, ms)))
+      new Promise((r) => {
+        if (ms <= 0) r()
+        else timers.push(window.setTimeout(r, ms))
+      })
     void (async () => {
-      let g = 0
       while (!cancelled) {
-        const group = GROUPS[g]
-        setGroupIdx(g)
-        setFadeOut(false)
-        setWordCount(0)
-        // Kurzer Yield, damit der Nullzustand (Wörter unten + transparent) erst
-        // committed wird. Ohne das batcht React setWordCount(0) und (1) zusammen
-        // → das erste Wort mountet im Endzustand und slidet nicht von unten rein.
-        await wait(30)
-        for (let i = 1; i <= group.length && !cancelled; i++) {
-          setWordCount(i)
-          await wait(WORD_MS)
+        const loopStart = Date.now()
+        for (let g = 0; g < GROUPS.length && !cancelled; g++) {
+          const group = GROUPS[g]
+          setGroupIdx(g)
+          setFadeOut(false)
+          setWordCount(0)
+
+          for (let i = 0; i < group.words.length && !cancelled; i++) {
+            const word = group.words[i]
+            const targetTime = loopStart + word.start
+            const delay = targetTime - Date.now()
+            if (delay > 0) await wait(delay)
+
+            if (cancelled) break
+            setWordCount(i + 1)
+          }
+
+          if (cancelled) break
+
+          // Wait until it's time to fade out (e.g. 260ms before next group)
+          // Make sure last word is visible for at least 150ms
+          const minFadeStart = loopStart + group.words[group.words.length - 1].start + 150
+          const idealFadeStart = loopStart + group.nextStart - 260
+          const fadeOutTarget = Math.max(minFadeStart, idealFadeStart)
+          
+          let fadeDelay = fadeOutTarget - Date.now()
+          if (fadeDelay > 0) await wait(fadeDelay)
+          if (cancelled) break
+
+          setFadeOut(true)
+
+          const nextGroupTarget = loopStart + group.nextStart
+          const nextDelay = nextGroupTarget - Date.now()
+          if (nextDelay > 0) await wait(nextDelay)
         }
+        
         if (cancelled) break
-        await wait(HOLD_MS)
-        if (cancelled) break
-        setFadeOut(true)
-        await wait(GROUP_FADE_MS)
-        g = (g + 1) % GROUPS.length
+        const loopEndTarget = loopStart + TOTAL_DURATION_MS
+        const finalDelay = loopEndTarget - Date.now()
+        if (finalDelay > 0) await wait(finalDelay)
       }
     })()
     return () => {
@@ -177,18 +196,18 @@ function Stage(): React.JSX.Element {
             color: '#000'
           }}
         >
-          {group.map((word, i) => (
+          {group?.words?.map((word, i) => (
             <span
               key={i}
               style={{
                 display: 'inline-block',
-                marginRight: i < group.length - 1 ? '0.28em' : 0,
+                marginRight: i < group.words.length - 1 ? '0.28em' : 0,
                 opacity: i < wordCount ? 1 : 0,
                 transform: i < wordCount ? 'translateY(0)' : 'translateY(0.12em)',
                 transition: 'opacity 220ms ease, transform 220ms ease'
               }}
             >
-              {word}
+              {word.text}
             </span>
           ))}
         </div>
