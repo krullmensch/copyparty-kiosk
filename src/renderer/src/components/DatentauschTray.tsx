@@ -107,14 +107,16 @@ export function DatentauschTray({ server, usbPath, usbLabel, children }: Props):
           onDragOver={onDragOver}
           onDragLeave={() => setDropActive(false)}
           onDrop={onDrop}
-          className={`bg-bg-surface border-ink absolute inset-x-0 bottom-0 top-[42%] flex flex-col overflow-hidden rounded-t-container border-t transition-transform duration-300 ease-out ${
+          className={`bg-bg-surface border-ink absolute inset-x-0 bottom-0 top-[42%] overflow-hidden rounded-t-container border-t transition-transform duration-300 ease-out ${
             open ? 'translate-y-0' : 'translate-y-full'
           } ${dropActive ? 'ring-ink/40 ring-2' : ''}`}
         >
           {usbMode ? (
-            <FileBrowserPane key={usbPath} rootPath={usbPath!} />
+            <div className="absolute inset-0">
+              <FileBrowserPane key={usbPath} rootPath={usbPath!} />
+            </div>
           ) : (
-            <div className="relative flex flex-1 flex-col items-center justify-center gap-6 p-6">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-6">
               {staged.length === 0 ? (
                 <p className="text-ink-faint text-body max-w-md text-center">
                   Wähle mehrere Dateien mit <Kbd>Strg</Kbd> + Links-Klick aus. Ziehe diese per
