@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { PARAGRAPHS } from './manifest'
 import { useScreensaverSuppressed } from './suppress'
 import '@fontsource/inter'
