@@ -108,17 +108,17 @@ function Stage(): React.JSX.Element {
                   isActive ? 'relative' : 'absolute top-[calc(100%+4rem)] left-0'
                 }`}
               >
-                {p.text.split(' ').map((word, wIdx) => (
+                {p.text.split('').map((char, cIdx) => (
                   <motion.span
-                    key={wIdx}
+                    key={cIdx}
                     initial={{ color: '#DDDDDD' }}
                     animate={{ color: isActive ? '#000000' : '#DDDDDD' }}
                     transition={{
-                      delay: isActive ? 0.5 + wIdx * 0.28 : 0,
-                      duration: 0.3
+                      delay: isActive ? 0.5 + cIdx * 0.045 : 0,
+                      duration: 0.2
                     }}
                   >
-                    {word}{' '}
+                    {char}
                   </motion.span>
                 ))}
               </motion.div>
