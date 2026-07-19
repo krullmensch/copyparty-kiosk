@@ -47,20 +47,17 @@ function Stage(): React.JSX.Element {
           setIsFading(false)
 
           const readTime = PARAGRAPHS[i].endMs - PARAGRAPHS[i].startMs
-          // Ensure it stays at least a bit, max out at something reasonable or just use exact SRT
           await wait(Math.max(readTime, 4000))
           if (cancelled) break
 
           setIsFading(true)
-          await wait(600) // fade out active paragraph
+          await wait(500) // faster fade out
           if (cancelled) break
           
-          // Before sliding up the next one, maybe a tiny gap
-          await wait(200)
+          await wait(100) // tiny gap before slide
           if (cancelled) break
         }
         if (cancelled) break
-        // End of loop pause
         await wait(2000)
       }
     })()
@@ -85,33 +82,39 @@ function Stage(): React.JSX.Element {
         Jetzt starten!
       </div>
 
-      {PARAGRAPHS.map((p, i) => {
-        const isActive = i === activeIndex
-        const isNext = i === activeIndex + 1
+      <motion.div layout transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }} className="relative w-full max-w-4xl z-0">
+        <AnimatePresence>
+          {PARAGRAPHS.map((p, i) => {
+            const isActive = i === activeIndex
+            const isNext = i === activeIndex + 1
 
-        if (!isActive && !isNext) return null
+            if (!isActive && !isNext) return null
 
-        return (
-          <motion.div
-            key={i}
-            layout
-            initial={{ opacity: 0, y: 150 }}
-            animate={{
-              opacity: isActive ? (isFading ? 0 : 1) : 1,
-              y: isActive ? 0 : 250,
-              color: isActive ? '#000000' : '#DDDDDD',
-            }}
-            transition={{
-              duration: 1.2,
-              ease: [0.22, 1, 0.36, 1],
-              opacity: { duration: isActive && isFading ? 0.6 : 1.0 }
-            }}
-            className="absolute w-full max-w-4xl text-left font-bold font-['Inter'] text-[2.5rem] leading-[1.6]"
-          >
-            {p.text}
-          </motion.div>
-        )
-      })}
+            return (
+              <motion.div
+                key={i}
+                layoutId={`para-${i}`}
+                initial={{ opacity: 0, y: isNext ? 300 : 0 }}
+                animate={{
+                  opacity: isActive && isFading ? 0 : 1,
+                  y: 0,
+                  color: isActive ? '#000000' : '#DDDDDD',
+                }}
+                transition={{
+                  duration: 0.7,
+                  ease: [0.22, 1, 0.36, 1],
+                  opacity: { duration: isActive && isFading ? 0.4 : 0.7 }
+                }}
+                className={`w-full text-left font-bold font-['Inter'] text-[2.5rem] leading-[1.6] ${
+                  isActive ? 'relative' : 'absolute top-[calc(100%+4rem)] left-0'
+                }`}
+              >
+                {p.text}
+              </motion.div>
+            )
+          })}
+        </AnimatePresence>
+      </motion.div>
     </div>
   )
 }
