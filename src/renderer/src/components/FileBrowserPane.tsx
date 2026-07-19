@@ -1,15 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import {
-  ArrowDownNarrowWide,
-  ArrowUp,
-  ArrowUpNarrowWide,
-  Folder,
-  RotateCw,
-  Search,
-  X
-} from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowUp, EyeClosed, Folder, RefreshDouble, Search, Xmark } from 'iconoir-react'
 import { gooeyToast as toast } from 'goey-toast'
-import { Button } from '@/components/ui/button'
+import { Chip, IconPill } from '@/components/ui/chip'
 import { Input } from '@/components/ui/input'
 import { ViewToggle, type ViewMode } from '@/components/ui/view-toggle'
 import { LocalThumb } from '@/components/ui/local-thumb'
@@ -19,7 +11,7 @@ import { Breadcrumbs } from '@/components/ui/breadcrumbs'
 import { useListing } from '../hooks/useListing'
 import { useSelection } from '../hooks/useSelection'
 import { usePreview } from '../preview/PreviewProvider'
-import { formatDate, formatSize } from '../lib/format'
+import { formatSize } from '../lib/format'
 import { compareBy, type SortDir, type SortField } from '../lib/sort'
 import type { FileEntry, FsSearchHit } from '../../../shared/types'
 import { DRAG_MIME, type DragPayload } from '../../../shared/dragdrop'
@@ -39,25 +31,24 @@ interface SortControlProps {
 
 function SortControl({ field, dir, onChange }: SortControlProps): React.JSX.Element {
   return (
-    <div className="bg-bg-page-tint rounded-input inline-flex gap-0.5 p-0.5">
+    <div className="inline-flex items-center gap-1.5">
+      <IconPill
+        onClick={() => onChange(field, dir === 'asc' ? 'desc' : 'asc')}
+        title={dir === 'asc' ? 'aufsteigend' : 'absteigend'}
+        aria-label="Sortierrichtung umschalten"
+      >
+        {dir === 'asc' ? <ArrowUp /> : <ArrowDown />}
+      </IconPill>
       {SORT_FIELDS.map((f) => {
         const active = f.field === field
         return (
-          <Button
+          <Chip
             key={f.field}
-            variant={active ? 'secondary' : 'ghost'}
-            size="sm"
-            className={active ? '' : 'opacity-60'}
+            active={active}
             onClick={() => onChange(f.field, active ? (dir === 'asc' ? 'desc' : 'asc') : 'asc')}
           >
             {f.label}
-            {active &&
-              (dir === 'asc' ? (
-                <ArrowUpNarrowWide className="size-3.5" />
-              ) : (
-                <ArrowDownNarrowWide className="size-3.5" />
-              ))}
-          </Button>
+          </Chip>
         )
       })}
     </div>
@@ -225,66 +216,64 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
 
   return (
     <div
-      className={`border-border bg-bg-surface flex h-full min-h-0 flex-col rounded-card border transition-colors ${
-        dropActive ? 'border-accent ring-accent ring-2' : ''
+      className={`bg-bg-surface grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] transition-colors ${
+        dropActive ? 'ring-ink/40 -ring-offset-2 ring-2' : ''
       }`}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      <div className="border-border flex flex-col gap-2 border-b p-2">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!data?.parent || inSearch}
-            onClick={() => data?.parent && setCwd(data.parent)}
-          >
-            <ArrowUp className="size-4" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={reload}>
-            <RotateCw className="size-4" />
-          </Button>
-          <div className="min-w-0 flex-1">
-            <Breadcrumbs segments={buildSegments(rootPath, cwd, setCwd)} />
-          </div>
-          <SortControl
-            field={sortField}
-            dir={sortDir}
-            onChange={(f, d) => {
-              setSortField(f)
-              setSortDir(d)
-            }}
-          />
-          <ViewToggle mode={viewMode} onChange={setViewMode} />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowHidden((v) => !v)}
-            title="toggle hidden"
-          >
-            {showHidden ? '.✓' : '.×'}
-          </Button>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-4">
+        <IconPill onClick={reload} title="Neu laden" aria-label="Neu laden">
+          <RefreshDouble />
+        </IconPill>
+        <IconPill
+          disabled={!data?.parent || inSearch}
+          onClick={() => data?.parent && setCwd(data.parent)}
+          title="Zurück"
+          aria-label="Eine Ebene zurück"
+        >
+          <ArrowLeft />
+        </IconPill>
+        <div className="min-w-0">
+          <Breadcrumbs segments={buildSegments(rootPath, cwd, setCwd)} />
         </div>
-        <div className="relative">
-          <Search className="text-ink-faint absolute left-2 top-1/2 size-4 -translate-y-1/2" />
+        <div className="relative min-w-[10rem] flex-1">
+          <Search className="text-ink-muted pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={`Suche in ${rootPath.split('/').filter(Boolean).pop() ?? rootPath}…`}
-            className="text-meta h-8 pl-8 pr-8"
+            placeholder="Suche…"
+            className="text-label h-9 rounded-pill border-ink pl-10 pr-9"
           />
           {query && (
             <button
               type="button"
               onClick={() => setQuery('')}
-              className="text-ink-muted hover:text-ink absolute right-2 top-1/2 -translate-y-1/2"
-              title="clear"
+              className="text-ink-muted hover:text-ink absolute right-3 top-1/2 -translate-y-1/2"
+              title="Suche leeren"
             >
-              <X className="size-4" />
+              <Xmark className="size-4" />
             </button>
           )}
         </div>
+        <SortControl
+          field={sortField}
+          dir={sortDir}
+          onChange={(f, d) => {
+            setSortField(f)
+            setSortDir(d)
+          }}
+        />
+        <ViewToggle mode={viewMode} onChange={setViewMode} />
+        <IconPill
+          onClick={() => setShowHidden((v) => !v)}
+          title="Versteckte Dateien"
+          aria-label="Versteckte Dateien umschalten"
+          className={showHidden ? 'bg-ink text-ink-leaf' : ''}
+        >
+          <EyeClosed />
+        </IconPill>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto" onClick={() => sel.clear()}>
@@ -353,7 +342,7 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
         ) : data && sorted.length === 0 && !loading ? (
           <div className="text-ink-faint text-label p-4">Empty.</div>
         ) : !data ? null : viewMode === 'list' ? (
-          <ul className="divide-border divide-y">
+          <ul className="flex flex-col gap-1 px-3 py-2">
             {sorted.map((e) => {
               const isSel = sel.selected.has(e.path)
               return (
@@ -366,33 +355,18 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
                     onRowClick(ev, e)
                   }}
                   onDoubleClick={() => onEntryDoubleClick(e)}
-                  className={`text-filename-list flex cursor-pointer items-center gap-3 px-3 py-1.5 select-none ${
-                    isSel ? 'bg-accent text-ink-leaf' : 'hover:bg-bg-surface-hover'
+                  className={`text-body flex cursor-pointer items-center gap-3 rounded-input px-4 py-2.5 font-medium select-none transition-colors ${
+                    isSel
+                      ? 'bg-ink text-ink-leaf'
+                      : 'bg-bg-page-tint text-ink hover:bg-bg-surface-hover'
                   }`}
                 >
-                  <div className="rounded-thumb relative flex size-8 shrink-0 items-center justify-center overflow-hidden bg-bg-page-tint">
-                    {e.isDirectory ? (
-                      <Folder className={`size-4 ${isSel ? 'text-ink-leaf' : 'text-ink'}`} />
-                    ) : (
-                      <LocalThumb
-                        path={e.path}
-                        name={e.name}
-                        className="h-full w-full object-cover"
-                        fallback={
-                          <FileTypeIcon
-                            name={e.name}
-                            className={`size-4 ${isSel ? 'text-ink-leaf' : 'text-ink-muted'}`}
-                          />
-                        }
-                      />
-                    )}
-                  </div>
+                  {e.isDirectory && (
+                    <Folder className={`size-4 shrink-0 ${isSel ? 'text-ink-leaf' : 'text-ink'}`} />
+                  )}
                   <Filename name={e.name} isDirectory={e.isDirectory} className="flex-1" />
-                  <span className={`text-meta w-20 text-right ${isSel ? 'text-ink-leaf' : 'text-ink-muted'}`}>
+                  <span className={`shrink-0 text-right ${isSel ? 'text-ink-leaf' : 'text-ink'}`}>
                     {e.isDirectory ? '' : formatSize(e.size)}
-                  </span>
-                  <span className={`text-meta w-16 text-right ${isSel ? 'text-ink-leaf' : 'text-ink-muted'}`}>
-                    {formatDate(e.mtime)}
                   </span>
                 </li>
               )
@@ -458,14 +432,6 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
             })}
           </ul>
         )}
-      </div>
-
-      <div className="border-border text-ink-muted text-meta border-t px-3 py-1.5">
-        {busy
-          ? 'Transferring…'
-          : sel.selected.size > 0
-            ? `${sel.selected.size} of ${sorted.length} selected`
-            : `${sorted.length} item${sorted.length === 1 ? '' : 's'}`}
       </div>
     </div>
   )

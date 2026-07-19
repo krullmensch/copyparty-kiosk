@@ -282,7 +282,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
 
   return (
     <div
-      className={`bg-bg-surface flex h-full min-h-0 flex-col transition-colors ${
+      className={`bg-bg-surface grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] transition-colors ${
         dropActive ? 'ring-ink/40 -ring-offset-2 ring-2' : ''
       }`}
       onDragOver={onDragOver}
