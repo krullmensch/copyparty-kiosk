@@ -98,8 +98,8 @@ export function DatentauschTray({ server, usbPath, usbLabel, children }: Props):
 
   return (
     <div className="border-ink bg-bg-surface relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-container border">
-      {/* Bühne: Remote-Pane + darüber liegendes Tray */}
-      <div className="relative min-h-0 flex-1">
+      {/* Bühne: Remote-Pane + darüber liegendes Tray (clippt das geschlossene Tray) */}
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         <div className="absolute inset-0">{children}</div>
 
         <section
