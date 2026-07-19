@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Download, Eject, Send, Xmark } from 'iconoir-react'
+import { ArrowSeparateVertical, Eject, Send, Xmark } from 'iconoir-react'
 import { gooeyToast as toast } from 'goey-toast'
 import { IconPill } from '@/components/ui/chip'
 import { FileBrowserPane } from './FileBrowserPane'
@@ -97,7 +97,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, children }: Props):
   }
 
   return (
-    <div className="border-ink bg-bg-surface relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-container border">
+    <div className="border-ink bg-bg-surface relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-container border-[3px]">
       {/* Bühne: Remote-Pane + darüber liegendes Tray (clippt das geschlossene Tray) */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div className="absolute inset-0">{children}</div>
@@ -107,7 +107,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, children }: Props):
           onDragOver={onDragOver}
           onDragLeave={() => setDropActive(false)}
           onDrop={onDrop}
-          className={`bg-bg-surface border-ink absolute inset-x-0 bottom-0 top-[42%] overflow-hidden rounded-t-container border-t transition-transform duration-300 ease-out ${
+          className={`bg-bg-surface border-ink absolute inset-x-0 bottom-0 top-[42%] overflow-hidden rounded-t-container border-t-[3px] transition-transform duration-300 ease-out ${
             open ? 'translate-y-0' : 'translate-y-full'
           } ${dropActive ? 'ring-ink/40 ring-2' : ''}`}
         >
@@ -181,7 +181,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, children }: Props):
             onClick={() => setOpen((o) => !o)}
             className="text-body bg-ink-leaf text-ink inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-medium outline-none transition-opacity hover:opacity-90 focus-visible:ring-[3px] focus-visible:ring-ring/40"
           >
-            <Download className="size-4" />
+            <ArrowSeparateVertical className="size-4" />
             Datentausch
           </button>
         )}

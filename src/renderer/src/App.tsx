@@ -170,7 +170,7 @@ function App(): React.JSX.Element {
     <PreviewProvider>
       <PreviewKeyboard />
       <GoeyToaster richColors position="top-right" preset="smooth" showProgress />
-      <div className="bg-background text-foreground flex h-screen flex-col">
+      <div className="bg-background text-foreground border-ink flex h-screen flex-col border-[3px]">
         <header className="flex items-center justify-between px-6 pt-4 pb-2">
           <h1 className="text-display-l cursor-default select-none" onClick={onLogoClick}>
             Agora
@@ -203,7 +203,7 @@ function App(): React.JSX.Element {
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3 px-6 pb-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 px-[10px] pb-[10px]">
           <DatentauschTray server={copypartyUrl} usbPath={usbPath} usbLabel={usbLabel}>
             {remotePane}
           </DatentauschTray>
