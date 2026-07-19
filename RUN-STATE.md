@@ -150,7 +150,19 @@
 1. **E2E-Rest:** ED-3/OO-4 ✅ (2026-07-19). Offen nur **PV-3** (braucht USB/DVD in kiosk2) + **Print-Dialog-Ursache** (nicht reproduzierbar, unbestätigt).
 2. **Metadaten-Fix-Track:** PDF-Silent-Loss (Kommentar→`PDF:Subject`), Autor-Bug (`Author` statt `Artist`), veralteter Panel-Text (s.o.), ZIP-XML-Patch für docx/xlsx/odt/ods/epub (Titel/Kommentar/Autor), MOBI read-only, Plain-Text/CSV → copyparty-Tags. Format-Gate: Felder nur editierbar wo schreibbar.
 3. **Toter local-Preview-Code aufräumen** (optional): streamUrl/media-server/stream-protocol local-Zweige, metadata.ts local-Zweige — nach Preview-Gating unerreichbar.
-4. **UI-Fix-Track (aus E2E 2026-07-19):** (E1) OnlyOffice collaboration-name-Dialog unterdrücken (`editorConfig.user` + `customization.chat:false` in `/oo-view`-Config, `agora-dashboard/server.py`); (E2) Sonner-Toast hängt + überlagert `X`-Close nach Metadaten-Save (zIndex/Auto-Dismiss); (E3) Grid-Cache nach Save refreshen (kosmetisch).
+4. **UI-Fix-Track (aus E2E 2026-07-19):** (E1) ✅ **GEFIXT+DEPLOYED** (commit `503b68e`, siehe unten); (E2) Sonner-Toast hängt + überlagert `X`-Close nach Metadaten-Save (zIndex/Auto-Dismiss) — offen; (E3) Grid-Cache nach Save refreshen (kosmetisch) — offen.
+
+---
+
+## 🔒 OnlyOffice/Kiosk-Security-Härtung — ✅ DEPLOYED (commit `503b68e`, 2026-07-19)
+
+**Auslöser (Marvin):** OnlyOffice-Popups weg + kein Save-as/Print-Dialog — öffentliche Besucher dürfen nicht aufs blanke Kiosk-Dateisystem schauen (Angriffsrisiko).
+
+- **`agora-dashboard/server.py` `build_oo_config`:** `download:false`+`print:false` (beide öffnen native GTK-Datei/Druck-Chooser = FS-Leak; Print war auch der hängende „Print-Dialog" aus E2E). Fixer `editorConfig.user` + `customization.anonymous.request:false` → kein „collaboration name"-Popup mehr (behebt E1). Zusätzlich `macros:false`+`macrosMode:disable` (Makro-Ausführung), chat/comments/plugins/help/about/feedback aus, `hideRightMenu`. JWT-signiert → serverseitig erzwungen, client-seitig nicht umgehbar.
+- **`src/main/index.ts` (Electron Main, betrifft alle 3 Kioske):** `context-menu`→preventDefault (killt „Bild speichern unter…"-Chooser, auch im OO-iframe); `setWindowOpenHandler` öffnet nur noch http(s) extern, nie `file://` (kein Datei-Manager); `will-navigate`-Guard (Top-Frame kann nicht wegnavigieren).
+- **Deploy:** alle 3 Kioske auf `503b68e` (git pull + npm install + build + X-Restart), agora-server auf kiosk2 neu. oo-view-Config live verifiziert (`download/print/anonymous.request=false`). Apps laufen sichtbar (Screenshots). Predeploy-Stash `predeploy-2026-07-19` (package-lock-Drift) auf allen 3 — harmlos, droppbar.
+- **⚠️ Regression + Fix (`e14d0b9`):** `customization.compactHeader:true` kippte DS 9.4.0 auf die `index_loader.html`-Editor-Shell (existiert in diesem Build NICHT → 404 → schwarzer iframe; nginx-Log kiosk2 belegt). NICHT die index.ts-Handler (iframe lud, DS bekam Request). Fix: 3 kosmetische Layout-Keys raus (compactHeader/toolbarNoTabs/hideRightMenu), alle Security-Keys bleiben. kiosk2 agora-server neu → fixt docx auf allen 3 (alle ziehen oo-view von kiosk2). **Lehre: DS-customization-Layout-Keys können die Shell-Variante wechseln — vor Deploy live rendern lassen, nicht nur Config-JSON prüfen.**
+- **✅ VOLL LIVE VERIFIZIERT (Marvin, 2026-07-19):** docx rendert + Collab-Popup weg + Download/Print deaktiviert. Track ABGESCHLOSSEN.
 
 **Code fertig + typecheck grün:** Editor-Rückbau (ED), OnlyOffice App-Integration (OO-3) + server.py (OO-2), Preview-Gating (PV). DS-Container (OO-1) läuft bereits auf kiosk2.
 
