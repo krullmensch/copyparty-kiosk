@@ -3,6 +3,7 @@ import { ArrowSeparateVertical, Eject, Send, Xmark } from 'iconoir-react'
 import { gooeyToast as toast } from 'goey-toast'
 import { IconPill } from '@/components/ui/chip'
 import { FileBrowserPane } from './FileBrowserPane'
+import { MobileUploadPanel } from './MobileUploadPanel'
 import { QrShareDialog, type QrShareItem } from './QrShareDialog'
 import { DRAG_MIME, type DragPayload } from '../../../shared/dragdrop'
 
@@ -118,11 +119,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, children }: Props):
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-6">
               {staged.length === 0 ? (
-                <p className="text-ink-faint text-body max-w-md text-center">
-                  Wähle mehrere Dateien mit <Kbd>Strg</Kbd> + Links-Klick aus. Ziehe diese per
-                  Drag&nbsp;&amp;&nbsp;Drop hier her, um sie auf dein Smartphone zu laden — oder
-                  stecke einen USB-Stick ein.
-                </p>
+                <MobileUploadPanel />
               ) : (
                 <div className="flex max-h-full w-full max-w-2xl flex-wrap content-start justify-center gap-2 overflow-auto">
                   {staged.map((s) => (
@@ -198,13 +195,5 @@ export function DatentauschTray({ server, usbPath, usbLabel, children }: Props):
         />
       )}
     </div>
-  )
-}
-
-function Kbd({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return (
-    <kbd className="border-ink-faint text-ink-muted rounded-input border px-1.5 py-0.5 text-[0.85em]">
-      {children}
-    </kbd>
   )
 }

@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agora – Upload</title>
+<style>
+  :root{color-scheme:dark;}
+  *{box-sizing:border-box;}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:#111;color:#eee;margin:0;min-height:100vh;
+    padding:1.5rem 1.25rem 3rem;
+    display:flex;flex-direction:column;align-items:center;
+  }
+  h1{font-size:1.3rem;font-weight:700;margin:.5rem 0 1.75rem;text-align:center;}
+  .wrap{width:100%;max-width:420px;display:flex;flex-direction:column;gap:.9rem;}
+
+  .pill{
+    display:flex;align-items:center;justify-content:center;gap:.6rem;
+    width:100%;min-height:64px;padding:.9rem 1.4rem;
+    background:#eee;color:#111;
+    border:none;border-radius:999px;
+    font-size:1.05rem;font-weight:600;font-family:inherit;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .pill:active{background:#ccc;}
+  .pill.secondary{
+    background:transparent;color:#eee;border:1px solid #555;
+  }
+  .pill.secondary:active{background:#222;}
+  .pill:disabled{opacity:.5;}
+
+  input[type=file]{display:none;}
+
+  .icon{width:1.4em;height:1.4em;flex-shrink:0;vertical-align:middle;}
+  .status .icon{width:1.1em;height:1.1em;margin-right:.25em;}
+
+  .panel{
+    display:none;
+    width:100%;max-width:420px;
+    flex-direction:column;align-items:center;gap:1rem;
+    margin-top:.5rem;
+  }
+  .panel.active{display:flex;}
+
+  .preview{
+    width:100%;max-height:60vh;object-fit:contain;
+    border-radius:20px;border:1px solid #333;background:#000;
+  }
+
+  .status{font-size:.95rem;text-align:center;opacity:.85;min-height:1.2em;}
+  .status.error{color:#ff8080;opacity:1;}
+  .status.ok{color:#8fff9e;opacity:1;}
+
+  .progress-track{
+    width:100%;height:10px;border-radius:999px;background:#2a2a2a;overflow:hidden;
+    display:none;
+  }
+  .progress-track.active{display:block;}
+  .progress-bar{height:100%;width:0%;background:#eee;border-radius:999px;transition:width .15s ease;}
+
+  .back{
+    margin-top:.75rem;background:none;border:none;color:#888;
+    font-size:.9rem;font-family:inherit;
+    padding:.5rem;cursor:pointer;
+    display:inline-flex;align-items:center;gap:.3rem;
+  }
+  .back span{text-decoration:underline;}
+
+  .meta{margin-top:2rem;opacity:.35;font-size:.7rem;text-align:center;}
+</style>
+</head>
+<body>
+
+<h1>Zur Agora hochladen</h1>
+
+<div class="wrap" id="modeSelect">
+  <button class="pill" id="btnPhotos" type="button">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M21 3.6V20.4C21 20.7314 20.7314 21 20.4 21H3.6C3.26863 21 3 20.7314 3 20.4V3.6C3 3.26863 3.26863 3 3.6 3H20.4C20.7314 3 21 3.26863 21 3.6Z"/>
+      <path d="M3 16L10 13L21 18"/>
+      <path d="M16 10C14.8954 10 14 9.10457 14 8C14 6.89543 14.8954 6 16 6C17.1046 6 18 6.89543 18 8C18 9.10457 17.1046 10 16 10Z"/>
+    </svg> Fotos hochladen
+  </button>
+  <button class="pill" id="btnFiles" type="button">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M2 11V4.6C2 4.26863 2.26863 4 2.6 4H8.77805C8.92127 4 9.05977 4.05124 9.16852 4.14445L12.3315 6.85555C12.4402 6.94876 12.5787 7 12.722 7H21.4C21.7314 7 22 7.26863 22 7.6V11M2 11V19.4C2 19.7314 2.26863 20 2.6 20H21.4C21.7314 20 22 19.7314 22 19.4V11M2 11H22"/>
+    </svg> Dateien hochladen
+  </button>
+  <button class="pill" id="btnCamera" type="button">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M2 19V9C2 7.89543 2.89543 7 4 7H4.5C5.12951 7 5.72229 6.70361 6.1 6.2L8.32 3.24C8.43331 3.08892 8.61115 3 8.8 3H15.2C15.3889 3 15.5667 3.08892 15.68 3.24L17.9 6.2C18.2777 6.70361 18.8705 7 19.5 7H20C21.1046 7 22 7.89543 22 9V19C22 20.1046 21.1046 21 20 21H4C2.89543 21 2 20.1046 2 19Z"/>
+      <path d="M12 17C14.2091 17 16 15.2091 16 13C16 10.7909 14.2091 9 12 9C9.79086 9 8 10.7909 8 13C8 15.2091 9.79086 17 12 17Z"/>
+    </svg> Foto machen
+  </button>
+
+  <div class="status" id="quickStatus"></div>
+  <div class="progress-track" id="quickProgress"><div class="progress-bar" id="quickProgressBar"></div></div>
+</div>
+
+<div class="panel" id="cameraPanel">
+  <img class="preview" id="cameraPreview" alt="Vorschau">
+  <button class="pill" id="btnAddPhoto" type="button">Foto zur Agora hinzufügen</button>
+  <button class="pill secondary" id="btnCancelPhoto" type="button">Abbrechen</button>
+  <div class="status" id="cameraStatus"></div>
+  <div class="progress-track" id="cameraProgress"><div class="progress-bar" id="cameraProgressBar"></div></div>
+</div>
+
+<button class="back" id="btnBack" type="button" style="display:none;">
+  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6L9 12L15 18"/></svg>
+  <span>Zurück zur Auswahl</span>
+</button>
+
+<input type="file" id="inputPhotos" accept="image/*" multiple>
+<input type="file" id="inputFiles" multiple>
+<input type="file" id="inputCamera" accept="image/*" capture="environment">
+
+<div class="meta">Agora – Sneakernet-Upload</div>
+
+<script>
+(function(){
+  var modeSelect = document.getElementById('modeSelect');
+  var cameraPanel = document.getElementById('cameraPanel');
+  var btnBack = document.getElementById('btnBack');
+
+  var inputPhotos = document.getElementById('inputPhotos');
+  var inputFiles = document.getElementById('inputFiles');
+  var inputCamera = document.getElementById('inputCamera');
+
+  var cameraPreview = document.getElementById('cameraPreview');
+  var previewUrl = null;
+  var pendingCameraFile = null;
+
+  var quickStatus = document.getElementById('quickStatus');
+  var quickProgress = document.getElementById('quickProgress');
+  var quickProgressBar = document.getElementById('quickProgressBar');
+
+  var cameraStatus = document.getElementById('cameraStatus');
+  var cameraProgress = document.getElementById('cameraProgress');
+  var cameraProgressBar = document.getElementById('cameraProgressBar');
+
+  function showModeSelect(){
+    modeSelect.style.display = 'flex';
+    cameraPanel.classList.remove('active');
+    btnBack.style.display = 'none';
+    quickStatus.textContent = '';
+    quickStatus.className = 'status';
+    quickProgress.classList.remove('active');
+    quickProgressBar.style.width = '0%';
+  }
+
+  function showCameraPanel(){
+    modeSelect.style.display = 'none';
+    cameraPanel.classList.add('active');
+    btnBack.style.display = 'inline-block';
+    cameraStatus.textContent = '';
+    cameraStatus.className = 'status';
+    cameraProgress.classList.remove('active');
+    cameraProgressBar.style.width = '0%';
+  }
+
+  document.getElementById('btnPhotos').addEventListener('click', function(){
+    inputPhotos.click();
+  });
+  document.getElementById('btnFiles').addEventListener('click', function(){
+    inputFiles.click();
+  });
+  document.getElementById('btnCamera').addEventListener('click', function(){
+    inputCamera.click();
+  });
+
+  inputPhotos.addEventListener('change', function(){
+    if(inputPhotos.files && inputPhotos.files.length){
+      uploadFiles(inputPhotos.files, quickStatus, quickProgress, quickProgressBar, function(){
+        inputPhotos.value = '';
+      });
+    }
+  });
+
+  inputFiles.addEventListener('change', function(){
+    if(inputFiles.files && inputFiles.files.length){
+      uploadFiles(inputFiles.files, quickStatus, quickProgress, quickProgressBar, function(){
+        inputFiles.value = '';
+      });
+    }
+  });
+
+  inputCamera.addEventListener('change', function(){
+    if(!inputCamera.files || !inputCamera.files.length) return;
+    pendingCameraFile = inputCamera.files[0];
+    if(previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = URL.createObjectURL(pendingCameraFile);
+    cameraPreview.src = previewUrl;
+    showCameraPanel();
+  });
+
+  function resetCamera(){
+    if(previewUrl){
+      URL.revokeObjectURL(previewUrl);
+      previewUrl = null;
+    }
+    cameraPreview.src = '';
+    pendingCameraFile = null;
+    inputCamera.value = '';
+  }
+
+  document.getElementById('btnCancelPhoto').addEventListener('click', function(){
+    resetCamera();
+    showModeSelect();
+  });
+
+  document.getElementById('btnAddPhoto').addEventListener('click', function(){
+    if(!pendingCameraFile) return;
+    var file = pendingCameraFile;
+    uploadFiles([file], cameraStatus, cameraProgress, cameraProgressBar, function(){
+      resetCamera();
+    });
+  });
+
+  btnBack.addEventListener('click', function(){
+    resetCamera();
+    showModeSelect();
+  });
+
+  function uploadFiles(fileList, statusEl, progressTrack, progressBar, onSettled){
+    var formData = new FormData();
+    for(var i=0;i<fileList.length;i++){
+      formData.append('file', fileList[i]);
+    }
+
+    statusEl.textContent = 'Wird hochgeladen…';
+    statusEl.className = 'status';
+    progressTrack.classList.add('active');
+    progressBar.style.width = '0%';
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/up/upload');
+
+    xhr.upload.addEventListener('progress', function(e){
+      if(e.lengthComputable){
+        var pct = Math.round((e.loaded / e.total) * 100);
+        progressBar.style.width = pct + '%';
+      }
+    });
+
+    xhr.addEventListener('load', function(){
+      progressTrack.classList.remove('active');
+      var ok = false;
+      var result = null;
+      try{ result = JSON.parse(xhr.responseText); }catch(e){}
+
+      if(xhr.status >= 200 && xhr.status < 300 && result && result.ok){
+        ok = true;
+      }
+
+      if(ok){
+        var count = (result.uploaded || []).length;
+        statusEl.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13L9 17L19 7"/></svg>Hochgeladen (' + count + (count === 1 ? ' Datei' : ' Dateien') + ')';
+        statusEl.className = 'status ok';
+        if(onSettled) onSettled();
+        setTimeout(function(){
+          if(cameraPanel.classList.contains('active')){
+            showModeSelect();
+          }
+        }, 1200);
+      } else {
+        var msg = 'Upload fehlgeschlagen. Bitte erneut versuchen.';
+        if(result && result.failed && result.failed.length){
+          msg = 'Fehlgeschlagen: ' + result.failed.map(function(f){ return f.name; }).join(', ');
+        }
+        statusEl.textContent = msg;
+        statusEl.className = 'status error';
+      }
+    });
+
+    xhr.addEventListener('error', function(){
+      progressTrack.classList.remove('active');
+      statusEl.textContent = 'Keine Verbindung zum Server. Bitte erneut versuchen.';
+      statusEl.className = 'status error';
+    });
+
+    xhr.send(formData);
+  }
+})();
+</script>
+
+</body>
+</html>

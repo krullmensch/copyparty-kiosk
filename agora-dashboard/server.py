@@ -25,7 +25,7 @@ from html import escape
 from pathlib import Path
 from urllib.parse import quote
 
-from flask import Flask, Response, jsonify, request
+from flask import Flask, Response, jsonify, request, send_file
 
 import poller
 
@@ -39,6 +39,8 @@ DEFAULT_HOST = "kiosk2.local"
 COPYPARTY_PORT = 3923
 ONLYOFFICE_PORT = 8081
 HISTORY_LIMIT = 120  # ~2h at 60s polling
+MOBILE_INBOX = "/"  # vpath uploads from /up/upload land in (deploy-configurable)
+MOBILE_UPLOAD_HTML = Path(__file__).parent / "mobile_upload.html"
 
 app = Flask(__name__)
 
@@ -215,6 +217,113 @@ def event() -> Response:
     finally:
         rw.close()
     return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Mobile Upload via QR (Task MU-2)
+#
+# GET /up          -> serves the mobile-first upload page (MU-3)
+# POST /up/upload  -> proxies multipart files from a phone browser to
+#                      copyparty's plain bput upload (copyparty is anonymous
+#                      rwd on this closed sneakernet, no auth needed)
+
+
+@app.get("/up")
+def mobile_upload_page() -> Response:
+    return send_file(MOBILE_UPLOAD_HTML, mimetype="text/html")
+
+
+def _bput_multipart_body(filename: str, data: bytes) -> tuple[bytes, str]:
+    """builds the multipart/form-data body copyparty's bput expects: act + f."""
+    boundary = f"----agora-mu-{time.time_ns():x}"
+    # escape quotes/newlines so a crafted filename can't break out of the header
+    safe_name = filename.replace("\\", "").replace('"', "'").replace("\r", "").replace("\n", "")
+    parts = [
+        f'--{boundary}\r\nContent-Disposition: form-data; name="act"\r\n\r\nbput\r\n'.encode(
+            "utf-8"
+        ),
+        (
+            f'--{boundary}\r\nContent-Disposition: form-data; name="f"; filename="{safe_name}"\r\n'
+            "Content-Type: application/octet-stream\r\n\r\n"
+        ).encode("utf-8")
+        + data
+        + b"\r\n",
+        f"--{boundary}--\r\n".encode("utf-8"),
+    ]
+    return b"".join(parts), boundary
+
+
+def _copyparty_bput(vpath: str, filename: str, data: bytes) -> None:
+    """POSTs one file to copyparty's plain-upload endpoint. Raises on failure."""
+    body, boundary = _bput_multipart_body(filename, data)
+    url = f"http://localhost:{COPYPARTY_PORT}{vpath}"
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method="POST",
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        if resp.status >= 400:
+            raise RuntimeError(f"copyparty returned {resp.status}")
+
+
+def _current_session_id() -> int | None:
+    con = read_db()
+    if con is None:
+        return None
+    try:
+        row = con.execute("SELECT id FROM sessions ORDER BY id DESC LIMIT 1").fetchone()
+        return row["id"] if row is not None else None
+    finally:
+        con.close()
+
+
+@app.post("/up/upload")
+def mobile_upload() -> Response:
+    files = request.files.getlist("file")
+    uploaded: list[str] = []
+    failed: list[dict] = []
+    total_bytes = 0
+
+    for f in files:
+        name = f.filename or ""
+        if not name:
+            continue
+        try:
+            data = f.read()
+            _copyparty_bput(MOBILE_INBOX, name, data)
+            uploaded.append(name)
+            total_bytes += len(data)
+        except Exception as ex:  # noqa: BLE001 -- report per-file, keep going
+            failed.append({"name": name, "error": str(ex)})
+
+    if uploaded:
+        try:
+            sid = _current_session_id()
+            if sid is not None:
+                rw = poller.connect(DB_PATH)
+                try:
+                    poller.insert_event(
+                        rw,
+                        sid,
+                        {
+                            "kind": "transfer",
+                            "kiosk": "mobile",
+                            "direction": "up",
+                            "files": len(uploaded),
+                            "bytes": total_bytes,
+                            "exts": {},
+                        },
+                    )
+                finally:
+                    rw.close()
+        except Exception:  # noqa: BLE001 -- event logging must never fail the upload
+            pass
+
+    ok = len(uploaded) > 0
+    status = 200 if ok else 400
+    return jsonify({"ok": ok, "uploaded": uploaded, "failed": failed}), status
 
 
 # ---------------------------------------------------------------------------
