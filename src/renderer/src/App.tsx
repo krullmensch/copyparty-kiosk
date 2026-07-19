@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Moon, Sun, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { GoeyToaster } from 'goey-toast'
-import { FileBrowserPane } from './components/FileBrowserPane'
 import { RemoteBrowserPane } from './components/RemoteBrowserPane'
+import { DatentauschTray } from './components/DatentauschTray'
 import { OpticalDropZone } from './components/OpticalDropZone'
 import { DvdRipBanner } from './components/DvdRipBanner'
 import { AudioCdBanner } from './components/AudioCdBanner'
@@ -121,6 +121,9 @@ function App(): React.JSX.Element {
     drives.find((d) => d.isOptical && d.mountpoints[0]) ??
     null
   const usbPath = dataDrive?.mountpoints[0]?.path ?? null
+  const usbLabel = dataDrive
+    ? (dataDrive.mountpoints[0]?.label ?? dataDrive.description ?? 'USB Stick')
+    : null
   // Burn target: an optical drive without a mounted data disc (i.e. blank/empty,
   // ready to write). A data disc is a browse source instead, not a burn target.
   // Audio CDs never mount either, but are a rip source, not a burn target.
@@ -201,18 +204,9 @@ function App(): React.JSX.Element {
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-6 pb-6">
-          <div className="flex min-h-0 flex-1">
-            {usbPath ? (
-              <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
-                <section className="min-h-0">
-                  <FileBrowserPane key={usbPath} rootPath={usbPath} />
-                </section>
-                <section className="min-h-0">{remotePane}</section>
-              </div>
-            ) : (
-              <section className="min-h-0 min-w-0 flex-1">{remotePane}</section>
-            )}
-          </div>
+          <DatentauschTray server={copypartyUrl} usbPath={usbPath} usbLabel={usbLabel}>
+            {remotePane}
+          </DatentauschTray>
           {isVideoDvd && dataDrive && copypartyUrl && (
             <DvdRipBanner drive={dataDrive} server={copypartyUrl} />
           )}

@@ -275,8 +275,42 @@ export function getCurrentMountpoints(): string[] {
   return mounts
 }
 
+/**
+ * Cleanly eject a USB stick: unmount the filesystem, then best-effort
+ * power off the parent disk block device. Full binary paths on purpose --
+ * PATH isn't guaranteed in every environment this runs under.
+ */
+async function ejectDrive(mountPath: string): Promise<{ ok: boolean; error?: string }> {
+  let source: string
+  try {
+    const { stdout } = await execFileAsync('/usr/bin/findmnt', ['-no', 'SOURCE', mountPath])
+    source = stdout.trim()
+  } catch {
+    source = ''
+  }
+  if (!source) return { ok: false, error: 'Laufwerk nicht gefunden' }
+
+  try {
+    await execFileAsync('/usr/bin/udisksctl', ['unmount', '-b', source])
+  } catch (err: any) {
+    return { ok: false, error: String(err?.stderr ?? err?.message ?? err) }
+  }
+
+  const diskMatch = /^(\/dev\/sd[a-z]+)\d+$/.exec(source)
+  if (diskMatch) {
+    try {
+      await execFileAsync('/usr/bin/udisksctl', ['power-off', '-b', diskMatch[1]])
+    } catch (err) {
+      console.error('[drives] power-off failed (non-fatal):', err)
+    }
+  }
+
+  return { ok: true }
+}
+
 export function registerDrivesIpc(window: BrowserWindow): void {
   ipcMain.handle(IpcChannels.DrivesList, async () => snapshot())
+  ipcMain.handle(IpcChannels.DrivesEject, async (_e, mountPath: string) => ejectDrive(mountPath))
 
   if (pollTimer) clearInterval(pollTimer)
   void tick(window)

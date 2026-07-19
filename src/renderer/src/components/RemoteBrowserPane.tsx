@@ -7,7 +7,6 @@ import {
   LogOut,
   RotateCw,
   Search,
-  Upload,
   X
 } from 'lucide-react'
 import { gooeyToast as toast } from 'goey-toast'
@@ -284,8 +283,8 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
 
   return (
     <div
-      className={`border-ink bg-bg-surface flex h-full min-h-0 flex-col rounded-container border transition-colors ${
-        dropActive ? 'ring-ink/40 ring-2' : ''
+      className={`bg-bg-surface flex h-full min-h-0 flex-col transition-colors ${
+        dropActive ? 'ring-ink/40 -ring-offset-2 ring-2' : ''
       }`}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
@@ -549,28 +548,6 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
           </ul>
         )}
       </ScrollArea>
-
-      <div className="relative flex items-center justify-center px-4 py-3">
-        <span className="text-ink-muted text-meta absolute left-4">
-          {busy
-            ? 'Transferring…'
-            : sel.selected.size > 0
-              ? `${sel.selected.size} von ${sorted.length} ausgewählt`
-              : `${sorted.length} Objekt${sorted.length === 1 ? '' : 'e'}`}
-        </span>
-        <button
-          type="button"
-          disabled={sel.selected.size === 0}
-          onClick={() => {
-            const picked = sorted.filter((e) => sel.selected.has(e.href))
-            if (picked.length > 0) setShareItems(toShareItems(picked))
-          }}
-          className="text-body inline-flex items-center gap-2 rounded-pill bg-ink px-6 py-2.5 font-medium text-ink-leaf transition-opacity outline-none hover:opacity-90 disabled:opacity-40 focus-visible:ring-[3px] focus-visible:ring-ring/40"
-        >
-          <Upload className="size-4" />
-          Datentausch
-        </button>
-      </div>
 
       {shareItems && (
         <QrShareDialog server={server} items={shareItems} onClose={() => setShareItems(null)} />
