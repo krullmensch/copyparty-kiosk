@@ -18,7 +18,7 @@
   --bg-surface-hover: rgb(238 238 238);
   --ink: rgb(0 0 0); /* 000000 */
   --ink-leaf: rgb(248 248 248); /* text on inverted/black pills */
-  --ink-muted: rgb(139 139 139); /* 8B8B8B */
+  --ink-muted: rgb(221 221 221); /* DDDDDD */
   --ink-faint: rgb(179 179 179);
   --rule: rgb(0 0 0);
   --accent: rgb(0 0 0);
