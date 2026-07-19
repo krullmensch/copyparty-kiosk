@@ -11,7 +11,6 @@ import {
 import { gooeyToast as toast } from 'goey-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { ViewToggle, type ViewMode } from '@/components/ui/view-toggle'
 import { LocalThumb } from '@/components/ui/local-thumb'
 import { FileTypeIcon } from '@/components/ui/file-icon'
@@ -288,7 +287,7 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
         </div>
       </div>
 
-      <ScrollArea className="flex-1" onClick={() => sel.clear()}>
+      <div className="min-h-0 flex-1 overflow-y-auto" onClick={() => sel.clear()}>
         {(loading || busy || searching) && !data && (
           <div className="text-ink-muted text-label p-4">Loading…</div>
         )}
@@ -459,7 +458,7 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
             })}
           </ul>
         )}
-      </ScrollArea>
+      </div>
 
       <div className="border-border text-ink-muted text-meta border-t px-3 py-1.5">
         {busy

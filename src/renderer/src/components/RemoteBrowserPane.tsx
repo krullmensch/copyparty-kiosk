@@ -12,7 +12,6 @@ import {
 import { gooeyToast as toast } from 'goey-toast'
 import { Chip, IconPill } from '@/components/ui/chip'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { ViewToggle, type ViewMode } from '@/components/ui/view-toggle'
 import { RemoteThumb } from '@/components/ui/remote-thumb'
 import { FileTypeIcon } from '@/components/ui/file-icon'
@@ -340,7 +339,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
         )}
       </div>
 
-      <ScrollArea className="flex-1" onClick={() => sel.clear()}>
+      <div className="min-h-0 flex-1 overflow-y-auto" onClick={() => sel.clear()}>
         {(loading || busy || searching) && !data && (
           <div className="text-ink-muted text-label p-4">Loading…</div>
         )}
@@ -547,7 +546,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
             })}
           </ul>
         )}
-      </ScrollArea>
+      </div>
 
       {shareItems && (
         <QrShareDialog server={server} items={shareItems} onClose={() => setShareItems(null)} />
