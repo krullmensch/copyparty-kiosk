@@ -107,7 +107,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, children }: Props):
           onDragOver={onDragOver}
           onDragLeave={() => setDropActive(false)}
           onDrop={onDrop}
-          className={`bg-bg-surface border-ink absolute inset-x-0 bottom-0 top-[42%] overflow-hidden rounded-t-container border-t-[3px] transition-transform duration-300 ease-out ${
+          className={`bg-bg-surface border-ink absolute inset-x-0 bottom-0 top-[42%] overflow-hidden rounded-t-container border-[3px] border-b-0 transition-transform duration-300 ease-out ${
             open ? 'translate-y-0' : 'translate-y-full'
           } ${dropActive ? 'ring-ink/40 ring-2' : ''}`}
         >
