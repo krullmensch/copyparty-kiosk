@@ -361,9 +361,9 @@ def build_oo_config(vpath: str, host: str) -> dict:
                 # Documents can carry macros -> disable execution on the kiosk.
                 "macros": False,
                 "macrosMode": "disable",
-                "hideRightMenu": True,
-                "compactHeader": True,
-                "toolbarNoTabs": True,
+                # NOTE: no layout keys (compactHeader/toolbarNoTabs/hideRightMenu)
+                # -- compactHeader flips DS 9.4 to the index_loader.html shell,
+                # which does not exist in this build -> 404 -> black iframe.
             },
         },
     }
