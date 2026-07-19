@@ -79,7 +79,7 @@ function Stage(): React.JSX.Element {
 
       {/* Action Pille */}
       <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-[#000000] text-[#F8F8F8] font-['Averia_Serif_Libre'] text-3xl font-bold px-10 py-4 rounded-full z-20">
-        Jetzt starten!
+        Start
       </div>
 
       <div className="relative w-full max-w-4xl z-0">
