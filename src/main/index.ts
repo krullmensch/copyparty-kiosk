@@ -51,8 +51,31 @@ function createWindow(): void {
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    // Kiosk hardening: only ever hand http(s) links to the OS. A file:// URL
+    // (e.g. from an embedded viewer) would open a file manager and expose the
+    // bare kiosk filesystem to a public visitor.
+    let scheme = ''
+    try {
+      scheme = new URL(details.url).protocol
+    } catch {
+      scheme = ''
+    }
+    if (scheme === 'http:' || scheme === 'https:') {
+      shell.openExternal(details.url)
+    }
     return { action: 'deny' }
+  })
+
+  // Kiosk hardening: kill the native context menu everywhere (including inside
+  // the OnlyOffice iframe). Otherwise "Save image as…" / "Open link" open a
+  // native file chooser that lets a visitor browse the kiosk filesystem.
+  mainWindow.webContents.on('context-menu', (e) => e.preventDefault())
+
+  // Kiosk hardening: the top frame must never navigate away from the app
+  // (blocks file:// / external navigation triggered from embedded content).
+  mainWindow.webContents.on('will-navigate', (e, url) => {
+    const current = mainWindow.webContents.getURL()
+    if (url !== current) e.preventDefault()
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {

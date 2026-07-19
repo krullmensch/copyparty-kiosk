@@ -334,15 +334,37 @@ def build_oo_config(vpath: str, host: str) -> dict:
             "permissions": {
                 "edit": False,
                 "comment": False,
-                "download": True,
-                "print": True,
+                # download/print open native GTK file- and print-choosers inside
+                # the kiosk -- a public visitor could browse the bare filesystem
+                # from there. Hard-off. copy stays on (clipboard only, no chooser).
+                "download": False,
+                "print": False,
                 "fillForms": False,
                 "review": False,
                 "copy": True,
+                "protect": False,
             },
         },
         "editorConfig": {
             "mode": "view",
+            # Fixed identity so DS never shows the "enter a name for
+            # collaboration" prompt to the anonymous kiosk viewer.
+            "user": {"id": "agora-kiosk", "name": "Agora"},
+            "customization": {
+                "anonymous": {"request": False, "label": "Agora"},
+                "chat": False,
+                "comments": False,
+                "help": False,
+                "about": False,
+                "feedback": False,
+                "plugins": False,
+                # Documents can carry macros -> disable execution on the kiosk.
+                "macros": False,
+                "macrosMode": "disable",
+                "hideRightMenu": True,
+                "compactHeader": True,
+                "toolbarNoTabs": True,
+            },
         },
     }
 

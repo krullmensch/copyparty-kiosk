@@ -120,7 +120,37 @@
 
 ---
 
-## 🚀 DEPLOY-PLAN (alle Code-Tasks ✅, wartet auf Marvins Freigabe)
+## 🚀 DEPLOY (Freigabe Marvin ✅ 2026-07-18) — ✅ ERLEDIGT. Commit `0ca5794` auf main, alle 3 Kioske gebaut+neugestartet.
+
+- **Deploy-Report:** kiosk1(.59)/kiosk2(.71)/kiosk3(.70) alle auf `0ca5794`, build grün, Electron normal, copyparty(200)/DS(true)/dashboard(200) erreichbar. `~/.agora/host`=`192.168.178.71` auf allen 3 (kiosk2-Backup `host.bak-predeploy`; kiosk1/3 neu angelegt). Je Kiosk `predeploy-2026-07-18`-Stash (package-lock-Drift, harmlos).
+- **X-Frame-Options: KEIN BLOCKER** — `/oo-view` sendet weder XFO noch CSP → iframe geht. **LIVE-BEWEIS:** kiosk2-Screenshot zeigt OnlyOffice-Viewer der `sample.docx` im iframe rendert → DS+oo-view+document.url end-to-end funktional.
+- **Offen für E2E:** kiosk2 GTK-Print-Dialog offen überm Viewer (kein Agent-Klick — evtl. restaurierte Preview-Route nach X-Restart; prüfen ob Preview-State beim Start persistiert wird = Bug). Stashes droppbar. npm audit „issues" (exit 0, kein Blocker).
+
+## 📋 Task Ledger (E2E nach Deploy)
+
+| Task | Agent | Status | Scope |
+|---|---|---|---|
+| ED-3 | Sonnet (kiosk, xdotool) | 🟢 PASS (2026-07-19) | `sample.md` rendert (Highlight), Topbar nur `(i)`+`X`, KEIN Edit-Button. PDF-Metadaten Round-Trip bewiesen: Titel „E2E-Test-Titel"→Toast→persistiert (1898→5508 B)→zurückgesetzt (2494 B verifiziert). |
+| OO-4 | Sonnet | 🟢 PASS (2026-07-19) | docx/xlsx/pptx rendern formattreu im OO-iframe, nur Download/Print/Info im File-Menü, KEIN Save/Edit-Ribbon. DS gestoppt → Fallback (mammoth/SheetJS) rendert sauber → DS wieder an, healthcheck true. |
+| PV-3 | Sonnet | ⚪ N-A (2026-07-19) | Kein USB/optisches Medium in kiosk2 (`lsblk` nur interne Disks). Lokaler Gating-Pfad NICHT testbar — offen bis Datenträger eingelegt. |
+| Print-Dialog | Sonnet | ⚪ N-A (2026-07-19) | Nicht reproduzierbar — App startete sauber (kein GTK-Dialog, kein hängender Preview-State). Ursache (State-Persistenz?) unbestätigt, evtl. durch Reboot weg. |
+
+**✅ E2E-Run 2026-07-19 (Sonnet-Subagent, kiosk2 SSH+xdotool):** ED-3 + OO-4 grün. PV-3 + Print-Dialog N-A (kein lokaler Datenträger / nicht reproduzierbar). Endzustand sauber: DS läuft, copyparty 200, agora-server 200, PDF-Metadaten zurückgesetzt, kein Dialog offen. Der frühere Befund „PDF-Info-Panel fehlt" bestätigt = xdotool-Klick-Race, keine Regression (Metadaten-Panel im Run voll funktional).
+
+**🆕 Findings E2E 2026-07-19 (nicht gefixt):**
+- **(E1) 🔴 OnlyOffice „collaboration name"-Dialog** — bei JEDEM Office-Öffnen (docx/xlsx/pptx) Popup „Enter a name to be used for collaboration" (OK/Cancel). Unpassend für Viewer-only. Vermutung: DS-Config setzt `edit:false`/`chat:false` nicht durch ODER JWT-Config fehlt `user`-Feld → via `editorConfig.user` + `customization.chat/anonymous` unterdrücken. → **Fix-Track Punkt 4.**
+- **(E2) 🟡 Sonner-Toast hängt** — nach Metadaten-Save bleibt grüner Toast 15s+ (kein Auto-Dismiss), überlagert `X`-Close-Button → nur Escape schließt FullView. zIndex/Timer-Konflikt (Dismiss-Timer evtl. durch fokussierten Input blockiert). → **Fix-Track Punkt 4.**
+- **(E3) 🟢 Stale Grid-Cache** — Kachel zeigt alte Dateigröße bis Neu-Navigation nach Metadaten-Save. Server-Daten korrekt. Kosmetisch.
+- **(E4) ⚪ Klick-Lag** — xdotool-Doppelklicks brauchten 1-2 Versuche / verzögert. Evtl. Synthetic-Input, nicht zwingend App-Bug. Mit echter Maus gegenprüfen.
+
+**Kleinfund (für Metadaten-Fix-Track):** `MetadataPanel.tsx:91-94` Text „Metadaten nur bei lokalen Dateien änderbar." ist VERALTET — remote ist schreibbar + durch Preview-Gating erreichen nur noch remote-Dateien das Panel. Text korrigieren/entfernen.
+
+## ⏭️ OFFEN nach dieser Session (E2E + 2 Alt-Tracks)
+
+1. **E2E-Rest:** ED-3/OO-4 ✅ (2026-07-19). Offen nur **PV-3** (braucht USB/DVD in kiosk2) + **Print-Dialog-Ursache** (nicht reproduzierbar, unbestätigt).
+2. **Metadaten-Fix-Track:** PDF-Silent-Loss (Kommentar→`PDF:Subject`), Autor-Bug (`Author` statt `Artist`), veralteter Panel-Text (s.o.), ZIP-XML-Patch für docx/xlsx/odt/ods/epub (Titel/Kommentar/Autor), MOBI read-only, Plain-Text/CSV → copyparty-Tags. Format-Gate: Felder nur editierbar wo schreibbar.
+3. **Toter local-Preview-Code aufräumen** (optional): streamUrl/media-server/stream-protocol local-Zweige, metadata.ts local-Zweige — nach Preview-Gating unerreichbar.
+4. **UI-Fix-Track (aus E2E 2026-07-19):** (E1) OnlyOffice collaboration-name-Dialog unterdrücken (`editorConfig.user` + `customization.chat:false` in `/oo-view`-Config, `agora-dashboard/server.py`); (E2) Sonner-Toast hängt + überlagert `X`-Close nach Metadaten-Save (zIndex/Auto-Dismiss); (E3) Grid-Cache nach Save refreshen (kosmetisch).
 
 **Code fertig + typecheck grün:** Editor-Rückbau (ED), OnlyOffice App-Integration (OO-3) + server.py (OO-2), Preview-Gating (PV). DS-Container (OO-1) läuft bereits auf kiosk2.
 
