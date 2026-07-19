@@ -120,7 +120,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
   const [dropActive, setDropActive] = useState(false)
   const [busy, setBusy] = useState(false)
   const [shareItems, setShareItems] = useState<QrShareItem[] | null>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [query, setQuery] = useState('')
