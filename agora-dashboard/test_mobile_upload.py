@@ -106,6 +106,43 @@ class MobileUploadRouteTests(unittest.TestCase):
             self.assertIn("no-session.jpg", body["uploaded"])
             bput.assert_called_once()
 
+    def test_dedup_appends_counter_when_name_exists(self) -> None:
+        # copyparty already has "image.jpg" -> upload lands as "image (1).jpg"
+        with mock.patch.object(server, "_copyparty_bput") as bput, mock.patch.object(
+            server, "_current_session_id", return_value=None
+        ), mock.patch.object(
+            server, "_existing_inbox_names", return_value={"image.jpg"}
+        ):
+            resp = self.client.post(
+                "/up/upload",
+                data={"file": (io.BytesIO(b"data"), "image.jpg")},
+                content_type="multipart/form-data",
+            )
+            self.assertEqual(resp.status_code, 200)
+            body = resp.get_json()
+            self.assertTrue(body["ok"])
+            self.assertIn("image (1).jpg", body["uploaded"])
+            self.assertNotIn("image.jpg", body["uploaded"])
+            bput.assert_called_once_with(server.MOBILE_INBOX, "image (1).jpg", b"data")
+
+    def test_name_field_overrides_original_filename(self) -> None:
+        with mock.patch.object(server, "_copyparty_bput") as bput, mock.patch.object(
+            server, "_current_session_id", return_value=None
+        ), mock.patch.object(server, "_existing_inbox_names", return_value=set()):
+            resp = self.client.post(
+                "/up/upload",
+                data={
+                    "file": (io.BytesIO(b"data"), "IMG_1234.jpg"),
+                    "name": "foto.jpg",
+                },
+                content_type="multipart/form-data",
+            )
+            self.assertEqual(resp.status_code, 200)
+            body = resp.get_json()
+            self.assertTrue(body["ok"])
+            self.assertIn("foto.jpg", body["uploaded"])
+            bput.assert_called_once_with(server.MOBILE_INBOX, "foto.jpg", b"data")
+
     def test_upload_succeeds_when_event_insert_raises(self) -> None:
         # active session but poller.connect/insert_event blows up -- also
         # must not fail the upload (server.py wraps event logging in
@@ -123,6 +160,19 @@ class MobileUploadRouteTests(unittest.TestCase):
             self.assertTrue(body["ok"])
             self.assertIn("event-fails.jpg", body["uploaded"])
             bput.assert_called_once()
+
+
+class ThesisDownloadTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.client = server.app.test_client()
+
+    def test_thesis_epub_exists(self) -> None:
+        resp = self.client.get("/thesis/epub")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_thesis_pdf_missing_returns_404(self) -> None:
+        resp = self.client.get("/thesis/pdf")
+        self.assertEqual(resp.status_code, 404)
 
 
 if __name__ == "__main__":

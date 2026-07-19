@@ -23,7 +23,7 @@ import time
 import urllib.request
 from html import escape
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from flask import Flask, Response, jsonify, request, send_file
 
@@ -41,6 +41,7 @@ ONLYOFFICE_PORT = 8081
 HISTORY_LIMIT = 120  # ~2h at 60s polling
 MOBILE_INBOX = "/"  # vpath uploads from /up/upload land in (deploy-configurable)
 MOBILE_UPLOAD_HTML = Path(__file__).parent / "mobile_upload.html"
+THESIS_DIR = Path(__file__).parent / "thesis"
 
 app = Flask(__name__)
 
@@ -163,6 +164,37 @@ def healthz() -> Response:
     return Response("ok", mimetype="text/plain")
 
 
+# ---------------------------------------------------------------------------
+# Thesis download routes
+# ---------------------------------------------------------------------------
+
+_THESIS_TITLE = "Vom Besitz zum Zugang – Über die Abokratie"
+
+
+@app.get("/thesis/epub")
+def thesis_epub() -> Response:
+    path = THESIS_DIR / "thesis.epub"
+    if not path.exists():
+        return Response("thesis.epub fehlt noch", status=404, mimetype="text/plain")
+    return send_file(
+        path,
+        as_attachment=True,
+        download_name=f"{_THESIS_TITLE}.epub",
+    )
+
+
+@app.get("/thesis/pdf")
+def thesis_pdf() -> Response:
+    path = THESIS_DIR / "thesis.pdf"
+    if not path.exists():
+        return Response("thesis.pdf fehlt noch", status=404, mimetype="text/plain")
+    return send_file(
+        path,
+        as_attachment=True,
+        download_name=f"{_THESIS_TITLE}.pdf",
+    )
+
+
 def admin_password_ok(supplied: str) -> bool:
     """compares supplied password against the sha256 set at initial setup."""
     try:
@@ -268,6 +300,40 @@ def _copyparty_bput(vpath: str, filename: str, data: bytes) -> None:
             raise RuntimeError(f"copyparty returned {resp.status}")
 
 
+def _existing_inbox_names() -> set[str]:
+    """Lists filenames currently in MOBILE_INBOX on copyparty (best-effort).
+
+    Raises on any failure -- caller decides how to degrade (dedup is skipped,
+    not the upload itself)."""
+    url = f"http://localhost:{COPYPARTY_PORT}{MOBILE_INBOX}?ls"
+    req = urllib.request.Request(url, method="GET")
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    names: set[str] = set()
+    for f in data.get("files", []):
+        href = f.get("href", "")
+        if href:
+            names.add(unquote(href))
+    return names
+
+
+def _dedup_name(wanted: str, taken: set[str]) -> str:
+    """Appends a ` (n)` counter to `wanted` until it's not in `taken`."""
+    if wanted not in taken:
+        return wanted
+    if "." in wanted:
+        base, ext = wanted.rsplit(".", 1)
+        ext = "." + ext
+    else:
+        base, ext = wanted, ""
+    n = 1
+    while True:
+        candidate = f"{base} ({n}){ext}"
+        if candidate not in taken:
+            return candidate
+        n += 1
+
+
 def _current_session_id() -> int | None:
     con = read_db()
     if con is None:
@@ -282,14 +348,24 @@ def _current_session_id() -> int | None:
 @app.post("/up/upload")
 def mobile_upload() -> Response:
     files = request.files.getlist("file")
+    wanted_name = (request.form.get("name") or "").strip()
     uploaded: list[str] = []
     failed: list[dict] = []
     total_bytes = 0
 
+    try:
+        taken = _existing_inbox_names()
+    except Exception:  # noqa: BLE001 -- listing must never block the upload
+        taken = None
+
     for f in files:
-        name = f.filename or ""
+        orig_name = f.filename or ""
+        name = wanted_name if wanted_name else orig_name
         if not name:
             continue
+        if taken is not None:
+            name = _dedup_name(name, taken)
+            taken.add(name)
         try:
             data = f.read()
             _copyparty_bput(MOBILE_INBOX, name, data)
