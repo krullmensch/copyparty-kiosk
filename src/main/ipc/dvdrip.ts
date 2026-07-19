@@ -1,12 +1,16 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { spawn, execFile } from 'node:child_process'
 import { existsSync, promises as fs } from 'node:fs'
-import { join } from 'node:path'
+import { join, basename } from 'node:path'
 import { tmpdir } from 'node:os'
 import { promisify } from 'node:util'
 import { DvdRipProgress, DvdRipResult, IpcChannels } from '../../shared/types'
 import { langLabel } from '../../shared/langNames'
-import { upload } from './copyparty'
+import { upload, deleteItems } from './copyparty'
+
+let activeChild: import('child_process').ChildProcess | null = null
+let activeAbort: AbortController | null = null
+let isAborted = false
 
 // Rips the main feature off a video DVD and uploads it straight to Agora.
 // HandBrakeCLI does decrypt (via system libdvdcss, dlopen'd by its bundled
@@ -154,7 +158,7 @@ function rip(
 
     emit({ kind: 'scan' })
 
-    const child = spawn('HandBrakeCLI', args)
+    activeChild = spawn('HandBrakeCLI', args)
     let stderrTail = ''
 
     const onData = (buf: Buffer): void => {
@@ -164,14 +168,20 @@ function rip(
       const m = /Encoding:.*?(\d+(?:\.\d+)?)\s*%/.exec(text)
       if (m) emit({ kind: 'encode', percent: Math.round(parseFloat(m[1])) })
     }
-    child.stderr.on('data', onData)
-    child.stdout.on('data', onData)
+    activeChild?.stderr?.on('data', onData)
+    activeChild?.stdout?.on('data', onData)
 
-    child.on('error', (err) => {
+    activeChild?.on('error', (err) => {
+      activeChild = null
       emit({ kind: 'error', message: err.message })
       resolvePromise({ ok: false, message: err.message })
     })
-    child.on('close', (code) => {
+    activeChild?.on('close', (code) => {
+      activeChild = null
+      if (isAborted) {
+        resolvePromise({ ok: false, message: 'Abgebrochen' })
+        return
+      }
       if (code === 0 && existsSync(outFile)) {
         resolvePromise({ ok: true })
         return
@@ -200,12 +210,25 @@ async function ripAndUpload(
     if (!ripResult.ok) return ripResult
 
     emit({ kind: 'upload', percent: 0 })
-    const uploadResult = await upload(server, UPLOAD_TARGET_VPATH, [outFile], (p) => {
-      if (p.kind === 'upload' && p.bytesTotal > 0) {
-        emit({ kind: 'upload', percent: Math.round((p.bytesDone / p.bytesTotal) * 100) })
-      }
-    })
+    activeAbort = new AbortController()
+    const uploadResult = await upload(
+      server,
+      UPLOAD_TARGET_VPATH,
+      [outFile],
+      (p) => {
+        if (p.kind === 'upload' && p.bytesTotal > 0) {
+          emit({ kind: 'upload', percent: Math.round((p.bytesDone / p.bytesTotal) * 100) })
+        }
+      },
+      activeAbort.signal
+    )
+    activeAbort = null
+
     if (!uploadResult.ok) {
+      if (isAborted) {
+        await deleteItems(server, [`${UPLOAD_TARGET_VPATH === '/' ? '' : UPLOAD_TARGET_VPATH}/${basename(outFile)}`])
+        return { ok: false, message: 'Abgebrochen' }
+      }
       const msg = uploadResult.message ?? 'Upload fehlgeschlagen'
       emit({ kind: 'error', message: msg })
       return { ok: false, message: msg }
@@ -213,6 +236,9 @@ async function ripAndUpload(
     emit({ kind: 'done' })
     return { ok: true }
   } finally {
+    isAborted = false
+    activeChild = null
+    activeAbort = null
     await fs.rm(tmp, { recursive: true, force: true })
   }
 }
@@ -224,9 +250,16 @@ export function registerDvdRipIpc(window: BrowserWindow): void {
   )
   ipcMain.handle(
     IpcChannels.DvdRipStart,
-    async (_, mountPath: string, label: string, server: string): Promise<DvdRipResult> =>
-      ripAndUpload(mountPath, label, server, (p) =>
+    async (_, mountPath: string, label: string, server: string): Promise<DvdRipResult> => {
+      isAborted = false
+      return ripAndUpload(mountPath, label, server, (p) =>
         window.webContents.send(IpcChannels.DvdRipProgress, p)
       )
+    }
   )
+  ipcMain.handle(IpcChannels.DvdRipCancel, async () => {
+    isAborted = true
+    if (activeChild) activeChild.kill()
+    if (activeAbort) activeAbort.abort()
+  })
 }

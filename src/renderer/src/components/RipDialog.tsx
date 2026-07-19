@@ -59,9 +59,17 @@ export function RipDialog({
     setPercent(0)
     const res = await window.api.dvdrip.start(mountPath, label, server)
     if (!res.ok) {
-      setPhase('error')
-      setMessage(res.message ?? 'Rippen fehlgeschlagen')
+      if (res.message === 'Abgebrochen') {
+        onClose()
+      } else {
+        setPhase('error')
+        setMessage(res.message ?? 'Rippen fehlgeschlagen')
+      }
     }
+  }
+
+  const cancel = async (): Promise<void> => {
+    await window.api.dvdrip.cancel()
   }
 
   const stageLabel: Record<Stage, string> = {
@@ -71,7 +79,7 @@ export function RipDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={phase === 'ripping' ? undefined : onClose}>
       <div
         className="bg-background border-border text-foreground w-[30rem] max-w-[90vw] rounded-card border p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
@@ -81,7 +89,7 @@ export function RipDialog({
             <Disc className="size-5" strokeWidth={1.5} />
             <span className="text-h2">Video-DVD rippen</span>
           </div>
-          <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Schließen">
+          <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Schließen" disabled={phase === 'ripping'}>
             <X />
           </Button>
         </div>
@@ -119,6 +127,9 @@ export function RipDialog({
                 <div className="text-meta text-ink-faint text-right">{percent}%</div>
               </>
             )}
+            <Button variant="outline" className="w-full mt-2" onClick={cancel}>
+              Abbrechen
+            </Button>
           </div>
         )}
 

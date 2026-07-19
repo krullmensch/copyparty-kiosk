@@ -157,7 +157,8 @@ const api = {
       const handler = (_: unknown, p: DvdRipProgress): void => cb(p)
       ipcRenderer.on(IpcChannels.DvdRipProgress, handler)
       return () => ipcRenderer.off(IpcChannels.DvdRipProgress, handler)
-    }
+    },
+    cancel: (): Promise<void> => ipcRenderer.invoke(IpcChannels.DvdRipCancel)
   },
   cdrip: {
     available: (): Promise<boolean> => ipcRenderer.invoke(IpcChannels.CdRipAvailable),
@@ -167,7 +168,8 @@ const api = {
       const handler = (_: unknown, p: CdRipProgress): void => cb(p)
       ipcRenderer.on(IpcChannels.CdRipProgress, handler)
       return () => ipcRenderer.off(IpcChannels.CdRipProgress, handler)
-    }
+    },
+    cancel: (): Promise<void> => ipcRenderer.invoke(IpcChannels.CdRipCancel)
   }
 }
 

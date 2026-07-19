@@ -284,6 +284,7 @@ export async function uploadFile(args: {
   filePath: string
   cookie?: string
   onProgress?: (e: ProgressEvent) => void
+  signal?: AbortSignal
 }): Promise<void> {
   const st = await stat(args.filePath)
   if (st.isDirectory()) throw new Error(`is directory: ${args.filePath}`)
@@ -334,6 +335,7 @@ export async function uploadFile(args: {
       let uploadedBytes = size - missingBytes
       const total = chunks.length
       for (let i = 0; i < reply.hash.length; i++) {
+        if (args.signal?.aborted) throw new Error('Aborted')
         const h = reply.hash[i]
         const ci = byHash.get(h)
         if (!ci) throw new Error(`server requested unknown hash ${h}`)

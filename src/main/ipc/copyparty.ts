@@ -318,7 +318,8 @@ export async function upload(
   serverUrl: string,
   targetVpath: string,
   localPaths: string[],
-  emit: (p: UploadProgress) => void
+  emit: (p: UploadProgress) => void,
+  signal?: AbortSignal
 ): Promise<TransferResult> {
   const server = normalizeServer(serverUrl)
 
@@ -350,12 +351,14 @@ export async function upload(
     for (const it of items) {
       const sub = it.topUnit != null ? applyRename(it.subVpath, it.topUnit, renames) : it.subVpath
       try {
+        if (signal?.aborted) throw new Error('Aborted')
         await uploadFile({
           server,
           targetVpath: joinVpath(targetVpath, sub),
           filePath: it.filePath,
           cookie: cookies[server],
-          onProgress: emit
+          onProgress: emit,
+          signal
         })
         done++
       } catch (err) {
@@ -476,6 +479,21 @@ async function search(
     }
   })
   return { hits, truncated }
+}
+
+export async function deleteItems(serverUrl: string, vpaths: string[]): Promise<boolean> {
+  if (vpaths.length === 0) return true
+  const server = normalizeServer(serverUrl)
+  try {
+    const res = await fetch(`${server}/?delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...buildHeaders(server) },
+      body: JSON.stringify(vpaths)
+    })
+    return res.ok
+  } catch {
+    return false
+  }
 }
 
 export function registerCppIpc(mainWindow: BrowserWindow): void {

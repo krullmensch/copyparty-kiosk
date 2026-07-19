@@ -5,7 +5,11 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { promisify } from 'node:util'
 import { CdRipProgress, CdRipResult, IpcChannels } from '../../shared/types'
-import { upload } from './copyparty'
+import { upload, deleteItems } from './copyparty'
+
+let activeChild: import('child_process').ChildProcess | null = null
+let activeAbort: AbortController | null = null
+let isAborted = false
 
 // Rips an audio CD track-by-track and uploads the result straight to Agora.
 // cdparanoia does the actual read (jitter/error correction against a scratched
@@ -148,20 +152,26 @@ function ripTrack(
     const percent = Math.round((n / trackCount) * 100)
     emit({ kind: 'rip', track: n, total: trackCount, percent })
 
-    const child = spawn('cdparanoia', ['-d', device, String(n), wavPath])
+    activeChild = spawn('cdparanoia', ['-d', device, String(n), wavPath])
     let stderrTail = ''
 
     const onData = (buf: Buffer): void => {
       stderrTail = (stderrTail + buf.toString()).slice(-2000)
     }
-    child.stderr.on('data', onData)
-    child.stdout.on('data', onData)
+    activeChild?.stderr?.on('data', onData)
+    activeChild?.stdout?.on('data', onData)
 
-    child.on('error', (err) => {
+    activeChild?.on('error', (err) => {
+      activeChild = null
       emit({ kind: 'error', message: err.message })
       resolvePromise({ ok: false, message: err.message })
     })
-    child.on('close', (code) => {
+    activeChild?.on('close', (code) => {
+      activeChild = null
+      if (isAborted) {
+        resolvePromise({ ok: false, message: 'Abgebrochen' })
+        return
+      }
       if (code !== 0 || !existsSync(wavPath)) {
         const msg = stderrTail.split('\n').filter(Boolean).pop() ?? `cdparanoia exit ${code}`
         emit({ kind: 'error', message: msg })
@@ -176,7 +186,7 @@ function ripTrack(
       if (title) metaArgs.push('-metadata', `title=${title}`)
       if (album) metaArgs.push('-metadata', `album=${album}`)
       if (artist) metaArgs.push('-metadata', `artist=${artist}`)
-      const enc = spawn('ffmpeg', [
+      activeChild = spawn('ffmpeg', [
         '-y',
         '-i',
         wavPath,
@@ -186,14 +196,20 @@ function ripTrack(
         flacPath
       ])
       let encStderrTail = ''
-      enc.stderr.on('data', (buf: Buffer) => {
+      activeChild?.stderr?.on('data', (buf: Buffer) => {
         encStderrTail = (encStderrTail + buf.toString()).slice(-2000)
       })
-      enc.on('error', (err) => {
+      activeChild?.on('error', (err) => {
+        activeChild = null
         emit({ kind: 'error', message: err.message })
         resolvePromise({ ok: false, message: err.message })
       })
-      enc.on('close', (encCode) => {
+      activeChild?.on('close', (encCode) => {
+        activeChild = null
+        if (isAborted) {
+          resolvePromise({ ok: false, message: 'Abgebrochen' })
+          return
+        }
         if (encCode === 0 && existsSync(flacPath)) {
           resolvePromise({ ok: true, file: flacPath })
           return
@@ -229,7 +245,7 @@ async function rip(
       cdText.artist,
       emit
     )
-    if (!result.ok || !result.file) return { ok: false, message: result.message, files }
+    if (!result.ok || !result.file || isAborted) return { ok: false, message: isAborted ? 'Abgebrochen' : result.message, files }
     files.push(result.file)
   }
   return { ok: true, files }
@@ -257,12 +273,25 @@ async function ripAndUpload(
     if (!ripResult.ok) return { ok: false, message: ripResult.message }
 
     emit({ kind: 'upload', percent: 0 })
-    const uploadResult = await upload(server, `/${stem}`, ripResult.files, (p) => {
-      if (p.kind === 'upload' && p.bytesTotal > 0) {
-        emit({ kind: 'upload', percent: Math.round((p.bytesDone / p.bytesTotal) * 100) })
-      }
-    })
+    activeAbort = new AbortController()
+    const uploadResult = await upload(
+      server,
+      `/${stem}`,
+      ripResult.files,
+      (p) => {
+        if (p.kind === 'upload' && p.bytesTotal > 0) {
+          emit({ kind: 'upload', percent: Math.round((p.bytesDone / p.bytesTotal) * 100) })
+        }
+      },
+      activeAbort.signal
+    )
+    activeAbort = null
+
     if (!uploadResult.ok) {
+      if (isAborted) {
+        await deleteItems(server, [`/${stem}`])
+        return { ok: false, message: 'Abgebrochen' }
+      }
       const msg = uploadResult.message ?? 'Upload fehlgeschlagen'
       emit({ kind: 'error', message: msg })
       return { ok: false, message: msg }
@@ -270,6 +299,9 @@ async function ripAndUpload(
     emit({ kind: 'done' })
     return { ok: true }
   } finally {
+    isAborted = false
+    activeChild = null
+    activeAbort = null
     await fs.rm(tmp, { recursive: true, force: true })
   }
 }
@@ -278,7 +310,14 @@ export function registerCdRipIpc(window: BrowserWindow): void {
   ipcMain.handle(IpcChannels.CdRipAvailable, async () => isRipAvailable())
   ipcMain.handle(
     IpcChannels.CdRipStart,
-    async (_, device: string, server: string): Promise<CdRipResult> =>
-      ripAndUpload(device, server, (p) => window.webContents.send(IpcChannels.CdRipProgress, p))
+    async (_, device: string, server: string): Promise<CdRipResult> => {
+      isAborted = false
+      return ripAndUpload(device, server, (p) => window.webContents.send(IpcChannels.CdRipProgress, p))
+    }
   )
+  ipcMain.handle(IpcChannels.CdRipCancel, async () => {
+    isAborted = true
+    if (activeChild) activeChild.kill()
+    if (activeAbort) activeAbort.abort()
+  })
 }
