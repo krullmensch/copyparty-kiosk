@@ -16,6 +16,7 @@ import { registerConfigIpc } from './ipc/config'
 import { registerMetadataIpc } from './ipc/metadata'
 import { registerAppIconIpc } from './ipc/appicon'
 import { registerCdBurnIpc } from './ipc/cdburn'
+import { registerDvdVideoBurnIpc } from './ipc/dvdburn'
 import { registerDvdRipIpc } from './ipc/dvdrip'
 import { registerCdRipIpc } from './ipc/cdrip'
 import { registerStreamProtocolHandler, registerStreamProtocolSchemes } from './stream-protocol'
@@ -93,6 +94,7 @@ function createWindow(): void {
   registerMetadataIpc()
   registerAppIconIpc()
   registerCdBurnIpc(mainWindow)
+  registerDvdVideoBurnIpc(mainWindow)
   registerDvdRipIpc(mainWindow)
   registerCdRipIpc(mainWindow)
 }

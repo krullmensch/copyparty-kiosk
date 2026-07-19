@@ -25,6 +25,19 @@ export interface BurnResult {
   message?: string
 }
 
+export type DvdVideoBurnProgress =
+  | { kind: 'prepare' }
+  | { kind: 'transcode'; percent: number }
+  | { kind: 'author' }
+  | { kind: 'write'; percent: number }
+  | { kind: 'done' }
+  | { kind: 'error'; message: string }
+
+export interface DvdVideoBurnResult {
+  ok: boolean
+  message?: string
+}
+
 /** What to burn: local paths and/or remote copyparty files (downloaded first). */
 export interface BurnSources {
   local: string[]
@@ -134,6 +147,9 @@ export const IpcChannels = {
   BurnStart: 'burn:start',
   BurnProgress: 'burn:progress',
   BurnAvailable: 'burn:available',
+  DvdVideoBurnStart: 'dvdburn:start',
+  DvdVideoBurnProgress: 'dvdburn:progress',
+  DvdVideoBurnAvailable: 'dvdburn:available',
   DvdRipAvailable: 'dvdrip:available',
   DvdRipIsVideoDvd: 'dvdrip:is-video-dvd',
   DvdRipStart: 'dvdrip:start',

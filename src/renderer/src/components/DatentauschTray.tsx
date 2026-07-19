@@ -6,14 +6,18 @@ import { FileBrowserPane } from './FileBrowserPane'
 import { MobileUploadPanel } from './MobileUploadPanel'
 import { QrShareDialog, type QrShareItem } from './QrShareDialog'
 import { DRAG_MIME, type DragPayload } from '../../../shared/dragdrop'
+import type { DriveInfo, BurnSources } from '../../../shared/types'
+import { BurnDialog } from './BurnDialog'
+import { Flame, Disc } from 'lucide-react'
 
 interface Props {
   /** copyparty-Server-URL (für Share); null solange nicht verbunden. */
   server: string | null
   /** Mount-Pfad des USB-Sticks; null = kein Stick → Smartphone/Share-Modus. */
   usbPath: string | null
-  /** Anzeigename des USB-Sticks für die Bottom-Bar. */
   usbLabel: string | null
+  /** Optional blank optical drive available for burning. */
+  burnDrive?: DriveInfo | null
   /** Der obere Inhalt (Remote-Pane). */
   children: React.ReactNode
 }
@@ -32,11 +36,12 @@ interface StagedItem {
  *  - kein USB → „Smartphone"-Modus: Tray per Datentausch-Button auf/zu,
  *    Dateien reinziehen staged sie, „Senden" teilt sie per QR aufs Handy.
  */
-export function DatentauschTray({ server, usbPath, usbLabel, children }: Props): React.JSX.Element {
+export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, children }: Props): React.JSX.Element {
   const usbMode = usbPath !== null
   const [open, setOpen] = useState(false)
   const [staged, setStaged] = useState<StagedItem[]>([])
   const [shareItems, setShareItems] = useState<QrShareItem[] | null>(null)
+  const [burnSources, setBurnSources] = useState<BurnSources | null>(null)
   const [dropActive, setDropActive] = useState(false)
   const [ejecting, setEjecting] = useState(false)
 
@@ -86,6 +91,12 @@ export function DatentauschTray({ server, usbPath, usbLabel, children }: Props):
   const send = (): void => {
     if (!server || staged.length === 0) return
     setShareItems(staged.map((s) => ({ vpath: s.vpath, name: s.name, size: 0, isDirectory: false })))
+  }
+
+  const startBurn = (): void => {
+    if (!server || staged.length === 0) return
+    const items = staged.map((s) => ({ vpath: s.vpath, name: s.name }))
+    setBurnSources({ local: [], remote: { server, items } })
   }
 
   const eject = async (): Promise<void> => {
@@ -173,16 +184,35 @@ export function DatentauschTray({ server, usbPath, usbLabel, children }: Props):
             </span>
           </>
         ) : (
-          <button
-            type="button"
-            onClick={() => setOpen((o) => !o)}
-            className="text-body bg-ink-leaf text-ink inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-medium outline-none transition-opacity hover:opacity-90 focus-visible:ring-[3px] focus-visible:ring-ring/40"
-          >
-            <ArrowSeparateVertical className="size-4" />
-            Datentausch
-          </button>
+          <>
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={() => setOpen((o) => !o)}
+              className="text-body bg-ink-leaf text-ink inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-medium outline-none transition-opacity hover:opacity-90 focus-visible:ring-[3px] focus-visible:ring-ring/40"
+            >
+              {burnDrive ? <Disc className="size-4" /> : <ArrowSeparateVertical className="size-4" />}
+              {burnDrive ? 'DISC' : 'Datentausch'}
+            </button>
+            <div className="flex-1 flex justify-end">
+              {burnDrive && staged.length > 0 && (
+                <button
+                  type="button"
+                  onClick={startBurn}
+                  className="text-body bg-white text-ink inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-bold outline-none transition-opacity hover:opacity-90 focus-visible:ring-[3px] focus-visible:ring-ring/40"
+                >
+                  <Flame className="size-5" />
+                  BRENNEN
+                </button>
+              )}
+            </div>
+          </>
         )}
       </div>
+
+      {burnSources && burnDrive && (
+        <BurnDialog device={burnDrive.device} sources={burnSources} onClose={() => setBurnSources(null)} />
+      )}
 
       {shareItems && server && (
         <QrShareDialog

@@ -13,6 +13,8 @@ import {
   ConnectResult,
   CppSearchResult,
   DriveInfo,
+  DvdVideoBurnProgress,
+  DvdVideoBurnResult,
   DvdRipProgress,
   DvdRipResult,
   FileMetadata,
@@ -131,6 +133,16 @@ const api = {
       const handler = (_: unknown, p: BurnProgress): void => cb(p)
       ipcRenderer.on(IpcChannels.BurnProgress, handler)
       return () => ipcRenderer.off(IpcChannels.BurnProgress, handler)
+    }
+  },
+  dvdburn: {
+    available: (): Promise<boolean> => ipcRenderer.invoke(IpcChannels.DvdVideoBurnAvailable),
+    start: (device: string, sources: BurnSources, label: string): Promise<DvdVideoBurnResult> =>
+      ipcRenderer.invoke(IpcChannels.DvdVideoBurnStart, device, sources, label),
+    onProgress: (cb: (p: DvdVideoBurnProgress) => void): (() => void) => {
+      const handler = (_: unknown, p: DvdVideoBurnProgress): void => cb(p)
+      ipcRenderer.on(IpcChannels.DvdVideoBurnProgress, handler)
+      return () => ipcRenderer.off(IpcChannels.DvdVideoBurnProgress, handler)
     }
   },
   dvdrip: {

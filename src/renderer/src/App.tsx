@@ -204,7 +204,7 @@ function App(): React.JSX.Element {
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-[10px] pb-[10px]">
-          <DatentauschTray server={copypartyUrl} usbPath={usbPath} usbLabel={usbLabel}>
+          <DatentauschTray server={copypartyUrl} usbPath={usbPath} usbLabel={usbLabel} burnDrive={burnDrive}>
             {remotePane}
           </DatentauschTray>
           {isVideoDvd && dataDrive && copypartyUrl && (
