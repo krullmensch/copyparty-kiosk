@@ -106,8 +106,7 @@ function Stage(): React.JSX.Element {
               ease: [0.22, 1, 0.36, 1],
               opacity: { duration: isActive && isFading ? 0.6 : 1.0 }
             }}
-            className="absolute w-full max-w-4xl text-justify font-['Inter'] text-[2.5rem] leading-[1.6]"
-            style={{ textAlignLast: 'left' }}
+            className="absolute w-full max-w-4xl text-left font-bold font-['Inter'] text-[2.5rem] leading-[1.6]"
           >
             {p.text}
           </motion.div>
