@@ -217,7 +217,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
               <Eject className="size-4" />
             </IconPill>
             <span className="text-label bg-ink-leaf text-ink inline-flex items-center rounded-pill px-5 py-2 font-medium uppercase tracking-wide">
-              {usbLabel ?? 'USB Stick'}
+              {audioCdDrive ? 'Audio-CD' : isVideoDvd ? (usbLabel ?? 'Video-DVD') : (usbLabel ?? 'USB Stick')}
             </span>
           </>
         ) : (
