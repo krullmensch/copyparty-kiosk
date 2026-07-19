@@ -46,7 +46,7 @@ export function OpticalDropZone({ drive }: { drive: DriveInfo }): React.JSX.Elem
         onDragOver={onDragOver}
         onDragLeave={() => setOver(false)}
         onDrop={onDrop}
-        className={`border-border text-ink-muted flex items-center justify-center gap-2 rounded-md border border-dashed px-4 py-2 text-meta transition-colors ${
+        className={`border-border text-ink-muted flex items-center justify-center gap-2 rounded-input border border-dashed px-4 py-2 text-meta transition-colors ${
           over ? 'border-primary bg-primary/10 text-foreground' : ''
         }`}
       >

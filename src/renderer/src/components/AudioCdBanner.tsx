@@ -19,7 +19,7 @@ export function AudioCdBanner({
 
   return (
     <>
-      <div className="border-border bg-bg-page-tint text-ink-muted flex items-center justify-between gap-2 rounded-md border px-4 py-2 text-meta">
+      <div className="border-border bg-bg-page-tint text-ink-muted flex items-center justify-between gap-2 rounded-input border px-4 py-2 text-meta">
         <div className="flex items-center gap-2">
           <Disc className="size-4" strokeWidth={1.5} />
           <span>Audio-CD erkannt — als FLAC rippen</span>
