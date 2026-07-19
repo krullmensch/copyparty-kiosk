@@ -82,7 +82,7 @@ function Stage(): React.JSX.Element {
         Jetzt starten!
       </div>
 
-      <motion.div layout transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }} className="relative w-full max-w-4xl z-0">
+      <div className="relative w-full max-w-4xl z-0">
         <AnimatePresence>
           {PARAGRAPHS.map((p, i) => {
             const isActive = i === activeIndex
@@ -93,7 +93,7 @@ function Stage(): React.JSX.Element {
             return (
               <motion.div
                 key={i}
-                layoutId={`para-${i}`}
+                layout
                 initial={{ opacity: 0, y: isNext ? 300 : 0 }}
                 animate={{
                   opacity: isActive && isFading ? 0 : 1,
@@ -114,7 +114,7 @@ function Stage(): React.JSX.Element {
             )
           })}
         </AnimatePresence>
-      </motion.div>
+      </div>
     </div>
   )
 }
