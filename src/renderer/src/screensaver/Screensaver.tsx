@@ -90,15 +90,14 @@ function Stage(): React.JSX.Element {
 
             if (!isActive && !isNext) return null
 
-            return (
+                        return (
               <motion.div
                 key={i}
                 layout
                 initial={{ opacity: 0, y: isNext ? 300 : 0 }}
                 animate={{
                   opacity: isActive && isFading ? 0 : 1,
-                  y: 0,
-                  color: isActive ? '#000000' : '#DDDDDD',
+                  y: 0
                 }}
                 transition={{
                   duration: 0.7,
@@ -109,7 +108,19 @@ function Stage(): React.JSX.Element {
                   isActive ? 'relative' : 'absolute top-[calc(100%+4rem)] left-0'
                 }`}
               >
-                {p.text}
+                {p.text.split(' ').map((word, wIdx) => (
+                  <motion.span
+                    key={wIdx}
+                    initial={{ color: '#DDDDDD' }}
+                    animate={{ color: isActive ? '#000000' : '#DDDDDD' }}
+                    transition={{
+                      delay: isActive ? 0.5 + wIdx * 0.28 : 0,
+                      duration: 0.3
+                    }}
+                  >
+                    {word}{' '}
+                  </motion.span>
+                ))}
               </motion.div>
             )
           })}
