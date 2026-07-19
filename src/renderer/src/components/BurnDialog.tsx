@@ -27,7 +27,7 @@ export function BurnDialog({
 }: {
   device: string
   sources: BurnSources
-  onClose: () => void
+  onClose: (success?: boolean) => void
 }): React.JSX.Element {
   const names = sourceNames(sources)
   const isSingleVideo = names.length === 1 && /\.(mp4|mkv|avi|mov|webm|flv|wmv|mpg|mpeg)$/i.test(names[0])
@@ -114,7 +114,7 @@ export function BurnDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md" onClick={phase === 'burning' ? undefined : onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md" onClick={phase === 'burning' ? undefined : () => onClose(phase === 'done')}>
       <div
         className="bg-background border-border text-foreground w-[30rem] max-w-[90vw] rounded-card border p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
@@ -125,7 +125,7 @@ export function BurnDialog({
               <CompactDisc className="size-5" strokeWidth={1.5} />
               <span className="text-h2">Auf DVD brennen</span>
             </div>
-            <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Schließen">
+            <Button variant="ghost" size="icon-sm" onClick={() => onClose(phase === 'done')} aria-label="Schließen">
               <X />
             </Button>
           </div>
@@ -167,7 +167,7 @@ export function BurnDialog({
             </div>
             
             <div className="flex gap-4 w-full justify-center">
-              <Button className="font-bold uppercase flex-1" variant="outline" onClick={onClose}>
+              <Button className="font-bold uppercase flex-1" variant="outline" onClick={() => onClose(false)}>
                 <X className="size-5 mr-2" />
                 ABBRECHEN
               </Button>
@@ -199,7 +199,7 @@ export function BurnDialog({
         {phase === 'done' && (
           <div className="flex flex-col gap-4">
             <div className="text-meta text-ink-muted">Fertig — Disc wird ausgeworfen.</div>
-            <Button className="w-full" onClick={onClose}>
+            <Button className="w-full" onClick={() => onClose(true)}>
               Schließen
             </Button>
           </div>
@@ -208,7 +208,7 @@ export function BurnDialog({
         {phase === 'error' && (
           <div className="flex flex-col gap-4">
             <div className="text-meta text-ink-muted break-words">{message}</div>
-            <Button className="w-full" variant="outline" onClick={onClose}>
+            <Button className="w-full" variant="outline" onClick={() => onClose(false)}>
               Schließen
             </Button>
           </div>

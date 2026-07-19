@@ -263,7 +263,12 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
       </div>
 
       {burnSources && burnDrive && (
-        <BurnDialog device={burnDrive.device} sources={burnSources} onClose={() => setBurnSources(null)} />
+        <BurnDialog device={burnDrive.device} sources={burnSources} onClose={(success) => {
+          setBurnSources(null)
+          if (success) {
+            setStaged([])
+          }
+        }} />
       )}
 
       {shareItems && server && (
