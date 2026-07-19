@@ -1,0 +1,210 @@
+import { useEffect, useState } from 'react'
+import { Download, Eject, Send, Xmark } from 'iconoir-react'
+import { gooeyToast as toast } from 'goey-toast'
+import { IconPill } from '@/components/ui/chip'
+import { FileBrowserPane } from './FileBrowserPane'
+import { QrShareDialog, type QrShareItem } from './QrShareDialog'
+import { DRAG_MIME, type DragPayload } from '../../../shared/dragdrop'
+
+interface Props {
+  /** copyparty-Server-URL (für Share); null solange nicht verbunden. */
+  server: string | null
+  /** Mount-Pfad des USB-Sticks; null = kein Stick → Smartphone/Share-Modus. */
+  usbPath: string | null
+  /** Anzeigename des USB-Sticks für die Bottom-Bar. */
+  usbLabel: string | null
+  /** Der obere Inhalt (Remote-Pane). */
+  children: React.ReactNode
+}
+
+/** Im Tray gestagte Datei (aus Remote-Drag). Nur Dateien (keine Ordner). */
+interface StagedItem {
+  vpath: string
+  name: string
+}
+
+/**
+ * Container-Shell des Homescreens: oben der Remote-Pane, darüber slidet von
+ * unten ein Tray ein. Zwei Modi:
+ *  - USB steckt → Tray zeigt die USB-Datei-Ansicht (FileBrowserPane), öffnet
+ *    automatisch, Bottom-Bar = Auswerfen + Stick-Name.
+ *  - kein USB → „Smartphone"-Modus: Tray per Datentausch-Button auf/zu,
+ *    Dateien reinziehen staged sie, „Senden" teilt sie per QR aufs Handy.
+ */
+export function DatentauschTray({ server, usbPath, usbLabel, children }: Props): React.JSX.Element {
+  const usbMode = usbPath !== null
+  const [open, setOpen] = useState(false)
+  const [staged, setStaged] = useState<StagedItem[]>([])
+  const [shareItems, setShareItems] = useState<QrShareItem[] | null>(null)
+  const [dropActive, setDropActive] = useState(false)
+  const [ejecting, setEjecting] = useState(false)
+
+  // USB steckt → Tray automatisch öffnen; abgezogen → schließen + Staging leeren.
+  useEffect(() => {
+    if (usbMode) {
+      setOpen(true)
+    } else {
+      setOpen(false)
+      setStaged([])
+    }
+  }, [usbMode])
+
+  const addStaged = (payload: DragPayload): void => {
+    if (payload.kind !== 'remote') return
+    setStaged((prev) => {
+      const seen = new Set(prev.map((s) => s.vpath))
+      const next = [...prev]
+      payload.vpaths.forEach((vp, i) => {
+        if (!seen.has(vp)) next.push({ vpath: vp, name: payload.names[i] ?? vp })
+      })
+      return next
+    })
+  }
+
+  const onDrop = (e: React.DragEvent): void => {
+    e.preventDefault()
+    setDropActive(false)
+    if (usbMode) return
+    const raw = e.dataTransfer.getData(DRAG_MIME)
+    if (!raw) return
+    try {
+      addStaged(JSON.parse(raw) as DragPayload)
+    } catch {
+      /* ignore malformed payload */
+    }
+  }
+
+  const onDragOver = (e: React.DragEvent): void => {
+    if (usbMode) return
+    if (e.dataTransfer.types.includes(DRAG_MIME)) {
+      e.preventDefault()
+      setDropActive(true)
+    }
+  }
+
+  const send = (): void => {
+    if (!server || staged.length === 0) return
+    setShareItems(staged.map((s) => ({ vpath: s.vpath, name: s.name, size: 0, isDirectory: false })))
+  }
+
+  const eject = async (): Promise<void> => {
+    if (!usbPath) return
+    setEjecting(true)
+    const res = await window.api.drives.eject(usbPath)
+    setEjecting(false)
+    if (res.ok) toast.success('USB-Stick kann entfernt werden')
+    else toast.error(`Auswerfen fehlgeschlagen: ${res.error ?? 'unbekannt'}`)
+  }
+
+  return (
+    <div className="border-ink bg-bg-surface relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-container border">
+      {/* Bühne: Remote-Pane + darüber liegendes Tray (clippt das geschlossene Tray) */}
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        <div className="absolute inset-0">{children}</div>
+
+        <section
+          aria-hidden={!open}
+          onDragOver={onDragOver}
+          onDragLeave={() => setDropActive(false)}
+          onDrop={onDrop}
+          className={`bg-bg-surface border-ink absolute inset-x-0 bottom-0 top-[42%] overflow-hidden rounded-t-container border-t transition-transform duration-300 ease-out ${
+            open ? 'translate-y-0' : 'translate-y-full'
+          } ${dropActive ? 'ring-ink/40 ring-2' : ''}`}
+        >
+          {usbMode ? (
+            <div className="absolute inset-0">
+              <FileBrowserPane key={usbPath} rootPath={usbPath!} />
+            </div>
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-6">
+              {staged.length === 0 ? (
+                <p className="text-ink-faint text-body max-w-md text-center">
+                  Wähle mehrere Dateien mit <Kbd>Strg</Kbd> + Links-Klick aus. Ziehe diese per
+                  Drag&nbsp;&amp;&nbsp;Drop hier her, um sie auf dein Smartphone zu laden — oder
+                  stecke einen USB-Stick ein.
+                </p>
+              ) : (
+                <div className="flex max-h-full w-full max-w-2xl flex-wrap content-start justify-center gap-2 overflow-auto">
+                  {staged.map((s) => (
+                    <span
+                      key={s.vpath}
+                      className="text-label border-ink text-ink inline-flex max-w-[16rem] items-center gap-1.5 rounded-pill border px-3 py-1.5"
+                    >
+                      <span className="truncate">{s.name}</span>
+                      <button
+                        type="button"
+                        aria-label="Aus Auswahl entfernen"
+                        onClick={() => setStaged((p) => p.filter((x) => x.vpath !== s.vpath))}
+                        className="text-ink-muted hover:text-ink shrink-0"
+                      >
+                        <Xmark className="size-3.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {staged.length > 0 && (
+                <button
+                  type="button"
+                  onClick={send}
+                  className="text-body bg-ink text-ink-leaf inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-medium outline-none transition-opacity hover:opacity-90 focus-visible:ring-[3px] focus-visible:ring-ring/40"
+                >
+                  <Send className="size-4" />
+                  {staged.length} auf Smartphone senden
+                </button>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Schwarze Bottom-Bar */}
+      <div className="bg-ink text-ink-leaf flex h-16 shrink-0 items-center justify-center gap-3 px-4">
+        {usbMode ? (
+          <>
+            <IconPill
+              onClick={eject}
+              disabled={ejecting}
+              title="USB-Stick auswerfen"
+              aria-label="USB-Stick auswerfen"
+              className="border-ink-leaf text-ink-leaf hover:bg-ink-leaf/10"
+            >
+              <Eject className="size-4" />
+            </IconPill>
+            <span className="text-label bg-ink-leaf text-ink inline-flex items-center rounded-pill px-5 py-2 font-medium uppercase tracking-wide">
+              {usbLabel ?? 'USB Stick'}
+            </span>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            className="text-body bg-ink-leaf text-ink inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-medium outline-none transition-opacity hover:opacity-90 focus-visible:ring-[3px] focus-visible:ring-ring/40"
+          >
+            <Download className="size-4" />
+            Datentausch
+          </button>
+        )}
+      </div>
+
+      {shareItems && server && (
+        <QrShareDialog
+          server={server}
+          items={shareItems}
+          onClose={() => {
+            setShareItems(null)
+            setStaged([])
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function Kbd({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return (
+    <kbd className="border-ink-faint text-ink-muted rounded-input border px-1.5 py-0.5 text-[0.85em]">
+      {children}
+    </kbd>
+  )
+}

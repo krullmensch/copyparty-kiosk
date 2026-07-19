@@ -1,20 +1,12 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { GROUPS, TOTAL_DURATION_MS } from './manifest'
+import { useEffect, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { PARAGRAPHS } from './manifest'
 import { useScreensaverSuppressed } from './suppress'
+import '@fontsource/inter'
+import '@fontsource/averia-serif-libre/700.css'
 
 const IDLE_MS = 120_000 // 2 min Inaktivität bis Screensaver
 
-// Grafik-Timeline (CD → USB), läuft parallel zu den Worten
-const GFX_START_MS = 8_000 // Verzögerung bis die erste Grafik hochfährt
-const GFX_SLIDE_MS = 900 // Dauer der Ein-/Ausfahrt
-const GFX_STAY_MS = 10_000 // Standzeit einer Grafik im Bild
-const GFX_GAP_MS = 900 // leere Pause zwischen CD und USB
-
-/**
- * Idle-Erkennung im Renderer. Zählt bei Inaktivität 2 min herunter; jede Maus-/
- * Tastatureingabe setzt zurück. Solange `suppressed` (offene Medien-Vorschau
- * oder QR-Code) gilt, wird kein Timer gestartet.
- */
 function useIdle(suppressed: boolean): boolean {
   const [idle, setIdle] = useState(false)
   useEffect(() => {
@@ -35,43 +27,10 @@ function useIdle(suppressed: boolean): boolean {
   return idle
 }
 
-/** CD-Icon (viewBox 0 0 36 36, svgrepo cd-dvd-line), schwarz. */
-function CdIcon(): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 36 36" fill="#000" width="100%" height="100%" aria-hidden>
-      <path d="M18,2A16,16,0,1,0,34,18,16,16,0,0,0,18,2Zm0,30A14,14,0,1,1,32,18,14,14,0,0,1,18,32Z" />
-      <path d="M22.33,18a4.46,4.46,0,1,0-4.45,4.46A4.46,4.46,0,0,0,22.33,18ZM17.88,20.9A2.86,2.86,0,1,1,20.73,18,2.86,2.86,0,0,1,17.88,20.9Z" />
-      <path d="M17.88,7.43H18V5.84h-.12A12.21,12.21,0,0,0,5.68,17.75h1.6A10.61,10.61,0,0,1,17.88,7.43Z" />
-      <path d="M30.08,18H28.49v0A10.61,10.61,0,0,1,18.25,28.63v1.6A12.22,12.22,0,0,0,30.09,18S30.08,18,30.08,18Z" />
-      <path d="M18,11V9.44h-.12a8.62,8.62,0,0,0-8.6,8.32h1.6a7,7,0,0,1,7-6.72Z" />
-      <path d="M18.25,25v1.6A8.61,8.61,0,0,0,26.48,18v0h-1.6v0A7,7,0,0,1,18.25,25Z" />
-    </svg>
-  )
-}
-
-/** USB-Icon (viewBox 0 0 1024 1024, svgrepo), schwarz. */
-function UsbIcon(): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 1024 1024" fill="#000" width="100%" height="100%" aria-hidden>
-      <path d="M760 432V144c0-17.7-14.3-32-32-32H296c-17.7 0-32 14.3-32 32v288c-66.2 0-120 52.1-120 116v356c0 4.4 3.6 8 8 8h56c4.4 0 8-3.6 8-8V548c0-24.3 21.6-44 48.1-44h495.8c26.5 0 48.1 19.7 48.1 44v356c0 4.4 3.6 8 8 8h56c4.4 0 8-3.6 8-8V548c0-63.9-53.8-116-120-116zm-424 0V184h352v248H336zm120-184h-48c-4.4 0-8 3.6-8 8v48c0 4.4 3.6 8 8 8h48c4.4 0 8-3.6 8-8v-48c0-4.4-3.6-8-8-8zm160 0h-48c-4.4 0-8 3.6-8 8v48c0 4.4 3.6 8 8 8h48c4.4 0 8-3.6 8-8v-48c0-4.4-3.6-8-8-8z" />
-    </svg>
-  )
-}
-
-/**
- * Innerer Screensaver-Inhalt. Wird pro Session frisch gemountet (der Wrapper
- * unmountet zwischen den Sessions), daher startet jede Animation bei 0.
- */
 function Stage(): React.JSX.Element {
-  const [groupIdx, setGroupIdx] = useState(0)
-  const [wordCount, setWordCount] = useState(0)
-  const [fadeOut, setFadeOut] = useState(false)
-  const [scale, setScale] = useState(1)
-  const [cdIn, setCdIn] = useState(false)
-  const [usbIn, setUsbIn] = useState(false)
-  const lineRef = useRef<HTMLDivElement>(null)
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [isFading, setIsFading] = useState(false)
 
-  // Untertitel-Loop
   useEffect(() => {
     let cancelled = false
     const timers: number[] = []
@@ -80,48 +39,26 @@ function Stage(): React.JSX.Element {
         if (ms <= 0) r()
         else timers.push(window.setTimeout(r, ms))
       })
+
     void (async () => {
       while (!cancelled) {
-        const loopStart = Date.now()
-        for (let g = 0; g < GROUPS.length && !cancelled; g++) {
-          const group = GROUPS[g]
-          setGroupIdx(g)
-          setFadeOut(false)
-          setWordCount(0)
+        for (let i = 0; i < PARAGRAPHS.length && !cancelled; i++) {
+          setActiveIndex(i)
+          setIsFading(false)
 
-          for (let i = 0; i < group.words.length && !cancelled; i++) {
-            const word = group.words[i]
-            const targetTime = loopStart + word.start
-            const delay = targetTime - Date.now()
-            if (delay > 0) await wait(delay)
-
-            if (cancelled) break
-            setWordCount(i + 1)
-          }
-
+          const readTime = PARAGRAPHS[i].endMs - PARAGRAPHS[i].startMs
+          await wait(Math.max(readTime, 4000))
           if (cancelled) break
 
-          // Wait until it's time to fade out (e.g. 260ms before next group)
-          // Make sure last word is visible for at least 150ms
-          const minFadeStart = loopStart + group.words[group.words.length - 1].start + 150
-          const idealFadeStart = loopStart + group.nextStart - 260
-          const fadeOutTarget = Math.max(minFadeStart, idealFadeStart)
+          setIsFading(true)
+          await wait(500) // faster fade out
+          if (cancelled) break
           
-          let fadeDelay = fadeOutTarget - Date.now()
-          if (fadeDelay > 0) await wait(fadeDelay)
+          await wait(100) // tiny gap before slide
           if (cancelled) break
-
-          setFadeOut(true)
-
-          const nextGroupTarget = loopStart + group.nextStart
-          const nextDelay = nextGroupTarget - Date.now()
-          if (nextDelay > 0) await wait(nextDelay)
         }
-        
         if (cancelled) break
-        const loopEndTarget = loopStart + TOTAL_DURATION_MS
-        const finalDelay = loopEndTarget - Date.now()
-        if (finalDelay > 0) await wait(finalDelay)
+        await wait(2000)
       }
     })()
     return () => {
@@ -129,148 +66,70 @@ function Stage(): React.JSX.Element {
       timers.forEach((t) => window.clearTimeout(t))
     }
   }, [])
-
-  // Grafik-Timeline: CD und USB wechseln sich gleichmäßig ab (Endlos-Schleife).
-  // Jede Grafik fährt hoch, bleibt GFX_STAY_MS, fährt runter, kurze Pause, dann
-  // die andere.
-  useEffect(() => {
-    let cancelled = false
-    const timers: number[] = []
-    const wait = (ms: number): Promise<void> =>
-      new Promise((r) => timers.push(window.setTimeout(r, ms)))
-    const show = async (set: (v: boolean) => void): Promise<void> => {
-      set(true)
-      await wait(GFX_SLIDE_MS + GFX_STAY_MS)
-      set(false)
-      await wait(GFX_SLIDE_MS + GFX_GAP_MS)
-    }
-    void (async () => {
-      await wait(GFX_START_MS)
-      while (!cancelled) {
-        await show(setCdIn)
-        if (cancelled) break
-        await show(setUsbIn)
-      }
-    })()
-    return () => {
-      cancelled = true
-      timers.forEach((t) => window.clearTimeout(t))
-    }
-  }, [])
-
-  // Auto-Fit: 190px-Zeile auf Viewport-Breite herunterskalieren, falls zu breit.
-  // Versteckte Worte reservieren bereits Platz, daher pro Gruppe stabil.
-  useLayoutEffect(() => {
-    const el = lineRef.current
-    if (!el) return
-    const avail = window.innerWidth * 0.9
-    const w = el.scrollWidth
-    setScale(w > avail ? avail / w : 1)
-  }, [groupIdx])
-
-  const group = GROUPS[groupIdx] ?? []
 
   return (
-    <>
-      <div
-        style={{
-          transform: `scale(${scale})`,
-          // Kein transform-transition: Scale wird beim Gruppenwechsel vor dem
-          // Paint gesetzt und soll NICHT animiert werden (sonst „zoomt" die
-          // neue Gruppe rein). Nur das Gruppen-Fade wird getweent.
-          transition: 'opacity 200ms ease',
-          opacity: fadeOut ? 0 : 1,
-          willChange: 'opacity'
-        }}
-      >
-        <div
-          key={groupIdx}
-          ref={lineRef}
-          style={{
-            whiteSpace: 'nowrap',
-            fontFamily: "'Averia Serif Libre', serif",
-            fontWeight: 700,
-            fontSize: '120px',
-            letterSpacing: '-0.03em',
-            lineHeight: 1,
-            color: '#000'
-          }}
-        >
-          {group?.words?.map((word, i) => (
-            <span
-              key={i}
-              style={{
-                display: 'inline-block',
-                marginRight: i < group.words.length - 1 ? '0.28em' : 0,
-                opacity: i < wordCount ? 1 : 0,
-                transform: i < wordCount ? 'translateY(0)' : 'translateY(0.12em)',
-                transition: 'opacity 220ms ease, transform 220ms ease'
-              }}
-            >
-              {word.text}
-            </span>
-          ))}
-        </div>
+    <div className="relative w-full h-full flex flex-col items-center justify-center bg-[#F8F8F8] overflow-hidden">
+      {/* Logo */}
+      <div className="absolute top-12 left-12 font-['Averia_Serif_Libre'] font-bold text-black text-5xl tracking-tight z-20">
+        Agora
       </div>
 
-      {/* CD — fährt von unten bis zur Hälfte herein und dreht sich */}
-      <div
-        style={{
-          position: 'fixed',
-          left: '50%',
-          bottom: 0,
-          width: '42vmin',
-          height: '42vmin',
-          transform: `translateX(-50%) translateY(${cdIn ? '50%' : '100%'})`,
-          transition: `transform ${GFX_SLIDE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
-          willChange: 'transform'
-        }}
-      >
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            animation: cdIn ? 'sv-nudge 2.6s ease-in-out 900ms infinite' : 'none'
-          }}
-        >
-          <div style={{ width: '100%', height: '100%', animation: 'sv-spin 4s linear infinite' }}>
-            <CdIcon />
-          </div>
-        </div>
+      {/* Fade overlay am unteren Rand */}
+      <div className="pointer-events-none absolute bottom-0 left-0 w-full h-[35vh] bg-gradient-to-t from-[#F8F8F8] via-[#F8F8F8]/80 to-transparent z-10" />
+
+      {/* Action Pille */}
+      <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-[#000000] text-[#F8F8F8] font-['Averia_Serif_Libre'] text-3xl font-bold px-10 py-4 rounded-full z-20">
+        Jetzt starten!
       </div>
 
-      {/* USB-Stick — fährt herein und stupst als Hinweis nach oben */}
-      <div
-        style={{
-          position: 'fixed',
-          left: '50%',
-          bottom: 0,
-          width: '34vmin',
-          height: '34vmin',
-          transform: `translateX(-50%) translateY(${usbIn ? '45%' : '100%'})`,
-          transition: `transform ${GFX_SLIDE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
-          willChange: 'transform'
-        }}
-      >
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            animation: usbIn ? 'sv-nudge 2.6s ease-in-out 900ms infinite' : 'none'
-          }}
-        >
-          <UsbIcon />
-        </div>
+      <div className="relative w-full max-w-4xl z-0">
+        <AnimatePresence>
+          {PARAGRAPHS.map((p, i) => {
+            const isActive = i === activeIndex
+            const isNext = i === activeIndex + 1
+
+            if (!isActive && !isNext) return null
+
+                        return (
+              <motion.div
+                key={i}
+                layout
+                initial={{ opacity: 0, y: isNext ? 300 : 0 }}
+                animate={{
+                  opacity: isActive && isFading ? 0 : 1,
+                  y: 0
+                }}
+                transition={{
+                  duration: 0.7,
+                  ease: [0.22, 1, 0.36, 1],
+                  opacity: { duration: isActive && isFading ? 0.4 : 0.7 }
+                }}
+                className={`w-full text-left font-bold font-['Inter'] text-[2.5rem] leading-[1.6] ${
+                  isActive ? 'relative' : 'absolute top-[calc(100%+4rem)] left-0'
+                }`}
+              >
+                {p.text.split('').map((char, cIdx) => (
+                  <motion.span
+                    key={cIdx}
+                    initial={{ color: '#DDDDDD' }}
+                    animate={{ color: isActive ? '#000000' : '#DDDDDD' }}
+                    transition={{
+                      delay: isActive ? 0.5 + cIdx * 0.045 : 0,
+                      duration: 0.2
+                    }}
+                  >
+                    {char}
+                  </motion.span>
+                ))}
+              </motion.div>
+            )
+          })}
+        </AnimatePresence>
       </div>
-    </>
+    </div>
   )
 }
 
-/**
- * Screensaver-Overlay mit Blende: weißer Hintergrund faded ein, dann läuft die
- * Stage. `active` von außen (Idle) steuert Ein-/Ausblenden; die Stage bleibt
- * während der 400 ms Ausblende noch gemountet.
- */
 function Screensaver({ active }: { active: boolean }): React.JSX.Element | null {
   const [render, setRender] = useState(active)
   const [visible, setVisible] = useState(false)
@@ -278,7 +137,6 @@ function Screensaver({ active }: { active: boolean }): React.JSX.Element | null 
   useEffect(() => {
     if (active) {
       setRender(true)
-      // Doppel-rAF: erst mounten (opacity 0), dann auf 1 faden.
       const id = requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)))
       return () => cancelAnimationFrame(id)
     }
@@ -298,7 +156,7 @@ function Screensaver({ active }: { active: boolean }): React.JSX.Element | null 
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        background: '#fff',
+        background: '#F8F8F8',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -308,22 +166,11 @@ function Screensaver({ active }: { active: boolean }): React.JSX.Element | null 
         transition: 'opacity 400ms ease'
       }}
     >
-      <style>{`
-        @keyframes sv-spin { from { transform: rotate(0) } to { transform: rotate(360deg) } }
-        @keyframes sv-nudge {
-          0%, 58%, 100% { transform: translateY(0) }
-          66% { transform: translateY(-7%) }
-          74% { transform: translateY(0) }
-          82% { transform: translateY(-7%) }
-          90% { transform: translateY(0) }
-        }
-      `}</style>
       {visible && <Stage />}
     </div>
   )
 }
 
-/** In App mounten: verkabelt Idle + Suppression und rendert das Overlay. */
 export function ScreensaverController(): React.JSX.Element {
   const suppressed = useScreensaverSuppressed()
   const idle = useIdle(suppressed)

@@ -49,7 +49,7 @@ export function AgoraStatsPanel({ onClose }: { onClose: () => void }): React.JSX
       onClick={onClose}
     >
       <div
-        className="border-border bg-bg-surface w-[28rem] max-w-[90vw] rounded-lg border p-6 shadow-xl"
+        className="border-border bg-bg-surface w-[28rem] max-w-[90vw] rounded-card border p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-6 flex items-center justify-between">

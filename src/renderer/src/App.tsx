@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Moon, Sun, Users } from 'lucide-react'
+import { Community, HalfMoon, SunLight } from 'iconoir-react'
 import { Button } from '@/components/ui/button'
 import { GoeyToaster } from 'goey-toast'
-import { FileBrowserPane } from './components/FileBrowserPane'
 import { RemoteBrowserPane } from './components/RemoteBrowserPane'
+import { DatentauschTray } from './components/DatentauschTray'
 import { OpticalDropZone } from './components/OpticalDropZone'
 import { DvdRipBanner } from './components/DvdRipBanner'
 import { AudioCdBanner } from './components/AudioCdBanner'
@@ -121,6 +121,9 @@ function App(): React.JSX.Element {
     drives.find((d) => d.isOptical && d.mountpoints[0]) ??
     null
   const usbPath = dataDrive?.mountpoints[0]?.path ?? null
+  const usbLabel = dataDrive
+    ? (dataDrive.mountpoints[0]?.label ?? dataDrive.description ?? 'USB Stick')
+    : null
   // Burn target: an optical drive without a mounted data disc (i.e. blank/empty,
   // ready to write). A data disc is a browse source instead, not a burn target.
   // Audio CDs never mount either, but are a rip source, not a burn target.
@@ -168,8 +171,8 @@ function App(): React.JSX.Element {
       <PreviewKeyboard />
       <GoeyToaster richColors position="top-right" preset="smooth" showProgress />
       <div className="bg-background text-foreground flex h-screen flex-col">
-        <header className="border-border bg-bg-page-tint flex items-center justify-between border-b px-4 py-2">
-          <h1 className="text-h2 select-none" onClick={onLogoClick}>
+        <header className="flex items-center justify-between px-6 pt-4 pb-2">
+          <h1 className="text-display-l cursor-default select-none" onClick={onLogoClick}>
             Agora
           </h1>
           <div className="flex items-center gap-1">
@@ -181,7 +184,7 @@ function App(): React.JSX.Element {
                 title="Netz-Statistik"
                 aria-label="Netz-Statistik"
               >
-                <Users className="size-5" strokeWidth={1.25} />
+                <Community className="size-5" />
               </Button>
             )}
             <Button
@@ -192,27 +195,18 @@ function App(): React.JSX.Element {
               aria-label={isDark ? 'Tag' : 'Nacht'}
             >
               {isDark ? (
-                <Sun className="size-5" strokeWidth={1.25} />
+                <SunLight className="size-5" />
               ) : (
-                <Moon className="size-5" strokeWidth={1.25} />
+                <HalfMoon className="size-5" />
               )}
             </Button>
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
-          <div className="flex min-h-0 flex-1">
-            {usbPath ? (
-              <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
-                <section className="min-h-0">
-                  <FileBrowserPane key={usbPath} rootPath={usbPath} />
-                </section>
-                <section className="min-h-0">{remotePane}</section>
-              </div>
-            ) : (
-              <section className="min-h-0 min-w-0 flex-1">{remotePane}</section>
-            )}
-          </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-3 px-6 pb-6">
+          <DatentauschTray server={copypartyUrl} usbPath={usbPath} usbLabel={usbLabel}>
+            {remotePane}
+          </DatentauschTray>
           {isVideoDvd && dataDrive && copypartyUrl && (
             <DvdRipBanner drive={dataDrive} server={copypartyUrl} />
           )}

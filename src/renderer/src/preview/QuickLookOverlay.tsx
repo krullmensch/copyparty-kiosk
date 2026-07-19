@@ -37,7 +37,7 @@ export function QuickLookOverlay({
       onClick={onClose}
     >
       <div
-        className="bg-background border-border text-foreground flex max-h-[80vh] max-w-[70vw] flex-col overflow-hidden rounded-lg border shadow-xl"
+        className="bg-background border-border text-foreground flex max-h-[80vh] max-w-[70vw] flex-col overflow-hidden rounded-card border shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-border flex items-baseline justify-between gap-4 border-b px-5 py-3">

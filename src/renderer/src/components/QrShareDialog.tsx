@@ -67,7 +67,7 @@ export function QrShareDialog({ server, items, onClose }: Props): React.JSX.Elem
       onClick={onClose}
     >
       <div
-        className="bg-background border-border text-foreground w-[24rem] max-w-[90vw] rounded-lg border p-6 shadow-xl"
+        className="bg-background border-border text-foreground w-[24rem] max-w-[90vw] rounded-card border p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -104,7 +104,7 @@ export function QrShareDialog({ server, items, onClose }: Props): React.JSX.Elem
           (result?.url ? (
             <div className="flex flex-col items-center gap-4">
               {/* fixed white quiet-zone -- must stay scannable in dark mode too */}
-              <div className="rounded-md bg-white p-4">
+              <div className="rounded-input bg-white p-4">
                 <QRCodeSVG
                   value={result.url}
                   size={260}

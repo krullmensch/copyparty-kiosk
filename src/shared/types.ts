@@ -113,6 +113,7 @@ export interface ShareResult {
 
 export const IpcChannels = {
   DrivesList: 'drives:list',
+  DrivesEject: 'drives:eject',
   DriveAdded: 'drive:added',
   DriveRemoved: 'drive:removed',
   DriveChanged: 'drive:changed',

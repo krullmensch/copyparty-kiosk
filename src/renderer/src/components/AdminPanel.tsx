@@ -72,7 +72,7 @@ export function AdminPanel({
       onClick={onClose}
     >
       <div
-        className="border-border bg-bg-surface max-h-[90vh] w-[28rem] max-w-[90vw] overflow-y-auto rounded-lg border p-6 shadow-xl"
+        className="border-border bg-bg-surface max-h-[90vh] w-[28rem] max-w-[90vw] overflow-y-auto rounded-card border p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
