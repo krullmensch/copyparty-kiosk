@@ -80,7 +80,11 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
     const raw = e.dataTransfer.getData(DRAG_MIME)
     if (!raw) return
     try {
-      addStaged(JSON.parse(raw) as DragPayload)
+      const payload = JSON.parse(raw) as DragPayload
+      if (payload.kind === 'remote' && payload.vpaths.length > 0) {
+        toast.success(payload.vpaths.length === 1 ? '1 Datei hinzugefügt' : `${payload.vpaths.length} Daten hinzugefügt`)
+      }
+      addStaged(payload)
     } catch {
       /* ignore malformed payload */
     }
@@ -106,11 +110,17 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
   }
 
   const eject = async (): Promise<void> => {
-    if (!usbPath) return
     setEjecting(true)
-    const res = await window.api.drives.eject(usbPath)
+    let res: { ok: boolean; error?: string } = { ok: false, error: 'Kein Laufwerk gefunden' }
+    if (audioCdDrive) {
+      res = await window.api.drives.ejectOptical(audioCdDrive.device)
+    } else if (dataDrive) {
+      res = await window.api.drives.ejectOptical(dataDrive.device)
+    } else if (usbPath) {
+      res = await window.api.drives.eject(usbPath)
+    }
     setEjecting(false)
-    if (res.ok) toast.success('USB-Stick kann entfernt werden')
+    if (res.ok) toast.success('Medium wurde ausgeworfen')
     else toast.error(`Auswerfen fehlgeschlagen: ${res.error ?? 'unbekannt'}`)
   }
 
@@ -136,7 +146,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
               <div className="text-meta text-ink-muted text-center max-w-md">
                 Die Dateien auf dieser DVD sind CSS-verschlüsselt. Möchtest du sie rippen und in die Agora hochladen?
               </div>
-              <Button size="lg" className="rounded-pill" onClick={() => setRipOpen(true)}>
+              <Button size="lg" variant="outline" className="rounded-pill text-ink" onClick={() => setRipOpen(true)}>
                 Rippen &amp; hochladen
               </Button>
             </div>
@@ -147,7 +157,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
               <div className="text-meta text-ink-muted text-center max-w-md">
                 Möchtest du diese Audio-CD verlustfrei als FLAC rippen und in die Agora hochladen?
               </div>
-              <Button size="lg" className="rounded-pill" onClick={() => setRipOpen(true)}>
+              <Button size="lg" variant="outline" className="rounded-pill text-ink" onClick={() => setRipOpen(true)}>
                 Rippen &amp; hochladen
               </Button>
             </div>
@@ -204,7 +214,12 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
       </div>
 
       {/* Schwarze Bottom-Bar */}
-      <div className="bg-ink text-ink-leaf flex h-16 shrink-0 items-center justify-center gap-3 px-4">
+      <div 
+        className={`bg-ink text-ink-leaf flex h-16 shrink-0 items-center justify-center gap-3 px-4 ${dropActive && !usbMode ? 'ring-ink-leaf/40 ring-[3px]' : ''}`}
+        onDragOver={onDragOver}
+        onDragLeave={() => setDropActive(false)}
+        onDrop={onDrop}
+      >
         {usbMode ? (
           <>
             <IconPill

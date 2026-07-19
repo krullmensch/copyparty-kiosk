@@ -308,9 +308,20 @@ async function ejectDrive(mountPath: string): Promise<{ ok: boolean; error?: str
   return { ok: true }
 }
 
+async function ejectOptical(device: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    // /usr/bin/eject handles both unmounting and ejecting the tray
+    await execFileAsync('/usr/bin/eject', [device])
+    return { ok: true }
+  } catch (err: any) {
+    return { ok: false, error: String(err?.stderr ?? err?.message ?? err) }
+  }
+}
+
 export function registerDrivesIpc(window: BrowserWindow): void {
   ipcMain.handle(IpcChannels.DrivesList, async () => snapshot())
   ipcMain.handle(IpcChannels.DrivesEject, async (_e, mountPath: string) => ejectDrive(mountPath))
+  ipcMain.handle('drives:ejectOptical', async (_e, device: string) => ejectOptical(device))
 
   if (pollTimer) clearInterval(pollTimer)
   void tick(window)

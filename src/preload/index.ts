@@ -40,6 +40,8 @@ const api = {
     list: (): Promise<DriveInfo[]> => ipcRenderer.invoke(IpcChannels.DrivesList),
     eject: (mountPath: string): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke(IpcChannels.DrivesEject, mountPath),
+    ejectOptical: (device: string): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('drives:ejectOptical', device),
     onAdded: (cb: (drive: DriveInfo) => void): (() => void) => {
       const handler = (_: unknown, drive: DriveInfo): void => cb(drive)
       ipcRenderer.on(IpcChannels.DriveAdded, handler)
