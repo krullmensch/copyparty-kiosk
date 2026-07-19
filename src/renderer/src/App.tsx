@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Moon, Sun, Users } from 'lucide-react'
+import { Community, HalfMoon, SunLight } from 'iconoir-react'
 import { Button } from '@/components/ui/button'
 import { GoeyToaster } from 'goey-toast'
 import { RemoteBrowserPane } from './components/RemoteBrowserPane'
@@ -184,7 +184,7 @@ function App(): React.JSX.Element {
                 title="Netz-Statistik"
                 aria-label="Netz-Statistik"
               >
-                <Users className="size-5" strokeWidth={1.25} />
+                <Community className="size-5" />
               </Button>
             )}
             <Button
@@ -195,9 +195,9 @@ function App(): React.JSX.Element {
               aria-label={isDark ? 'Tag' : 'Nacht'}
             >
               {isDark ? (
-                <Sun className="size-5" strokeWidth={1.25} />
+                <SunLight className="size-5" />
               ) : (
-                <Moon className="size-5" strokeWidth={1.25} />
+                <HalfMoon className="size-5" />
               )}
             </Button>
           </div>

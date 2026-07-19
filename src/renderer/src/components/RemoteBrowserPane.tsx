@@ -5,10 +5,10 @@ import {
   ArrowUp,
   Folder,
   LogOut,
-  RotateCw,
+  RefreshDouble,
   Search,
-  X
-} from 'lucide-react'
+  Xmark
+} from 'iconoir-react'
 import { gooeyToast as toast } from 'goey-toast'
 import { Chip, IconPill } from '@/components/ui/chip'
 import { Input } from '@/components/ui/input'
@@ -292,7 +292,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-4">
         <IconPill onClick={reload} title="Neu laden" aria-label="Neu laden">
-          <RotateCw />
+          <RefreshDouble />
         </IconPill>
         <IconPill
           disabled={!data?.parent || vpath === '/' || inSearch}
@@ -320,7 +320,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
               className="text-ink-muted hover:text-ink absolute right-3 top-1/2 -translate-y-1/2"
               title="Suche leeren"
             >
-              <X className="size-4" />
+              <Xmark className="size-4" />
             </button>
           )}
         </div>

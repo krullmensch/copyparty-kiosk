@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowDownToLine, Send, X } from 'lucide-react'
+import { Download, Eject, Send, Xmark } from 'iconoir-react'
 import { gooeyToast as toast } from 'goey-toast'
 import { IconPill } from '@/components/ui/chip'
 import { FileBrowserPane } from './FileBrowserPane'
@@ -135,7 +135,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, children }: Props):
                         onClick={() => setStaged((p) => p.filter((x) => x.vpath !== s.vpath))}
                         className="text-ink-muted hover:text-ink shrink-0"
                       >
-                        <X className="size-3.5" />
+                        <Xmark className="size-3.5" />
                       </button>
                     </span>
                   ))}
@@ -167,7 +167,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, children }: Props):
               aria-label="USB-Stick auswerfen"
               className="border-ink-leaf text-ink-leaf hover:bg-ink-leaf/10"
             >
-              <EjectIcon />
+              <Eject className="size-4" />
             </IconPill>
             <span className="text-label bg-ink-leaf text-ink inline-flex items-center rounded-pill px-5 py-2 font-medium uppercase tracking-wide">
               {usbLabel ?? 'USB Stick'}
@@ -179,7 +179,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, children }: Props):
             onClick={() => setOpen((o) => !o)}
             className="text-body bg-ink-leaf text-ink inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-medium outline-none transition-opacity hover:opacity-90 focus-visible:ring-[3px] focus-visible:ring-ring/40"
           >
-            <ArrowDownToLine className="size-4" />
+            <Download className="size-4" />
             Datentausch
           </button>
         )}
@@ -204,15 +204,5 @@ function Kbd({ children }: { children: React.ReactNode }): React.JSX.Element {
     <kbd className="border-ink-faint text-ink-muted rounded-input border px-1.5 py-0.5 text-[0.85em]">
       {children}
     </kbd>
-  )
-}
-
-/** Eject-Glyph (Dreieck + Balken) — lucide hat kein Eject-Icon. */
-function EjectIcon(): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="size-4" aria-hidden>
-      <path d="M12 4l7 9H5l7-9z" />
-      <rect x="5" y="16" width="14" height="2.5" rx="1" />
-    </svg>
   )
 }

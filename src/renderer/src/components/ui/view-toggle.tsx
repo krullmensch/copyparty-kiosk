@@ -1,4 +1,4 @@
-import { LayoutGrid, List } from 'lucide-react'
+import { List, ViewGrid } from 'iconoir-react'
 import { Button } from '@/components/ui/button'
 
 export type ViewMode = 'list' | 'grid'
@@ -27,7 +27,7 @@ export function ViewToggle({ mode, onChange }: Props): React.JSX.Element {
         className={mode === 'grid' ? 'bg-bg-surface' : 'opacity-60'}
         title="grid view"
       >
-        <LayoutGrid className="size-4" />
+        <ViewGrid className="size-4" />
       </Button>
     </div>
   )
