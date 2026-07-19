@@ -144,10 +144,10 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
               <CompactDisc className="size-16 text-ink-muted" strokeWidth={1.5} />
               <div className="text-xl font-bold uppercase text-ink">Video-DVD erkannt</div>
               <div className="text-meta text-ink-muted text-center max-w-md">
-                Die Dateien auf dieser DVD sind CSS-verschlüsselt. Möchtest du sie rippen und in die Agora hochladen?
+                Möchtest du diese Video-DVD in die Agora übertragen?
               </div>
               <Button size="lg" variant="outline" className="rounded-pill text-ink" onClick={() => setRipOpen(true)}>
-                Rippen &amp; hochladen
+                Zur Agora hinzufügen
               </Button>
             </div>
           ) : audioCdDrive ? (
@@ -155,10 +155,10 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
               <CompactDisc className="size-16 text-ink-muted" strokeWidth={1.5} />
               <div className="text-xl font-bold uppercase text-ink">Audio-CD erkannt</div>
               <div className="text-meta text-ink-muted text-center max-w-md">
-                Möchtest du diese Audio-CD verlustfrei als FLAC rippen und in die Agora hochladen?
+                Möchtest du diese Audio-CD in die Agora übertragen?
               </div>
               <Button size="lg" variant="outline" className="rounded-pill text-ink" onClick={() => setRipOpen(true)}>
-                Rippen &amp; hochladen
+                Zur Agora hinzufügen
               </Button>
             </div>
           ) : usbPath ? (
