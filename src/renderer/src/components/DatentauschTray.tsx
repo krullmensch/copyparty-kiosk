@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
-import { ArrowSeparateVertical, Eject, Send, Xmark } from 'iconoir-react'
+import { ArrowSeparateVertical, Eject, Send, Xmark, FireFlame, CompactDisc } from 'iconoir-react'
 import { gooeyToast as toast } from 'goey-toast'
 import { IconPill } from '@/components/ui/chip'
+import { Button } from '@/components/ui/button'
 import { FileBrowserPane } from './FileBrowserPane'
 import { MobileUploadPanel } from './MobileUploadPanel'
 import { QrShareDialog, type QrShareItem } from './QrShareDialog'
 import { DRAG_MIME, type DragPayload } from '../../../shared/dragdrop'
 import type { DriveInfo, BurnSources } from '../../../shared/types'
 import { BurnDialog } from './BurnDialog'
-import { Flame, Disc } from 'lucide-react'
+import { RipDialog } from './RipDialog'
+import { CdRipDialog } from './CdRipDialog'
 
 interface Props {
   /** copyparty-Server-URL (für Share); null solange nicht verbunden. */
@@ -18,6 +20,9 @@ interface Props {
   usbLabel: string | null
   /** Optional blank optical drive available for burning. */
   burnDrive?: DriveInfo | null
+  isVideoDvd?: boolean
+  dataDrive?: DriveInfo | null
+  audioCdDrive?: DriveInfo | null
   /** Der obere Inhalt (Remote-Pane). */
   children: React.ReactNode
 }
@@ -36,12 +41,13 @@ interface StagedItem {
  *  - kein USB → „Smartphone"-Modus: Tray per Datentausch-Button auf/zu,
  *    Dateien reinziehen staged sie, „Senden" teilt sie per QR aufs Handy.
  */
-export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, children }: Props): React.JSX.Element {
-  const usbMode = usbPath !== null
+export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoDvd, dataDrive, audioCdDrive, children }: Props): React.JSX.Element {
+  const usbMode = usbPath !== null || audioCdDrive !== undefined && audioCdDrive !== null
   const [open, setOpen] = useState(false)
   const [staged, setStaged] = useState<StagedItem[]>([])
   const [shareItems, setShareItems] = useState<QrShareItem[] | null>(null)
   const [burnSources, setBurnSources] = useState<BurnSources | null>(null)
+  const [ripOpen, setRipOpen] = useState(false)
   const [dropActive, setDropActive] = useState(false)
   const [ejecting, setEjecting] = useState(false)
 
@@ -123,14 +129,45 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, children
             open ? 'translate-y-0' : 'translate-y-full'
           } ${dropActive ? 'ring-ink/40 ring-2' : ''}`}
         >
-          {usbMode ? (
+          {isVideoDvd && dataDrive ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-6">
+              <CompactDisc className="size-16 text-ink-muted" strokeWidth={1.5} />
+              <div className="text-xl font-bold uppercase text-ink">Video-DVD erkannt</div>
+              <div className="text-meta text-ink-muted text-center max-w-md">
+                Die Dateien auf dieser DVD sind CSS-verschlüsselt. Möchtest du sie rippen und in die Agora hochladen?
+              </div>
+              <Button size="lg" className="rounded-pill" onClick={() => setRipOpen(true)}>
+                Rippen &amp; hochladen
+              </Button>
+            </div>
+          ) : audioCdDrive ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-6">
+              <CompactDisc className="size-16 text-ink-muted" strokeWidth={1.5} />
+              <div className="text-xl font-bold uppercase text-ink">Audio-CD erkannt</div>
+              <div className="text-meta text-ink-muted text-center max-w-md">
+                Möchtest du diese Audio-CD verlustfrei als FLAC rippen und in die Agora hochladen?
+              </div>
+              <Button size="lg" className="rounded-pill" onClick={() => setRipOpen(true)}>
+                Rippen &amp; hochladen
+              </Button>
+            </div>
+          ) : usbPath ? (
             <div className="absolute inset-0">
-              <FileBrowserPane key={usbPath} rootPath={usbPath!} />
+              <FileBrowserPane key={usbPath} rootPath={usbPath} />
             </div>
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-6">
               {staged.length === 0 ? (
-                <MobileUploadPanel />
+                burnDrive ? (
+                  <div className="flex flex-col items-center gap-4 text-ink-muted">
+                    <CompactDisc className="size-16" strokeWidth={1.5} />
+                    <span className="text-meta text-center max-w-sm">
+                      {burnDrive.description || 'DVD-Laufwerk'} — Dateien aus der Agora hierher ziehen, um sie auf die Disc zu brennen.
+                    </span>
+                  </div>
+                ) : (
+                  <MobileUploadPanel />
+                )
               ) : (
                 <div className="flex max-h-full w-full max-w-2xl flex-wrap content-start justify-center gap-2 overflow-auto">
                   {staged.map((s) => (
@@ -151,7 +188,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, children
                   ))}
                 </div>
               )}
-              {staged.length > 0 && (
+              {staged.length > 0 && !burnDrive && (
                 <button
                   type="button"
                   onClick={send}
@@ -191,7 +228,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, children
               onClick={() => setOpen((o) => !o)}
               className="text-body bg-ink-leaf text-ink inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-medium outline-none transition-opacity hover:opacity-90 focus-visible:ring-[3px] focus-visible:ring-ring/40"
             >
-              {burnDrive ? <Disc className="size-4" /> : <ArrowSeparateVertical className="size-4" />}
+              {burnDrive ? <CompactDisc className="size-4" /> : <ArrowSeparateVertical className="size-4" />}
               {burnDrive ? 'DISC' : 'Datentausch'}
             </button>
             <div className="flex-1 flex justify-end">
@@ -201,7 +238,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, children
                   onClick={startBurn}
                   className="text-body bg-white text-ink inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-bold outline-none transition-opacity hover:opacity-90 focus-visible:ring-[3px] focus-visible:ring-ring/40"
                 >
-                  <Flame className="size-5" />
+                  <FireFlame className="size-5" />
                   BRENNEN
                 </button>
               )}
@@ -223,6 +260,14 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, children
             setStaged([])
           }}
         />
+      )}
+
+      {ripOpen && isVideoDvd && dataDrive && server && (
+        <RipDialog mountPath={dataDrive.mountpoints[0]?.path ?? ''} label={dataDrive.mountpoints[0]?.label ?? 'DVD'} server={server} onClose={() => setRipOpen(false)} />
+      )}
+
+      {ripOpen && audioCdDrive && server && (
+        <CdRipDialog device={audioCdDrive.device} server={server} onClose={() => setRipOpen(false)} />
       )}
     </div>
   )

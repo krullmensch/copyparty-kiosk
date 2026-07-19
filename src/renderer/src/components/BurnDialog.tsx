@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Disc, X, Flame } from 'lucide-react'
+import { CompactDisc, Xmark as X, FireFlame } from 'iconoir-react'
 import { Button } from '@/components/ui/button'
 import type { BurnProgress, BurnSources, DvdVideoBurnProgress } from '../../../shared/types'
 
@@ -122,7 +122,7 @@ export function BurnDialog({
         {phase !== 'confirm' && phase !== 'choose-format' && phase !== 'burning' && (
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Disc className="size-5" strokeWidth={1.5} />
+              <CompactDisc className="size-5" strokeWidth={1.5} />
               <span className="text-h2">Auf DVD brennen</span>
             </div>
             <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Schließen">
@@ -147,11 +147,11 @@ export function BurnDialog({
             </div>
             <div className="flex flex-col gap-3">
               <Button className="w-full font-bold uppercase" variant="outline" onClick={() => { setTargetFormat('video'); setPhase('confirm'); }}>
-                <Flame className="size-5 mr-2" />
+                <FireFlame className="size-5 mr-2" />
                 Als Video-DVD brennen
               </Button>
               <Button className="w-full font-bold uppercase" variant="outline" onClick={() => { setTargetFormat('data'); setPhase('confirm'); }}>
-                <Disc className="size-5 mr-2" />
+                <CompactDisc className="size-5 mr-2" />
                 Als Daten-DVD brennen
               </Button>
             </div>
@@ -172,7 +172,7 @@ export function BurnDialog({
                 ABBRECHEN
               </Button>
               <Button className="font-bold uppercase flex-1 bg-ink text-white hover:opacity-90" onClick={startBurn}>
-                <Flame className="size-5 mr-2" />
+                <FireFlame className="size-5 mr-2" />
                 BRENNEN
               </Button>
             </div>

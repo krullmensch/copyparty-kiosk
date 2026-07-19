@@ -4,9 +4,6 @@ import { Button } from '@/components/ui/button'
 import { GoeyToaster } from 'goey-toast'
 import { RemoteBrowserPane } from './components/RemoteBrowserPane'
 import { DatentauschTray } from './components/DatentauschTray'
-import { OpticalDropZone } from './components/OpticalDropZone'
-import { DvdRipBanner } from './components/DvdRipBanner'
-import { AudioCdBanner } from './components/AudioCdBanner'
 import { AgoraStatsPanel } from './components/AgoraStatsPanel'
 import { AdminPanel } from './components/AdminPanel'
 import { useDrives } from './hooks/useDrives'
@@ -204,16 +201,17 @@ function App(): React.JSX.Element {
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-[10px] pb-[10px]">
-          <DatentauschTray server={copypartyUrl} usbPath={usbPath} usbLabel={usbLabel} burnDrive={burnDrive}>
+          <DatentauschTray
+            server={copypartyUrl}
+            usbPath={usbPath}
+            usbLabel={usbLabel}
+            burnDrive={burnDrive}
+            isVideoDvd={isVideoDvd}
+            dataDrive={dataDrive}
+            audioCdDrive={audioCdDrive}
+          >
             {remotePane}
           </DatentauschTray>
-          {isVideoDvd && dataDrive && copypartyUrl && (
-            <DvdRipBanner drive={dataDrive} server={copypartyUrl} />
-          )}
-          {audioCdDrive && copypartyUrl && (
-            <AudioCdBanner drive={audioCdDrive} server={copypartyUrl} />
-          )}
-          {burnDrive && <OpticalDropZone drive={burnDrive} />}
         </div>
       </div>
       {statsOpen && <AgoraStatsPanel onClose={() => setStatsOpen(false)} />}
