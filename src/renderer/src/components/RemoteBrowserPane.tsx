@@ -297,7 +297,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-4">
+      <div className="flex items-center gap-3 p-4">
         <IconPill onClick={reload} title="Neu laden" aria-label="Neu laden">
           <RefreshDouble />
         </IconPill>
@@ -309,10 +309,8 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
         >
           <ArrowLeft />
         </IconPill>
-        <div className="min-w-0">
-          <Breadcrumbs segments={buildSegments(vpath, setVpath)} />
-        </div>
-        <div className="relative min-w-[10rem] flex-1">
+        <Breadcrumbs segments={buildSegments(vpath, setVpath)} />
+        <div className="relative min-w-80 flex-1">
           <Search className="text-ink-muted pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2" />
           <Input
             value={query}
