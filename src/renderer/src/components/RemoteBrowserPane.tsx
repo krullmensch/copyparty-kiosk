@@ -92,8 +92,16 @@ function buildSegments(
   const parts = vpath.split('/').filter(Boolean)
   const segs = [{ label: 'Agora', onClick: () => setVpath('/') }]
   parts.forEach((p, i) => {
+    // Target bleibt encoded (Navigation/Fetch braucht den rohen vpath),
+    // nur das Anzeige-Label wird dekodiert (%20 → Leerzeichen etc.).
     const target = '/' + parts.slice(0, i + 1).join('/')
-    segs.push({ label: p, onClick: () => setVpath(target) })
+    let label = p
+    try {
+      label = decodeURIComponent(p)
+    } catch {
+      /* malformed %-sequence → rohes Label behalten */
+    }
+    segs.push({ label, onClick: () => setVpath(target) })
   })
   return segs
 }
