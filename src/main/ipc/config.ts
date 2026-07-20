@@ -154,6 +154,8 @@ async function scanCopypartyHosts(): Promise<AgoraHostCandidate[]> {
   )
 }
 
+import { networkInterfaces } from 'node:os'
+
 /**
  * URL a phone scans to reach the mobile-upload page (:8080/up) on the main
  * kiosk. Resolves the agora host to a bare IPv4 first: phones can't be relied
@@ -171,6 +173,20 @@ async function getMobileUploadUrl(): Promise<string> {
       addr = host
     }
   }
+  
+  if (addr.startsWith('127.')) {
+    const interfaces = networkInterfaces()
+    for (const name of Object.keys(interfaces)) {
+      for (const net of interfaces[name] || []) {
+        if (net.family === 'IPv4' && !net.internal) {
+          addr = net.address
+          break
+        }
+      }
+      if (!addr.startsWith('127.')) break
+    }
+  }
+
   return `http://${addr}:8080/up`
 }
 
