@@ -76,6 +76,9 @@ Ich arbeite weiter an [konkretes Thema].
 - ✅ **up2k Hostile-Network-Hardening** — Per-Request-Timeout (`AbortSignal.timeout`), Auto-Retry mit Backoff, geteilte Deadline ab letztem Erfolg, Fehler-Klassifikation (401/403/4xx fatal, 5xx/Netzwerk retry), Chunk-400 "already got that" = Erfolg. `retry`-Progress → Toast "Reconnecting…"
 - ✅ Upload-Progress-UI (gooey-toast, `useUploadProgress.ts`: hash/upload/retry/done/error)
 - ✅ **QR-Share** — Rechtsklick auf Datei/Ordner in RemoteBrowserPane → QR-Code. Auth via copyparty `qr:<PW>` Account (`~/.agora/share.pw`), Expiry 60 min, `--shr /s` virtuel Toplevel auf kiosk2. Single-File-URL mit `?dl`, Multi-File/Ordner als ZIP via `?zip`. Event-Logging (`qr_share` + bytes/files).
+- ✅ **Cancel für CD/DVD-Rips** (2026-07-19, ungetestet am Kiosk) — Cancel-Button killt laufenden cdparanoia/ffmpeg/HandBrakeCLI-Prozess + abbricht Upload via `AbortSignal`, räumt Partial-Upload via neuem `deleteItems()` (`?delete`) auf. IPC `cdrip:cancel`/`dvdrip:cancel`.
+- ✅ **Eject optische Laufwerke** — `ejectOptical()` via `/usr/bin/eject` (unmount+tray in einem). Eject-Button in DatentauschTray laufwerk-aware (Audio-CD > Daten-DVD > USB).
+- ✅ Bottombar in DatentauschTray ist eigene Drop-Zone (vorher nur Fläche darüber), Staged-Items werden nach erfolgreichem Brennen automatisch geleert
 - ✅ Typecheck grün
 
 ## Was noch fehlt (Roadmap, in Reihenfolge sinnvoll)
@@ -249,8 +252,10 @@ npm run dev
 
 copyparty muss separat laufen (z.B. `python -m copyparty` auf `:3923`).
 
-## Aktueller Stand am 2026-06-26
+## Aktueller Stand am 2026-07-20
 
-up2k-Client fertig + hostile-network-gehärtet (Retry/Backoff/Resume), end-to-end gegen echten copyparty (kiosk2 `.61:3923`) getestet. Router von MikroTik auf FritzBox 7490 gewechselt — Agora-Client-Tracking nutzt jetzt TR-064 statt MikroTik-REST.
+Letzte 5 Commits auf `main` (Gemini-Session, nicht Claude): Cancel-Funktion für CD/DVD-Rips inkl. Upload-Abbruch+Cleanup, Eject für optische Laufwerke, Bottombar als Drop-Zone, Staged-Clear nach Burn, Terminologie-Cleanup „rippen"→Standardbegriffe. Kein End-to-End-Beweis am echten Kiosk dokumentiert für diese 5 Commits — vor Weiterbau ggf. am Kiosk verifizieren. Details: Memory `rip-cancel-eject-burn-polish`.
+
+Davor (2026-06-26): up2k-Client fertig + hostile-network-gehärtet (Retry/Backoff/Resume), end-to-end gegen echten copyparty (kiosk2 `.61:3923`) getestet. Router von MikroTik auf FritzBox 7490 gewechselt — Agora-Client-Tracking nutzt TR-064 statt MikroTik-REST.
 
 Nächster sinnvoller Schritt: **Agora-Dashboard** — FritzBox-TR-064-Poller (`agora-dashboard/`, `fritzconnection`-Lib) + Flask/FastAPI auf Kiosk2. Danach Screensaver-Route.
