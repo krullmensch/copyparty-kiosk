@@ -216,6 +216,13 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
     }
   }
 
+  const [isSpinning, setIsSpinning] = useState(false)
+  const handleReload = () => {
+    setIsSpinning(true)
+    reload()
+    setTimeout(() => setIsSpinning(false), 500)
+  }
+
   return (
     <div
       className={`bg-bg-surface grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] transition-colors ${
@@ -226,8 +233,8 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
       onDrop={onDrop}
     >
       <div className="flex items-center gap-3 p-4">
-        <IconPill onClick={reload} title="Neu laden" aria-label="Neu laden" className="active:rotate-180 transition-transform duration-500">
-          <RefreshDouble />
+        <IconPill onClick={handleReload} title="Neu laden" aria-label="Neu laden">
+          <RefreshDouble className={isSpinning ? 'animate-[spin_0.5s_ease-out]' : ''} />
         </IconPill>
         <IconPill
           disabled={!data?.parent || inSearch}
@@ -310,7 +317,7 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
                         setCwd(target)
                         setQuery('')
                       }}
-                      className="text-filename-list hover:bg-bg-surface-hover flex cursor-pointer items-center gap-3 px-3 py-1.5 select-none"
+                      className="text-filename-list hover:bg-ink hover:text-bg-page flex cursor-pointer items-center gap-3 px-3 py-1.5 select-none"
                     >
                       <div className="rounded-thumb relative flex size-8 shrink-0 items-center justify-center overflow-hidden bg-bg-page-tint">
                         {h.isDirectory ? (
@@ -355,10 +362,10 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
                     onRowClick(ev, e)
                   }}
                   onDoubleClick={() => onEntryDoubleClick(e)}
-                  className={`text-body relative overflow-hidden flex cursor-pointer items-center gap-3 rounded-input px-4 py-2.5 font-medium select-none transition-colors ${
+                  className={`text-body group relative overflow-hidden flex cursor-pointer items-center gap-3 rounded-input px-4 py-2.5 font-medium select-none transition-colors ${
                     isSel
                       ? 'bg-ink text-ink-leaf'
-                      : 'bg-bg-surface text-ink hover:bg-bg-surface-hover even:bg-bg-page-tint'
+                      : 'bg-bg-surface text-ink hover:bg-ink hover:text-bg-page even:bg-bg-page-tint'
                   }`}
                 >
                   {transfers[e.name] && (
@@ -368,7 +375,7 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
                     />
                   )}
                   {e.isDirectory && (
-                    <Folder className={`size-4 shrink-0 ${isSel ? 'text-ink-leaf' : 'text-ink'}`} />
+                    <Folder className={`size-4 shrink-0 ${isSel ? 'text-ink-leaf' : 'text-ink group-hover:text-bg-page'}`} />
                   )}
                   <Filename name={e.name} isDirectory={e.isDirectory} className="flex-1" />
                   <span className={`shrink-0 text-right ${isSel ? 'text-ink-leaf' : 'text-ink'}`}>
