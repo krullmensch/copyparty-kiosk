@@ -28,7 +28,8 @@ import {
   RemoteListResult,
   ShareResult,
   TransferResult,
-  UploadProgress
+  UploadProgress,
+  DownloadProgress
 } from '../shared/types'
 
 // Loopback media server base (http://127.0.0.1:PORT), read once synchronously.
@@ -92,6 +93,11 @@ const api = {
       const handler = (_: unknown, p: UploadProgress): void => cb(p)
       ipcRenderer.on(IpcChannels.CppProgress, handler)
       return () => ipcRenderer.off(IpcChannels.CppProgress, handler)
+    },
+    onDownloadProgress: (cb: (p: DownloadProgress) => void): (() => void) => {
+      const handler = (_: unknown, p: DownloadProgress): void => cb(p)
+      ipcRenderer.on(IpcChannels.CppDownloadProgress, handler)
+      return () => ipcRenderer.off(IpcChannels.CppDownloadProgress, handler)
     }
   },
   agora: {

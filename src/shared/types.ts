@@ -140,6 +140,7 @@ export const IpcChannels = {
   CppConnections: 'cpp:connections',
   CppUpload: 'cpp:upload',
   CppDownload: 'cpp:download',
+  CppDownloadProgress: 'cpp:downloadProgress',
   CppProgress: 'cpp:progress',
   CppThumb: 'cpp:thumb',
   CppSearch: 'cpp:search',
@@ -312,3 +313,8 @@ export interface CdRipResult {
   ok: boolean
   message?: string
 }
+
+export type DownloadProgress =
+  | { kind: 'download'; name: string; bytesDone: number; bytesTotal: number }
+  | { kind: 'done'; name: string }
+  | { kind: 'error'; name: string; message: string }

@@ -27,6 +27,7 @@ import { QrShareDialog, type QrShareItem } from './QrShareDialog'
 import { useRemoteListing } from '../hooks/useRemoteListing'
 import { useSelection } from '../hooks/useSelection'
 import { usePreview } from '../preview/PreviewProvider'
+import { useTransferProgress } from '../hooks/useTransferProgress'
 import { formatSize } from '../lib/format'
 import { compareBy, type SortDir, type SortField } from '../lib/sort'
 import type { CppSearchHit, RemoteEntry } from '../../../shared/types'
@@ -134,6 +135,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
   const [searching, setSearching] = useState(false)
   const [searchTruncated, setSearchTruncated] = useState(false)
   const { data, error, loading, reload } = useRemoteListing(server, vpath)
+  const transfers = useTransferProgress()
 
   useEffect(() => {
     const q = query.trim()
@@ -446,12 +448,18 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
                       }}
                       onDoubleClick={() => onEntryDoubleClick(e)}
                       onContextMenu={() => onEntryContextMenu(e)}
-                      className={`text-body flex cursor-pointer items-center gap-3 rounded-input px-4 py-2.5 font-medium select-none transition-colors ${
+                      className={`text-body relative overflow-hidden flex cursor-pointer items-center gap-3 rounded-input px-4 py-2.5 font-medium select-none transition-colors ${
                         isSel
                           ? 'bg-ink text-ink-leaf'
-                          : 'bg-bg-surface text-ink hover:bg-bg-surface-hover'
+                          : 'bg-bg-surface text-ink hover:bg-bg-surface-hover even:bg-bg-page-tint'
                       }`}
                     >
+                      {transfers[e.name] && (
+                        <div
+                          className="pointer-events-none absolute inset-y-0 left-0 bg-white mix-blend-difference transition-[width] duration-300 ease-out z-10"
+                          style={{ width: `${Math.min(100, (transfers[e.name].bytesDone / transfers[e.name].bytesTotal) * 100)}%` }}
+                        />
+                      )}
                       {e.isDirectory && (
                         <Folder
                           className={`size-4 shrink-0 ${isSel ? 'text-ink-leaf' : 'text-ink'}`}

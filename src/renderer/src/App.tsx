@@ -182,6 +182,7 @@ function App(): React.JSX.Element {
                 onClick={() => setStatsOpen(true)}
                 title="Netz-Statistik"
                 aria-label="Netz-Statistik"
+                className="rounded-pill"
               >
                 <Community className="size-5" />
               </Button>
@@ -192,6 +193,7 @@ function App(): React.JSX.Element {
               onClick={toggleTheme}
               title={isDark ? 'Tag' : 'Nacht'}
               aria-label={isDark ? 'Tag' : 'Nacht'}
+              className="rounded-pill"
             >
               {isDark ? (
                 <SunLight className="size-5" />

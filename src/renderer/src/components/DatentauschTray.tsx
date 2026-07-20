@@ -135,8 +135,8 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
           onDragOver={onDragOver}
           onDragLeave={() => setDropActive(false)}
           onDrop={onDrop}
-          className={`bg-bg-surface border-ink absolute inset-x-0 bottom-0 top-[42%] overflow-hidden rounded-t-container border-2 border-b-0 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-            open ? 'translate-y-0' : 'translate-y-full'
+          className={`bg-bg-surface border-ink absolute inset-x-0 bottom-0 top-[55%] overflow-hidden rounded-t-container border-2 border-b-0 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            open ? 'translate-y-0' : 'translate-y-[105%]'
           } ${dropActive ? 'ring-ink/40 ring-2' : ''}`}
         >
           {isVideoDvd && dataDrive ? (
@@ -179,24 +179,24 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
                   <MobileUploadPanel />
                 )
               ) : (
-                <div className="flex max-h-full w-full max-w-2xl flex-wrap content-start justify-center gap-2 overflow-auto">
+                <ul className="divide-border divide-y w-full max-w-2xl bg-bg-surface border-ink rounded-container border-2 overflow-y-auto max-h-full">
                   {staged.map((s) => (
-                    <span
+                    <li
                       key={s.vpath}
-                      className="text-label border-ink text-ink inline-flex max-w-[16rem] items-center gap-1.5 rounded-pill border px-3 py-1.5"
+                      className="flex items-center justify-between px-4 py-2.5 text-ink even:bg-bg-page-tint"
                     >
-                      <span className="truncate">{s.name}</span>
+                      <span className="truncate text-body">{s.name}</span>
                       <button
                         type="button"
                         aria-label="Aus Auswahl entfernen"
                         onClick={() => setStaged((p) => p.filter((x) => x.vpath !== s.vpath))}
-                        className="text-ink-muted hover:text-ink shrink-0"
+                        className="text-ink-muted hover:text-ink shrink-0 p-1"
                       >
-                        <Xmark className="size-3.5" />
+                        <Xmark className="size-4" />
                       </button>
-                    </span>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
               {staged.length > 0 && !burnDrive && (
                 <button
@@ -236,6 +236,11 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
                 {audioCdDrive ? 'Audio-CD' : isVideoDvd ? (usbLabel ?? 'Video-DVD') : (usbLabel ?? 'USB Stick')}
               </span>
             </>
+          )}
+          {!usbMode && staged.length > 0 && (
+            <span className="text-meta bg-ink-leaf text-ink inline-flex items-center justify-center rounded-pill px-3 py-1 font-bold">
+              {staged.length}
+            </span>
           )}
         </div>
         <button

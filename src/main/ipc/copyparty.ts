@@ -387,7 +387,8 @@ async function downloadOne(
   server: string,
   sourceVpath: string,
   targetDir: string,
-  name: string
+  name: string,
+  emit?: (p: import('../../shared/types').DownloadProgress) => void
 ): Promise<number> {
   const url = `${server}${sourceVpath}`
   const headers: Record<string, string> = {}
@@ -397,10 +398,19 @@ async function downloadOne(
   if (!res.ok) throw new Error(`download ${name}: HTTP ${res.status}`)
   if (!res.body) throw new Error(`download ${name}: empty body`)
   const target = join(targetDir, name)
-  await pipeline(
-    Readable.fromWeb(res.body as unknown as import('node:stream/web').ReadableStream),
-    createWriteStream(target)
-  )
+
+  const total = Number(res.headers.get('content-length')) || 0
+  let done = 0
+
+  const stream = await import('node:stream').then(s => s.Readable.fromWeb(res.body as any))
+  
+  if (emit) {
+    stream.on('data', (chunk: Buffer) => {
+      done += chunk.length
+      emit({ kind: 'download', name, bytesDone: done, bytesTotal: total })
+    })
+  }
+  await pipeline(stream, createWriteStream(target))
   const s = await stat(target)
   return s.size
 }
@@ -408,18 +418,21 @@ async function downloadOne(
 export async function download(
   serverUrl: string,
   targetDir: string,
-  items: { vpath: string; name: string }[]
+  items: { vpath: string; name: string }[],
+  emit?: (p: import('../../shared/types').DownloadProgress) => void
 ): Promise<TransferResult> {
   const server = normalizeServer(serverUrl)
   let done = 0
   const downloadedItems: { name: string; size: number }[] = []
   for (const item of items) {
     try {
-      const size = await downloadOne(server, item.vpath, targetDir, item.name)
+      const size = await downloadOne(server, item.vpath, targetDir, item.name, emit)
       downloadedItems.push({ name: item.name, size })
+      if (emit) emit({ kind: 'done', name: item.name })
       done++
     } catch (err) {
       reportDownloaded(downloadedItems)
+      if (emit) emit({ kind: 'error', name: item.name, message: (err as Error).message })
       return { ok: false, done, total: items.length, message: (err as Error).message }
     }
   }
@@ -517,6 +530,16 @@ export function registerCppIpc(mainWindow: BrowserWindow): void {
     disconnect(url)
   })
   ipcMain.handle(IpcChannels.CppConnections, async () => Object.keys(cookies))
+  ipcMain.handle(
+    IpcChannels.CppDownload,
+    async (_, url: string, targetDir: string, items: { vpath: string; name: string }[]) => {
+      return download(url, targetDir, items, (p) => {
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(IpcChannels.CppDownloadProgress, p)
+        }
+      })
+    }
+  )
   ipcMain.handle(
     IpcChannels.CppUpload,
     async (_, url: string, targetVpath: string, localPaths: string[]) =>
