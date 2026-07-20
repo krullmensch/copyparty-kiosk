@@ -544,11 +544,6 @@ export function registerCppIpc(mainWindow: BrowserWindow): void {
     async (_, url: string, targetVpath: string, localPaths: string[]) =>
       upload(url, targetVpath, localPaths, emitProgress)
   )
-  ipcMain.handle(
-    IpcChannels.CppDownload,
-    async (_, url: string, targetDir: string, items: { vpath: string; name: string }[]) =>
-      download(url, targetDir, items)
-  )
   ipcMain.handle(IpcChannels.CppThumb, async (_, url: string, vpath: string) => thumb(url, vpath))
   ipcMain.handle(IpcChannels.CppSearch, async (_, url: string, query: string) => search(url, query))
 }
