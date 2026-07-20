@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CompactDisc, Xmark as X, FireFlame } from 'iconoir-react'
 import { Button } from '@/components/ui/button'
+import { useSuppressScreensaver } from '../screensaver/suppress'
 import type { BurnProgress, BurnSources, DvdVideoBurnProgress } from '../../../shared/types'
 
 /** last path segment, works for POSIX and Windows separators. */
@@ -38,6 +39,8 @@ export function BurnDialog({
   const [message, setMessage] = useState('')
   const [targetFormat, setTargetFormat] = useState<'data' | 'video'>('data')
   const [startTime, setStartTime] = useState<number | null>(null)
+
+  useSuppressScreensaver(phase === 'burning')
 
   useEffect(() => {
     void window.api.burn.available().then((ok) => {

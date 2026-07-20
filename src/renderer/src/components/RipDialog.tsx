@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Disc, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useSuppressScreensaver } from '../screensaver/suppress'
 import type { DvdRipProgress } from '../../../shared/types'
 
 type Phase = 'confirm' | 'unavailable' | 'ripping' | 'done' | 'error'
@@ -26,6 +27,8 @@ export function RipDialog({
   const [stage, setStage] = useState<Stage>('scan')
   const [percent, setPercent] = useState(0)
   const [message, setMessage] = useState('')
+
+  useSuppressScreensaver(phase === 'ripping')
 
   useEffect(() => {
     void window.api.dvdrip.available().then((ok) => {
@@ -124,8 +127,18 @@ export function RipDialog({
                     style={{ width: `${percent}%` }}
                   />
                 </div>
-                <div className="text-meta text-ink-faint text-right">{percent}%</div>
+                <div className="flex justify-between mt-1">
+                  <div className="text-meta text-ink-faint">
+                    Keine genaue Zeitangabe. Bitte Geduld, das kann dauern...
+                  </div>
+                  <div className="text-meta text-ink-faint text-right">{percent}%</div>
+                </div>
               </>
+            )}
+            {stage === 'scan' && (
+              <div className="text-meta text-ink-faint mt-1">
+                Bitte Geduld, das kann dauern...
+              </div>
             )}
             <Button variant="outline" className="w-full mt-2" onClick={cancel}>
               Abbrechen

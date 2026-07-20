@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PARAGRAPHS } from './manifest'
 import { useScreensaverSuppressed } from './suppress'
+import { useTransferProgress } from '../hooks/useTransferProgress'
 import '@fontsource/inter'
 import '@fontsource/averia-serif-libre/700.css'
 
@@ -173,6 +174,8 @@ function Screensaver({ active }: { active: boolean }): React.JSX.Element | null 
 
 export function ScreensaverController(): React.JSX.Element {
   const suppressed = useScreensaverSuppressed()
-  const idle = useIdle(suppressed)
+  const transfers = useTransferProgress()
+  const hasActiveTransfers = Object.values(transfers).some(t => t.status === 'active')
+  const idle = useIdle(suppressed || hasActiveTransfers)
   return <Screensaver active={idle} />
 }
