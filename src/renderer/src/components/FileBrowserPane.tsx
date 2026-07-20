@@ -370,7 +370,7 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
                         : 'bg-bg-surface text-ink hover:bg-ink hover:text-bg-page even:bg-bg-page-tint'
                   }`}
                 >
-                  {transfers[e.name] && (
+                  {transfers[e.name]?.status === 'active' && (
                     <div
                       className="pointer-events-none absolute inset-y-0 left-0 bg-white mix-blend-difference transition-[width] duration-300 ease-out z-10"
                       style={{ width: `${Math.min(100, (transfers[e.name].bytesDone / transfers[e.name].bytesTotal) * 100)}%` }}
