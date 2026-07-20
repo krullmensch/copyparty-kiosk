@@ -57,8 +57,11 @@ if [ "$ROLE" = "main" ]; then
   systemctl --user stop agora-server.service agora-poller.service 2>/dev/null || true
 
   log "wiping copyparty data"
-  rm -rf "$USER_HOME/copyparty-data"
+  # copyparty-data may be a separate mount (e.g. /dev/sda1) -- delete the
+  # CONTENTS (incl. dotfiles and the .hist index), never the dir itself, or
+  # rm hits "Device or resource busy" on the mountpoint.
   mkdir -p "$USER_HOME/copyparty-data"
+  find "$USER_HOME/copyparty-data" -mindepth 1 -delete
   ok "copyparty-data emptied"
 
   rm -f "$AGORA_HOME/agora.db"
