@@ -141,7 +141,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
         >
           {isVideoDvd && dataDrive ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-6">
-              <CompactDisc className="size-16 text-ink-muted" strokeWidth={1.5} />
+              <CompactDisc className="size-16 text-ink-muted" strokeWidth={2} />
               <div className="text-xl font-bold uppercase text-ink">Video-DVD erkannt</div>
               <div className="text-meta text-ink-muted text-center max-w-md">
                 Möchtest du diese Video-DVD in die Agora übertragen?
@@ -152,7 +152,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
             </div>
           ) : audioCdDrive ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-6">
-              <CompactDisc className="size-16 text-ink-muted" strokeWidth={1.5} />
+              <CompactDisc className="size-16 text-ink-muted" strokeWidth={2} />
               <div className="text-xl font-bold uppercase text-ink">Audio-CD erkannt</div>
               <div className="text-meta text-ink-muted text-center max-w-md">
                 Möchtest du diese Audio-CD in die Agora übertragen?
@@ -170,7 +170,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
               {staged.length === 0 ? (
                 burnDrive ? (
                   <div className="flex flex-col items-center gap-4 text-ink-muted">
-                    <CompactDisc className="size-16" strokeWidth={1.5} />
+                    <CompactDisc className="size-16" strokeWidth={2} />
                     <span className="text-meta text-center max-w-sm">
                       {burnDrive.description || 'DVD-Laufwerk'} — Dateien aus der Agora hierher ziehen, um sie auf die Disc zu brennen.
                     </span>

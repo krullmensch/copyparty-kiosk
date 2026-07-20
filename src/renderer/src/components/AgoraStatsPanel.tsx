@@ -55,7 +55,7 @@ export function AgoraStatsPanel({ onClose }: { onClose: () => void }): React.JSX
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-h2 text-ink">Agora · Netz</h2>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Schließen">
-            <X className="size-5" strokeWidth={1.25} />
+            <X className="size-5" strokeWidth={2} />
           </Button>
         </div>
 

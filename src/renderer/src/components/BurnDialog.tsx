@@ -122,7 +122,7 @@ export function BurnDialog({
         {phase !== 'confirm' && phase !== 'choose-format' && phase !== 'burning' && (
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CompactDisc className="size-5" strokeWidth={1.5} />
+              <CompactDisc className="size-5" strokeWidth={2} />
               <span className="text-h2">Auf DVD brennen</span>
             </div>
             <Button variant="ghost" size="icon-sm" onClick={() => onClose(phase === 'done')} aria-label="Schließen">

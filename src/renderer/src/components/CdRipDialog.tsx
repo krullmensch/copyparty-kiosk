@@ -93,7 +93,7 @@ export function CdRipDialog({
       >
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Disc className="size-5" strokeWidth={1.5} />
+            <Disc className="size-5" strokeWidth={2} />
             <span className="text-h2">Audio-CD importieren</span>
           </div>
           <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Schließen" disabled={phase === 'ripping'}>

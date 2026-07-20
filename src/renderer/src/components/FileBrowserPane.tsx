@@ -396,7 +396,7 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
                     {e.isDirectory ? (
                       <Folder
                         className={`size-10 ${isSel ? 'text-ink-leaf' : 'text-ink'}`}
-                        strokeWidth={1.25}
+                        strokeWidth={2}
                       />
                     ) : (
                       <LocalThumb
@@ -407,7 +407,7 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
                           <FileTypeIcon
                             name={e.name}
                             className={`size-10 ${isSel ? 'text-ink-leaf' : 'text-ink-muted'}`}
-                            strokeWidth={1.25}
+                            strokeWidth={2}
                           />
                         }
                       />

@@ -506,7 +506,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
                         {e.isDirectory ? (
                           <Folder
                             className={`size-10 ${isSel ? 'text-ink-leaf' : 'text-ink'}`}
-                            strokeWidth={1.25}
+                            strokeWidth={2}
                           />
                         ) : (
                           <RemoteThumb
@@ -518,7 +518,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
                               <FileTypeIcon
                                 name={e.name}
                                 className={`size-10 ${isSel ? 'text-ink-leaf' : 'text-ink-muted'}`}
-                                strokeWidth={1.25}
+                                strokeWidth={2}
                               />
                             }
                           />

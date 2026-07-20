@@ -72,7 +72,7 @@ export function QrShareDialog({ server, items, onClose }: Props): React.JSX.Elem
       >
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Share2 className="size-5" strokeWidth={1.5} />
+            <Share2 className="size-5" strokeWidth={2} />
             <span className="text-h2">Auf Smartphone laden</span>
           </div>
           <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Schließen">

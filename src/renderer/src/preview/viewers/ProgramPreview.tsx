@@ -30,7 +30,7 @@ export function ProgramPreview({
       {icon ? (
         <img src={icon} alt="" className="size-24 object-contain" />
       ) : (
-        <AppWindow className="text-ink-muted size-20" strokeWidth={1} />
+        <AppWindow className="text-ink-muted size-20" strokeWidth={2} />
       )}
       <div className="text-h2 break-all">{name}</div>
       <div className="text-meta text-ink-faint">Programm — nicht ausführbar</div>

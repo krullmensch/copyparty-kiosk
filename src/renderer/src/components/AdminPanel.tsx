@@ -78,7 +78,7 @@ export function AdminPanel({
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-h2 text-ink">Admin</h2>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Schließen">
-            <X className="size-5" strokeWidth={1.25} />
+            <X className="size-5" strokeWidth={2} />
           </Button>
         </div>
 
@@ -121,7 +121,7 @@ export function AdminPanel({
             <Button variant="ghost" size="sm" onClick={() => void scan()} disabled={scanning}>
               <RefreshCw
                 className={`mr-1 size-4 ${scanning ? 'animate-spin' : ''}`}
-                strokeWidth={1.5}
+                strokeWidth={2}
               />
               {scanning ? 'Suche…' : 'Scannen'}
             </Button>
