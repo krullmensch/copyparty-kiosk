@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir, networkInterfaces } from 'node:os'
 import { join } from 'node:path'
 import { createConnection } from 'node:net'
-import { reverse } from 'node:dns/promises'
+import { lookup, reverse } from 'node:dns/promises'
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { AgoraHostCandidate, IpcChannels } from '../../shared/types'
 
@@ -154,8 +154,29 @@ async function scanCopypartyHosts(): Promise<AgoraHostCandidate[]> {
   )
 }
 
+/**
+ * URL a phone scans to reach the mobile-upload page (:8080/up) on the main
+ * kiosk. Resolves the agora host to a bare IPv4 first: phones can't be relied
+ * on to resolve `kiosk2.local` (mDNS), so the QR must carry a routable address.
+ * The kiosk itself resolves the name (mDNS works over the LAN), then embeds the
+ * resulting IP. Falls back to the name if resolution fails.
+ */
+async function getMobileUploadUrl(): Promise<string> {
+  const host = await getAgoraHost()
+  let addr = host
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+    try {
+      addr = (await lookup(host, { family: 4 })).address
+    } catch {
+      addr = host
+    }
+  }
+  return `http://${addr}:8080/up`
+}
+
 export function registerConfigIpc(): void {
   ipcMain.handle(IpcChannels.ConfigGetHost, () => getAgoraHost())
+  ipcMain.handle(IpcChannels.ConfigMobileUploadUrl, () => getMobileUploadUrl())
   ipcMain.handle(IpcChannels.ConfigSetHost, (_, host: string, password: string) =>
     setAgoraHost(host, password)
   )

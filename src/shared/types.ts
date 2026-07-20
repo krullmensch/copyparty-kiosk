@@ -171,7 +171,8 @@ export const IpcChannels = {
   ConfigGetHost: 'config:get-host',
   ConfigSetHost: 'config:set-host',
   ConfigScanHosts: 'config:scan-hosts',
-  ConfigAdminPwSet: 'config:admin-pw-set'
+  ConfigAdminPwSet: 'config:admin-pw-set',
+  ConfigMobileUploadUrl: 'config:mobile-upload-url'
 } as const
 
 export interface AgoraStats {
