@@ -72,7 +72,7 @@ export function AdminPanel({
       onClick={onClose}
     >
       <div
-        className="border-border bg-bg-surface max-h-[90vh] w-[28rem] max-w-[90vw] overflow-y-auto rounded-card border p-6 shadow-xl"
+        className="border-ink bg-bg-surface max-h-[90vh] w-[28rem] max-w-[90vw] overflow-y-auto rounded-container border-2 p-8 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -136,7 +136,7 @@ export function AdminPanel({
                 key={c.ip}
                 type="button"
                 onClick={() => setHostInput(c.ip)}
-                className="border-border hover:bg-bg-page-tint mb-1 flex w-full items-center justify-between rounded border px-3 py-2 text-left"
+                className="border-ink hover:bg-bg-page-tint mb-1 flex w-full items-center justify-between rounded border px-3 py-2 text-left"
               >
                 <span className="text-label text-ink">{c.name ?? c.ip}</span>
                 <span className="text-meta text-ink-faint">{c.ip}</span>
@@ -147,7 +147,7 @@ export function AdminPanel({
 
         {/* --- session reset (main kiosk only) --- */}
         {isMain && (
-          <section className="border-border mt-6 border-t pt-5">
+          <section className="border-ink mt-6 border-t pt-5">
             <h3 className="text-label text-ink mb-1 font-medium">Session zurücksetzen</h3>
             <p className="text-meta text-ink-muted mb-3">
               Neue Session, alle bisherigen Beobachtungen werden gelöscht.

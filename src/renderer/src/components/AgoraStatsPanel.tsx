@@ -20,8 +20,8 @@ function Sparkline({ data }: { data: { live: number }[] }): React.JSX.Element | 
     .map((d, i) => `${(i * step).toFixed(1)},${(h - (d.live / max) * h).toFixed(1)}`)
     .join(' ')
   return (
-    <svg width={w} height={h} className="text-ink-leaf">
-      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth={1.5} />
+    <svg width={w} height={h} className="text-ink">
+      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth={2} />
     </svg>
   )
 }
@@ -49,7 +49,7 @@ export function AgoraStatsPanel({ onClose }: { onClose: () => void }): React.JSX
       onClick={onClose}
     >
       <div
-        className="border-border bg-bg-surface w-[28rem] max-w-[90vw] rounded-card border-2 p-6 shadow-xl"
+        className="border-ink bg-bg-surface w-[30rem] max-w-[90vw] rounded-container border-2 p-8 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-6 flex items-center justify-between">
@@ -85,7 +85,7 @@ export function AgoraStatsPanel({ onClose }: { onClose: () => void }): React.JSX
               <Sparkline data={stats.history} />
             </div>
 
-            <div className="border-border mt-6 grid grid-cols-4 gap-4 border-t pt-6">
+            <div className="border-ink mt-8 grid grid-cols-4 gap-4 border-t-2 pt-8">
               <Stat n={fmtCount(stats.usb_count)} label="USB-Sticks" />
               <Stat n={fmtCount(stats.disc_count)} label="Discs" />
               <Stat n={fmtCount(stats.files_transferred)} label="Dateien" />
@@ -103,7 +103,7 @@ export function AgoraStatsPanel({ onClose }: { onClose: () => void }): React.JSX
                   {stats.by_ext.map(({ ext, count, bytes }) => (
                     <span
                       key={ext}
-                      className="border-border text-ink-faint bg-bg-page rounded-full border-2 px-2 py-0.5 text-meta"
+                      className="border-ink text-ink bg-transparent rounded-pill border-2 px-3 py-1 font-medium"
                     >
                       {ext} ×{count} ({formatSize(bytes)})
                     </span>

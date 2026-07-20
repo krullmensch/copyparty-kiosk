@@ -116,7 +116,7 @@ export function BurnDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md" onClick={phase === 'burning' ? undefined : () => onClose(phase === 'done')}>
       <div
-        className="bg-background border-border text-foreground w-[30rem] max-w-[90vw] rounded-card border p-6 shadow-xl"
+        className="bg-background border-ink text-foreground w-[30rem] max-w-[90vw] rounded-container border-2 p-8 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         {phase !== 'confirm' && phase !== 'choose-format' && phase !== 'burning' && (
