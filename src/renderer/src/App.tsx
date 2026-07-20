@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Community, HalfMoon, SunLight } from 'iconoir-react'
+import { IconoirProvider } from 'iconoir-react'
 import { Button } from '@/components/ui/button'
 import { GoeyToaster } from 'goey-toast'
 import { RemoteBrowserPane } from './components/RemoteBrowserPane'
@@ -165,9 +166,10 @@ function App(): React.JSX.Element {
 
   return (
     <PreviewProvider>
+      <IconoirProvider iconProps={{ strokeWidth: 2 }}>
       <PreviewKeyboard />
       <GoeyToaster richColors position="top-right" preset="smooth" showProgress />
-      <div className="bg-background text-foreground border-ink flex h-screen flex-col border-[3px]">
+      <div className="bg-background text-foreground border-ink flex h-screen flex-col border-2">
         <header className="flex items-center justify-between px-6 pt-4 pb-2">
           <h1 className="text-display-l cursor-default select-none" onClick={onLogoClick}>
             Agora
@@ -224,6 +226,7 @@ function App(): React.JSX.Element {
         />
       )}
       <ScreensaverController />
+      </IconoirProvider>
     </PreviewProvider>
   )
 }

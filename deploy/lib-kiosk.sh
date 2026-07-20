@@ -131,7 +131,7 @@ exec openbox-session
 xset s off
 xset -dpms
 xset s noblank
-unclutter -idle 0.1 -root &
+unclutter -idle 120 -root &
 
 # VNC (optional): needs ~/.vnc/passwd (x11vnc -storepasswd)
 if [ -f '"$USER_HOME"'/.vnc/passwd ]; then

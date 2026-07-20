@@ -305,7 +305,7 @@ cat > ~/.config/openbox/autostart <<'EOF'
 xset s off
 xset -dpms
 xset s noblank
-unclutter -idle 0.1 -root &
+unclutter -idle 120 -root &
 
 # VNC server — MUSS mit & im Hintergrund, sonst blockt -loop den Autostart
 x11vnc -display :0 -auth /home/marvin/.Xauthority -forever -loop \

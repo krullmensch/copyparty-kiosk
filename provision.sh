@@ -235,7 +235,8 @@ cat > ~/.config/openbox/autostart <<EOF
 xset s off
 xset -dpms
 xset s noblank
-unclutter -idle 0.1 -root &
+# cursor timeout (nur verstecken, wenn Screensaver aktiv wird, dh nach 2min)
+unclutter -idle 120 -root &
 
 # VNC server (background mit & — sonst blockt -loop den Autostart)
 x11vnc -display :0 -auth /home/marvin/.Xauthority -forever -loop \\

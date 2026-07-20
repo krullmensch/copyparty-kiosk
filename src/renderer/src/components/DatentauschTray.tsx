@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowSeparateVertical, Eject, Send, Xmark, FireFlame, CompactDisc } from 'iconoir-react'
+import { NavArrowUp, NavArrowDown, Eject, Send, Xmark, FireFlame, CompactDisc } from 'iconoir-react'
 import { gooeyToast as toast } from 'goey-toast'
 import { IconPill } from '@/components/ui/chip'
 import { Button } from '@/components/ui/button'
@@ -114,7 +114,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
     let res: { ok: boolean; error?: string } = { ok: false, error: 'Kein Laufwerk gefunden' }
     if (audioCdDrive) {
       res = await window.api.drives.ejectOptical(audioCdDrive.device)
-    } else if (dataDrive) {
+    } else if (dataDrive?.isOptical) {
       res = await window.api.drives.ejectOptical(dataDrive.device)
     } else if (usbPath) {
       res = await window.api.drives.eject(usbPath)
@@ -125,7 +125,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
   }
 
   return (
-    <div className="border-ink bg-bg-surface relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-container border-[3px]">
+    <div className="border-ink bg-bg-surface relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-container border-2">
       {/* Bühne: Remote-Pane + darüber liegendes Tray (clippt das geschlossene Tray) */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div className="absolute inset-0">{children}</div>
@@ -135,7 +135,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
           onDragOver={onDragOver}
           onDragLeave={() => setDropActive(false)}
           onDrop={onDrop}
-          className={`bg-bg-surface border-ink absolute inset-x-0 bottom-0 top-[42%] overflow-hidden rounded-t-container border-[3px] border-b-0 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          className={`bg-bg-surface border-ink absolute inset-x-0 bottom-0 top-[42%] overflow-hidden rounded-t-container border-2 border-b-0 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             open ? 'translate-y-0' : 'translate-y-full'
           } ${dropActive ? 'ring-ink/40 ring-2' : ''}`}
         >
@@ -202,7 +202,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
                 <button
                   type="button"
                   onClick={send}
-                  className="text-body bg-ink text-ink-leaf inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-medium outline-none transition-opacity hover:opacity-90 focus-visible:ring-[3px] focus-visible:ring-ring/40"
+                  className="text-body bg-ink text-ink-leaf inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-medium outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/40"
                 >
                   <Send className="size-4" />
                   {staged.length} auf Smartphone senden
@@ -215,51 +215,49 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
 
       {/* Schwarze Bottom-Bar */}
       <div 
-        className={`bg-ink text-ink-leaf flex h-16 shrink-0 items-center justify-center gap-3 px-4 ${dropActive && !usbMode ? 'ring-ink-leaf/40 ring-[3px]' : ''}`}
+        className={`bg-ink text-ink-leaf flex h-16 shrink-0 items-center gap-3 px-4 ${dropActive && !usbMode ? 'ring-ink-leaf/40 ring-2' : ''}`}
         onDragOver={onDragOver}
         onDragLeave={() => setDropActive(false)}
         onDrop={onDrop}
       >
-        {usbMode ? (
-          <>
-            <IconPill
-              onClick={eject}
-              disabled={ejecting}
-              title="USB-Stick auswerfen"
-              aria-label="USB-Stick auswerfen"
-              className="border-ink-leaf text-ink-leaf hover:bg-ink-leaf/10"
-            >
-              <Eject className="size-4" />
-            </IconPill>
-            <span className="text-label bg-ink-leaf text-ink inline-flex items-center rounded-pill px-5 py-2 font-medium uppercase tracking-wide">
-              {audioCdDrive ? 'Audio-CD' : isVideoDvd ? (usbLabel ?? 'Video-DVD') : (usbLabel ?? 'USB Stick')}
-            </span>
-          </>
-        ) : (
-          <>
-            <div className="flex-1" />
+        <div className="flex-1 flex justify-start items-center gap-3">
+          {usbMode && (
+            <>
+              <IconPill
+                onClick={eject}
+                disabled={ejecting}
+                title="USB-Stick auswerfen"
+                aria-label="USB-Stick auswerfen"
+                className="border-ink-leaf text-ink-leaf hover:bg-ink-leaf/10"
+              >
+                <Eject className="size-4" />
+              </IconPill>
+              <span className="text-label bg-ink-leaf text-ink inline-flex items-center rounded-pill px-5 py-2 font-medium uppercase tracking-wide">
+                {audioCdDrive ? 'Audio-CD' : isVideoDvd ? (usbLabel ?? 'Video-DVD') : (usbLabel ?? 'USB Stick')}
+              </span>
+            </>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="text-body bg-ink-leaf text-ink inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-medium outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/40"
+        >
+          {burnDrive ? <CompactDisc className="size-4" /> : open ? <NavArrowDown className="size-4" /> : <NavArrowUp className="size-4" />}
+          {burnDrive ? 'DISC' : 'Datentausch'}
+        </button>
+        <div className="flex-1 flex justify-end items-center gap-3">
+          {!usbMode && burnDrive && staged.length > 0 && (
             <button
               type="button"
-              onClick={() => setOpen((o) => !o)}
-              className="text-body bg-ink-leaf text-ink inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-medium outline-none transition-opacity hover:opacity-90 focus-visible:ring-[3px] focus-visible:ring-ring/40"
+              onClick={startBurn}
+              className="text-body bg-white text-ink inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-bold outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/40"
             >
-              {burnDrive ? <CompactDisc className="size-4" /> : <ArrowSeparateVertical className="size-4" />}
-              {burnDrive ? 'DISC' : 'Datentausch'}
+              <FireFlame className="size-5" />
+              BRENNEN
             </button>
-            <div className="flex-1 flex justify-end">
-              {burnDrive && staged.length > 0 && (
-                <button
-                  type="button"
-                  onClick={startBurn}
-                  className="text-body bg-white text-ink inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-bold outline-none transition-opacity hover:opacity-90 focus-visible:ring-[3px] focus-visible:ring-ring/40"
-                >
-                  <FireFlame className="size-5" />
-                  BRENNEN
-                </button>
-              )}
-            </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
 
       {burnSources && burnDrive && (
