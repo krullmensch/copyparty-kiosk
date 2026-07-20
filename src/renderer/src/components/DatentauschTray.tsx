@@ -198,16 +198,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
                   ))}
                 </ul>
               )}
-              {staged.length > 0 && !burnDrive && (
-                <button
-                  type="button"
-                  onClick={send}
-                  className="text-body bg-ink text-ink-leaf inline-flex items-center gap-2 rounded-pill px-6 py-2 font-medium outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/40"
-                >
-                  <Send className="size-4" />
-                  {staged.length} auf Smartphone senden
-                </button>
-              )}
+
             </div>
           )}
         </section>
@@ -260,6 +251,16 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
             >
               <FireFlame className="size-5" />
               BRENNEN
+            </button>
+          )}
+          {!usbMode && !burnDrive && staged.length > 0 && (
+            <button
+              type="button"
+              onClick={send}
+              className="text-body bg-white text-ink inline-flex items-center gap-2 rounded-pill px-6 py-2 font-bold outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/40"
+            >
+              <Send className="size-5" />
+              Auf Smartphone laden
             </button>
           )}
         </div>
