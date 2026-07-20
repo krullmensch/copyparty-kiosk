@@ -2,7 +2,6 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { createWriteStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { basename, join } from 'node:path'
-import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { extStats, reportTransfer } from '../agora-events'
 import {
