@@ -154,8 +154,6 @@ async function scanCopypartyHosts(): Promise<AgoraHostCandidate[]> {
   )
 }
 
-import { networkInterfaces } from 'node:os'
-
 /**
  * URL a phone scans to reach the mobile-upload page (:8080/up) on the main
  * kiosk. Resolves the agora host to a bare IPv4 first: phones can't be relied
