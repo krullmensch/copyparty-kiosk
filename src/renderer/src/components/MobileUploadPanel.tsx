@@ -19,7 +19,7 @@ export function MobileUploadPanel(): React.JSX.Element {
   }, [])
 
   return (
-    <div className="flex max-w-3xl flex-col items-center justify-center gap-6 sm:flex-row sm:items-start">
+    <div className="flex max-w-3xl flex-col items-center justify-center gap-6 sm:flex-row sm:items-center">
       <div className="flex flex-col items-center gap-3">
         <div className="rounded-input bg-white p-4">
           <QRCodeSVG

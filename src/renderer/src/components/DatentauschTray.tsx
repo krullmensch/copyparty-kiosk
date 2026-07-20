@@ -202,7 +202,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
                 <button
                   type="button"
                   onClick={send}
-                  className="text-body bg-ink text-ink-leaf inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-medium outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/40"
+                  className="text-body bg-ink text-ink-leaf inline-flex items-center gap-2 rounded-pill px-6 py-2 font-medium outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/40"
                 >
                   <Send className="size-4" />
                   {staged.length} auf Smartphone senden
@@ -215,7 +215,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
 
       {/* Schwarze Bottom-Bar */}
       <div 
-        className={`bg-ink text-ink-leaf flex h-16 shrink-0 items-center gap-3 px-4 ${dropActive && !usbMode ? 'ring-ink-leaf/40 ring-2' : ''}`}
+        className={`bg-ink text-ink-leaf flex h-14 shrink-0 items-center gap-3 px-4 ${dropActive && !usbMode ? 'ring-ink-leaf/40 ring-2' : ''}`}
         onDragOver={onDragOver}
         onDragLeave={() => setDropActive(false)}
         onDrop={onDrop}
@@ -241,7 +241,7 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="text-body bg-ink-leaf text-ink inline-flex items-center gap-2 rounded-pill px-6 py-2.5 font-medium outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/40"
+          className="text-body bg-ink-leaf text-ink inline-flex items-center gap-2 rounded-pill px-6 py-2 font-medium outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/40"
         >
           {burnDrive ? <CompactDisc className="size-4" /> : open ? <NavArrowDown className="size-4" /> : <NavArrowUp className="size-4" />}
           {burnDrive ? 'DISC' : 'Datentausch'}

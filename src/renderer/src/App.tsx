@@ -169,7 +169,7 @@ function App(): React.JSX.Element {
       <IconoirProvider iconProps={{ strokeWidth: 2 }}>
       <PreviewKeyboard />
       <GoeyToaster richColors position="top-right" preset="smooth" showProgress />
-      <div className="bg-background text-foreground border-ink flex h-screen flex-col border-2">
+      <div className="bg-background text-foreground border-ink dark:border-transparent flex h-screen flex-col border-2">
         <header className="flex items-center justify-between px-6 pt-4 pb-2">
           <h1 className="text-display-l cursor-default select-none" onClick={onLogoClick}>
             Agora

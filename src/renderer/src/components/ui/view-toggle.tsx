@@ -10,12 +10,12 @@ interface Props {
 
 export function ViewToggle({ mode, onChange }: Props): React.JSX.Element {
   return (
-    <div className="bg-bg-page-tint rounded-input inline-flex p-0.5">
+    <div className="bg-bg-page-tint rounded-pill inline-flex p-0.5">
       <Button
         variant="ghost"
         size="sm"
         onClick={() => onChange('list')}
-        className={mode === 'list' ? 'bg-bg-surface' : 'opacity-60'}
+        className={`rounded-pill ${mode === 'list' ? 'bg-bg-surface' : 'opacity-60'}`}
         title="list view"
       >
         <List className="size-4" />
@@ -24,7 +24,7 @@ export function ViewToggle({ mode, onChange }: Props): React.JSX.Element {
         variant="ghost"
         size="sm"
         onClick={() => onChange('grid')}
-        className={mode === 'grid' ? 'bg-bg-surface' : 'opacity-60'}
+        className={`rounded-pill ${mode === 'grid' ? 'bg-bg-surface' : 'opacity-60'}`}
         title="grid view"
       >
         <ViewGrid className="size-4" />

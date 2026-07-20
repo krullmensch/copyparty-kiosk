@@ -298,7 +298,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
       onDrop={onDrop}
     >
       <div className="flex items-center gap-3 p-4">
-        <IconPill onClick={reload} title="Neu laden" aria-label="Neu laden">
+        <IconPill onClick={reload} title="Neu laden" aria-label="Neu laden" className="active:rotate-180 transition-transform duration-500">
           <RefreshDouble />
         </IconPill>
         <IconPill
@@ -449,7 +449,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
                       className={`text-body flex cursor-pointer items-center gap-3 rounded-input px-4 py-2.5 font-medium select-none transition-colors ${
                         isSel
                           ? 'bg-ink text-ink-leaf'
-                          : 'bg-bg-page-tint text-ink hover:bg-bg-surface-hover'
+                          : 'bg-bg-surface text-ink hover:bg-bg-surface-hover'
                       }`}
                     >
                       {e.isDirectory && (

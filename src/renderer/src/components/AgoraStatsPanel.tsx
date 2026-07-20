@@ -49,7 +49,7 @@ export function AgoraStatsPanel({ onClose }: { onClose: () => void }): React.JSX
       onClick={onClose}
     >
       <div
-        className="border-border bg-bg-surface w-[28rem] max-w-[90vw] rounded-card border p-6 shadow-xl"
+        className="border-border bg-bg-surface w-[28rem] max-w-[90vw] rounded-card border-2 p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-6 flex items-center justify-between">
@@ -103,7 +103,7 @@ export function AgoraStatsPanel({ onClose }: { onClose: () => void }): React.JSX
                   {stats.by_ext.map(({ ext, count, bytes }) => (
                     <span
                       key={ext}
-                      className="border-border text-ink-faint bg-bg-page rounded-full border px-2 py-0.5 text-meta"
+                      className="border-border text-ink-faint bg-bg-page rounded-full border-2 px-2 py-0.5 text-meta"
                     >
                       {ext} ×{count} ({formatSize(bytes)})
                     </span>

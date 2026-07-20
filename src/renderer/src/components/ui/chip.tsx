@@ -15,12 +15,12 @@ export function Chip({ active = false, className, ...props }: ChipProps): React.
       type="button"
       data-active={active}
       className={cn(
-        'text-label inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill border border-ink px-4 font-medium outline-none transition-colors',
+        'text-label inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill border-2 border-ink px-4 font-medium outline-none transition-colors',
         'focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-40',
         "[&_svg]:size-3.5 [&_svg:not([class*='size-'])]:size-3.5",
         active
           ? 'bg-ink text-ink-leaf'
-          : 'bg-transparent text-ink hover:bg-ink/5',
+          : 'bg-transparent text-ink hover:bg-ink hover:text-ink-leaf',
         className
       )}
       {...props}
@@ -39,8 +39,8 @@ export function IconPill({
     <button
       type="button"
       className={cn(
-        'inline-flex size-9 shrink-0 items-center justify-center rounded-pill border border-ink bg-transparent text-ink outline-none transition-colors',
-        'hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-40',
+        'inline-flex size-9 shrink-0 items-center justify-center rounded-pill border-2 border-ink bg-transparent text-ink outline-none transition-colors',
+        'hover:bg-ink hover:text-ink-leaf focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-40',
         "[&_svg]:size-4",
         className
       )}
