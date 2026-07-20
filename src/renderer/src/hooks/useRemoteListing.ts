@@ -15,6 +15,11 @@ export function useRemoteListing(
   const [tick, setTick] = useState(0)
 
   useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 5000)
+    return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
     if (!server || !vpath) {
       setState({ data: null, error: null, loading: false })
       return

@@ -4,6 +4,7 @@ import type { UploadProgress, DownloadProgress } from '../../../shared/types'
 export interface TransferState {
   bytesDone: number
   bytesTotal: number
+  status: 'active' | 'done' | 'error'
 }
 
 export function useTransferProgress() {
@@ -14,14 +15,23 @@ export function useTransferProgress() {
       if (p.kind === 'hash' || p.kind === 'upload') {
         setTransfers(prev => ({
           ...prev,
-          [p.name]: { bytesDone: p.bytesDone, bytesTotal: p.bytesTotal }
+          [p.name]: { bytesDone: p.bytesDone, bytesTotal: p.bytesTotal, status: 'active' }
         }))
       } else if (p.kind === 'done' || p.kind === 'error') {
-        setTransfers(prev => {
-          const next = { ...prev }
-          delete next[p.name]
-          return next
-        })
+        setTransfers(prev => ({
+          ...prev,
+          [p.name]: { ...(prev[p.name] || { bytesDone: 0, bytesTotal: 0 }), status: p.kind }
+        }))
+        setTimeout(() => {
+          setTransfers(prev => {
+            if (prev[p.name]?.status === p.kind) {
+              const next = { ...prev }
+              delete next[p.name]
+              return next
+            }
+            return prev
+          })
+        }, 1000)
       }
     })
 
@@ -29,14 +39,23 @@ export function useTransferProgress() {
       if (p.kind === 'download') {
         setTransfers(prev => ({
           ...prev,
-          [p.name]: { bytesDone: p.bytesDone, bytesTotal: p.bytesTotal }
+          [p.name]: { bytesDone: p.bytesDone, bytesTotal: p.bytesTotal, status: 'active' }
         }))
       } else if (p.kind === 'done' || p.kind === 'error') {
-        setTransfers(prev => {
-          const next = { ...prev }
-          delete next[p.name]
-          return next
-        })
+        setTransfers(prev => ({
+          ...prev,
+          [p.name]: { ...(prev[p.name] || { bytesDone: 0, bytesTotal: 0 }), status: p.kind }
+        }))
+        setTimeout(() => {
+          setTransfers(prev => {
+            if (prev[p.name]?.status === p.kind) {
+              const next = { ...prev }
+              delete next[p.name]
+              return next
+            }
+            return prev
+          })
+        }, 1000)
       }
     })
 

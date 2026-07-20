@@ -455,10 +455,12 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
                       }}
                       onDoubleClick={() => onEntryDoubleClick(e)}
                       onContextMenu={() => onEntryContextMenu(e)}
-                      className={`text-body group relative overflow-hidden flex cursor-pointer items-center gap-3 rounded-input px-4 py-2.5 font-medium select-none transition-colors ${
-                        isSel
-                          ? 'bg-ink text-ink-leaf'
-                          : 'bg-bg-surface text-ink hover:bg-ink hover:text-bg-page even:bg-bg-page-tint'
+                      className={`text-body group relative overflow-hidden flex cursor-pointer items-center gap-3 rounded-input px-4 py-2.5 font-medium select-none transition-colors duration-1000 ${
+                        transfers[e.name]?.status === 'done'
+                          ? 'bg-green-500/40 text-ink'
+                          : isSel
+                            ? 'bg-ink text-ink-leaf'
+                            : 'bg-bg-surface text-ink hover:bg-ink hover:text-bg-page even:bg-bg-page-tint'
                       }`}
                     >
                       {transfers[e.name] && (
@@ -509,8 +511,10 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
                       }}
                       onDoubleClick={() => onEntryDoubleClick(e)}
                       onContextMenu={() => onEntryContextMenu(e)}
-                      className={`group flex cursor-pointer flex-col items-stretch gap-2 p-2 select-none rounded-card transition-colors ${
-                        isSel ? 'bg-accent text-ink-leaf' : 'hover:bg-bg-surface-hover'
+                      className={`group flex cursor-pointer flex-col items-stretch gap-2 p-2 select-none rounded-card transition-colors duration-1000 ${
+                        transfers[e.name]?.status === 'done'
+                          ? 'bg-green-500/40 text-ink'
+                          : isSel ? 'bg-accent text-ink-leaf' : 'hover:bg-bg-surface-hover'
                       }`}
                     >
                       <div
