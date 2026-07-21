@@ -4,6 +4,7 @@ import { join, parse } from 'node:path'
 import { createHash } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import sharp from 'sharp'
+import decodeHeic from 'heic-decode'
 
 const IMAGE_EXTS = new Set([
   '.jpg',
@@ -60,6 +61,13 @@ function spawnCollect(cmd: string, args: string[], timeoutMs = 10000): Promise<B
 
 async function rawFor(path: string, ext: string): Promise<Buffer | null> {
   if (IMAGE_EXTS.has(ext)) {
+    if (ext === '.heic' || ext === '.heif') {
+      const buffer = await fs.readFile(path)
+      const { width, height, data } = await decodeHeic({ buffer })
+      return await sharp(Buffer.from(data), {
+        raw: { width, height, channels: 4 }
+      }).png().toBuffer()
+    }
     return null // sharp reads file directly
   }
   if (VIDEO_EXTS.has(ext)) {
@@ -143,7 +151,8 @@ export async function getThumb(path: string): Promise<string | null> {
   }
 
   try {
-    const src: string | Buffer = IMAGE_EXTS.has(ext) ? path : (await rawFor(path, ext)) ?? Buffer.alloc(0)
+    const isImageDirectlySharp = IMAGE_EXTS.has(ext) && ext !== '.heic' && ext !== '.heif';
+    const src: string | Buffer = isImageDirectlySharp ? path : (await rawFor(path, ext)) ?? Buffer.alloc(0)
     if (typeof src !== 'string' && src.length === 0) return null
     const buf = await sharp(src, { failOn: 'none' })
       .rotate()

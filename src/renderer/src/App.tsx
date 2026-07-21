@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Community, HalfMoon, SunLight } from 'iconoir-react'
+import { StatsUpSquare, HalfMoon, SunLight } from 'iconoir-react'
 import { IconoirProvider } from 'iconoir-react'
 import { Button } from '@/components/ui/button'
 import { GoeyToaster } from 'goey-toast'
@@ -178,22 +178,22 @@ function App(): React.JSX.Element {
             {caps.trackingEnabled && (
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 onClick={() => setStatsOpen(true)}
                 title="Netz-Statistik"
                 aria-label="Netz-Statistik"
-                className="rounded-pill"
+                className="rounded-full"
               >
-                <Community className="size-5" />
+                <StatsUpSquare className="size-5" />
               </Button>
             )}
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={toggleTheme}
               title={isDark ? 'Tag' : 'Nacht'}
               aria-label={isDark ? 'Tag' : 'Nacht'}
-              className="rounded-pill"
+              className="rounded-full"
             >
               {isDark ? (
                 <SunLight className="size-5" />

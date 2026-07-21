@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, globalShortcut } from 'electron'
 
 app.commandLine.appendSwitch('force-device-scale-factor', '1.4')
 // Exposes HTMLMediaElement.audioTracks so the video.js player can list and
@@ -114,6 +114,11 @@ app.whenReady().then(async () => {
   ipcMain.on('ping', () => console.log('pong'))
 
   createWindow()
+
+  // Kiosk hardening: block Alt+F4 to prevent closing the app
+  globalShortcut.register('Alt+F4', () => {
+    // do nothing
+  })
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

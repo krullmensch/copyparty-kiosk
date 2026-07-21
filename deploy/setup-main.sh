@@ -115,7 +115,7 @@ After=network.target
 [Service]
 Type=simple
 User=$USER_NAME
-ExecStart=/usr/bin/python3 $USER_HOME/copyparty-sfx.py -p 3923 -i 0.0.0.0 -v $USER_HOME/copyparty-data:/:rwd -e2dsa --no-ses --daw --u2ow 2 -lo $USER_HOME/copyparty-logs/cpp-%%Y-%%m-%%d.txt $SHARE_ARGS
+ExecStart=/usr/bin/python3 $USER_HOME/copyparty-sfx.py -p 3923 -i 0.0.0.0 -v $USER_HOME/copyparty-data:/:rwd,qr:r -e2dsa --no-ses --daw --u2ow 2 -lo $USER_HOME/copyparty-logs/cpp-%%Y-%%m-%%d.txt $SHARE_ARGS
 Restart=on-failure
 RestartSec=3
 

@@ -143,6 +143,18 @@ fi
 nohup '"$USER_HOME"'/start-electron.sh > /tmp/electron.log 2>&1 &
 '
 
+  # disable Alt+Scroll (Desktop-Wechsel) in Openbox
+  mkdir -p "$USER_HOME/.config/openbox"
+  if [ ! -f "$USER_HOME/.config/openbox/rc.xml" ]; then
+      cp /etc/xdg/openbox/rc.xml "$USER_HOME/.config/openbox/rc.xml" 2>/dev/null || true
+  fi
+  if [ -f "$USER_HOME/.config/openbox/rc.xml" ]; then
+      sed -i '/<mousebind action="Press" button="A-Up">/,/<\/mousebind>/d' "$USER_HOME/.config/openbox/rc.xml"
+      sed -i '/<mousebind action="Press" button="A-Down">/,/<\/mousebind>/d' "$USER_HOME/.config/openbox/rc.xml"
+      sed -i '/<mousebind action="Press" button="C-A-Up">/,/<\/mousebind>/d' "$USER_HOME/.config/openbox/rc.xml"
+      sed -i '/<mousebind action="Press" button="C-A-Down">/,/<\/mousebind>/d' "$USER_HOME/.config/openbox/rc.xml"
+  fi
+
   # startx on tty1 login (append snippet once)
   if ! grep -q 'AGORA-AUTOSTART' "$USER_HOME/.bash_profile" 2>/dev/null; then
     cat >> "$USER_HOME/.bash_profile" <<EOF

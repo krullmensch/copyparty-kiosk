@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { isIPv4 } from 'node:net'
 import { lookup as dnsLookup } from 'node:dns/promises'
-import { homedir } from 'node:os'
+import { homedir, networkInterfaces } from 'node:os'
 import { join } from 'node:path'
 import { IpcChannels, ShareResult } from '../../shared/types'
 import { extStats, reportQrShare } from '../agora-events'
@@ -112,9 +112,26 @@ async function readSharePassword(): Promise<string | null> {
 /** the agora host resolved to IPv4, so the QR never encodes a .local name Android can't resolve. */
 async function resolveAgoraIp(): Promise<string> {
   const host = await getAgoraHost()
-  if (isIPv4(host)) return host
-  const { address } = await dnsLookup(host, { family: 4 })
-  return address
+  let addr = host
+  if (!isIPv4(host)) {
+    const res = await dnsLookup(host, { family: 4 })
+    addr = res.address
+  }
+  
+  if (addr.startsWith('127.')) {
+    const interfaces = networkInterfaces()
+    for (const name of Object.keys(interfaces)) {
+      for (const net of interfaces[name] || []) {
+        if (net.family === 'IPv4' && !net.internal) {
+          addr = net.address
+          break
+        }
+      }
+      if (!addr.startsWith('127.')) break
+    }
+  }
+
+  return addr
 }
 
 async function postShare(

@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs'
 import { randomUUID, createHash } from 'node:crypto'
 import { extname, join } from 'node:path'
 import sharp from 'sharp'
+import decodeHeic from 'heic-decode'
 import { exiftool } from 'exiftool-vendored'
 import { isRawImage } from '../shared/filetypes'
 import { getPreviewCacheDir } from './stream-protocol'
@@ -21,6 +22,7 @@ export interface ConvertErr {
 export type ConvertResult = ConvertOk | ConvertErr
 
 const TIFF_EXTS = new Set(['.tif', '.tiff'])
+const HEIC_EXTS = new Set(['.heic', '.heif'])
 const MAX_DIMENSION = 4096
 
 function sha1(s: string): string {
@@ -71,6 +73,21 @@ async function convertTiff(absPath: string, destPath: string): Promise<void> {
     .toFile(destPath)
 }
 
+async function convertHeic(absPath: string, destPath: string): Promise<void> {
+  const buffer = await fs.readFile(absPath)
+  const { width, height, data } = await decodeHeic({ buffer })
+  await sharp(Buffer.from(data), {
+    raw: {
+      width,
+      height,
+      channels: 4
+    }
+  })
+    .resize(MAX_DIMENSION, MAX_DIMENSION, { fit: 'inside', withoutEnlargement: true })
+    .jpeg()
+    .toFile(destPath)
+}
+
 /**
  * RAW preview extraction, in order of preference: JpgFromRaw (Nikon/
  * Panasonic) → PreviewImage (Canon/Fuji/Olympus/Sony) → low-res thumbnail.
@@ -107,9 +124,10 @@ export async function convertForPreviewInto(
 ): Promise<ConvertResult> {
   const ext = extname(absPath).toLowerCase()
   const isTiff = TIFF_EXTS.has(ext)
+  const isHeic = HEIC_EXTS.has(ext)
   const isRaw = isRawImage(absPath)
 
-  if (!isTiff && !isRaw) {
+  if (!isTiff && !isRaw && !isHeic) {
     return { ok: false, error: 'no conversion for this type' }
   }
 
@@ -134,6 +152,8 @@ export async function convertForPreviewInto(
   try {
     if (isTiff) {
       await writeAtomically(cacheDir, finalPath, (tmp) => convertTiff(absPath, tmp))
+    } else if (isHeic) {
+      await writeAtomically(cacheDir, finalPath, (tmp) => convertHeic(absPath, tmp))
     } else {
       await writeAtomically(cacheDir, finalPath, (tmp) => extractRawPreview(absPath, tmp))
     }

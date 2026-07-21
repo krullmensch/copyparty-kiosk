@@ -46,6 +46,8 @@ const EXTENSION_MAP: Record<string, PreviewCategory> = {
   arw: 'image',
   dng: 'image',
   raf: 'image',
+  heic: 'image',
+  heif: 'image',
   // model3d
   splat: 'model3d',
   ply: 'model3d',
@@ -153,5 +155,5 @@ export function officeViewable(filename: string): boolean {
 
 export function needsConversion(filename: string): boolean {
   const ext = extensionOf(filename)
-  return ext === 'tiff' || ext === 'tif' || RAW_IMAGE_EXTENSIONS.has(ext)
+  return ext === 'tiff' || ext === 'tif' || ext === 'heic' || ext === 'heif' || RAW_IMAGE_EXTENSIONS.has(ext)
 }

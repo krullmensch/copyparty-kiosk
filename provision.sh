@@ -98,6 +98,10 @@ sudo DEBIAN_FRONTEND=noninteractive apt install -y libasound2t64 2>/dev/null || 
     sudo DEBIAN_FRONTEND=noninteractive apt install -y libasound2 2>/dev/null || \
     warn "libasound2 nicht installierbar — Electron audio evtl. eingeschränkt"
 
+# GPU permissions
+log "Füge marvin zu video und render Gruppen hinzu (Hardware Acceleration)"
+sudo usermod -aG video,render marvin
+
 # ---- Xorg configs (template) ----
 log "Schreibe Xorg-Templates (headless dummy + Monitor-Mode)"
 sudo mkdir -p /etc/X11/xorg.conf.d
@@ -246,6 +250,19 @@ x11vnc -display :0 -auth /home/marvin/.Xauthority -forever -loop \\
 # Electron-Kiosk via standalone launcher
 nohup /home/marvin/start-electron.sh > /tmp/electron.log 2>&1 &
 EOF
+
+# ---- Openbox configuration (disable Alt+Scroll) ----
+log "Deaktiviere Alt+Scroll (Desktop-Wechsel) in Openbox"
+mkdir -p ~/.config/openbox
+if [ ! -f ~/.config/openbox/rc.xml ]; then
+    cp /etc/xdg/openbox/rc.xml ~/.config/openbox/rc.xml 2>/dev/null || true
+fi
+if [ -f ~/.config/openbox/rc.xml ]; then
+    sed -i '/<mousebind action="Press" button="A-Up">/,/<\/mousebind>/d' ~/.config/openbox/rc.xml
+    sed -i '/<mousebind action="Press" button="A-Down">/,/<\/mousebind>/d' ~/.config/openbox/rc.xml
+    sed -i '/<mousebind action="Press" button="C-A-Up">/,/<\/mousebind>/d' ~/.config/openbox/rc.xml
+    sed -i '/<mousebind action="Press" button="C-A-Down">/,/<\/mousebind>/d' ~/.config/openbox/rc.xml
+fi
 
 # ---- Done ----
 echo

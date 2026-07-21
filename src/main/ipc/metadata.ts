@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { extname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import NodeID3 from 'node-id3'
 import { exiftool, type WriteTags } from 'exiftool-vendored'
 import {
   FileMetadata,
@@ -110,6 +111,20 @@ async function writeLocalMetadata(
   path: string,
   patch: Partial<FileMetadata['common']>
 ): Promise<MetadataWriteResult> {
+  if (path.toLowerCase().endsWith('.mp3')) {
+    const id3Tags: NodeID3.Tags = {}
+    if (patch.title !== undefined) id3Tags.title = patch.title
+    if (patch.author !== undefined) id3Tags.artist = patch.author
+    if (patch.comment !== undefined) id3Tags.comment = { language: 'eng', text: patch.comment }
+    try {
+      const success = NodeID3.update(id3Tags, path)
+      if (success === true) return { ok: true }
+      return { ok: false, message: success instanceof Error ? success.message : 'Unknown MP3 error' }
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : String(err) }
+    }
+  }
+
   const tags = commonToTags(patch)
   if (Object.keys(tags).length === 0) return { ok: true }
   try {
@@ -171,7 +186,16 @@ async function writeRemoteMetadata(
   if (!bytes) return { ok: false, message: 'Datei zu groß oder nicht lesbar' }
   try {
     return await withTempCopy(vpath, bytes, async (tmp) => {
-      await exiftool.write(tmp, tags, ['-overwrite_original'])
+      if (vpath.toLowerCase().endsWith('.mp3')) {
+        const id3Tags: NodeID3.Tags = {}
+        if (patch.title !== undefined) id3Tags.title = patch.title
+        if (patch.author !== undefined) id3Tags.artist = patch.author
+        if (patch.comment !== undefined) id3Tags.comment = { language: 'eng', text: patch.comment }
+        const success = NodeID3.update(id3Tags, tmp)
+        if (success !== true) throw new Error(success instanceof Error ? success.message : 'Unknown MP3 error')
+      } else {
+        await exiftool.write(tmp, tags, ['-overwrite_original'])
+      }
       const updated = new Uint8Array(await fs.readFile(tmp))
       const res = await putRemoteFile(server, vpath, updated)
       return res.ok ? { ok: true } : { ok: false, message: res.message }

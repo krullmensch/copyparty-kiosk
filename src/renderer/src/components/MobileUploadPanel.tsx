@@ -41,6 +41,9 @@ export function MobileUploadPanel(): React.JSX.Element {
         <p className="text-body text-ink-faint">
           Dann scanne rechts oder öffne folgende URL in deinem Browser:
         </p>
+        <p className="text-sm text-ink-faint mt-1">
+          (Oder ziehe Dateien aus der oberen Ansicht hierher, um sie als Download anzubieten)
+        </p>
         <p className="text-label text-ink-muted break-all">{uploadUrl ?? '…'}</p>
       </div>
 
