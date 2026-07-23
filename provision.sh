@@ -92,7 +92,8 @@ sudo DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
     xserver-xorg xserver-xorg-video-dummy xinit \
     x11-xserver-utils openbox xterm x11vnc unclutter \
     libgtk-3-0 libnotify4 libnss3 libxss1 \
-    libxtst6 xdg-utils libatspi2.0-0 libdrm2 libgbm1 || true
+    libxtst6 xdg-utils libatspi2.0-0 libdrm2 libgbm1 \
+    ffmpeg dvdauthor dvd+rw-tools cdparanoia xorriso || true
 # Audio-Lib version-abhängig
 sudo DEBIAN_FRONTEND=noninteractive apt install -y libasound2t64 2>/dev/null || \
     sudo DEBIAN_FRONTEND=noninteractive apt install -y libasound2 2>/dev/null || \

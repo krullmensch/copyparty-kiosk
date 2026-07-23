@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { MusicDoubleNote } from 'iconoir-react'
 import type { PreviewSource } from '../../../../shared/types'
 import { streamUrl } from '../streamUrl'
 
@@ -28,8 +29,25 @@ export function AudioPlayer({
     )
   }
 
+  const bgColor = useMemo(() => {
+    const colors = [
+      'bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-emerald-500', 
+      'bg-teal-500', 'bg-cyan-500', 'bg-blue-500', 'bg-indigo-500', 
+      'bg-violet-500', 'bg-fuchsia-500'
+    ]
+    let hash = 0
+    for (let i = 0; i < entry.name.length; i++) {
+      hash = entry.name.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    const index = Math.abs(hash) % colors.length
+    return colors[index]
+  }, [entry.name])
+
   return (
     <div className="bg-background flex h-full flex-col items-center justify-center gap-6 p-8">
+      <div className={`flex items-center justify-center size-64 sm:size-80 rounded-2xl shadow-xl shrink-0 text-white ${bgColor}`}>
+        <MusicDoubleNote className="size-24 sm:size-32 opacity-80" />
+      </div>
       <span className="text-h2 max-w-3xl truncate text-center" title={entry.name}>
         {entry.name}
       </span>

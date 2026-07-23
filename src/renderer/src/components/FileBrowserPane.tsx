@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDown, ArrowLeft, ArrowUp, EyeClosed, Folder, RefreshDouble, Search, Xmark } from 'iconoir-react'
+import { ArrowDown, ArrowLeft, ArrowUp, Folder, RefreshDouble, Search, Xmark } from 'iconoir-react'
 import { gooeyToast as toast } from 'goey-toast'
 import { Chip, IconPill } from '@/components/ui/chip'
 import { Input } from '@/components/ui/input'
@@ -92,7 +92,6 @@ function sortEntries(
 
 export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
   const [cwd, setCwd] = useState(rootPath)
-  const [showHidden, setShowHidden] = useState(false)
   const [dropActive, setDropActive] = useState(false)
   const [busy, setBusy] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
@@ -131,8 +130,8 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
   const inSearch = searchHits !== null
 
   const sorted = useMemo(
-    () => (data ? sortEntries(data.entries, showHidden, sortField, sortDir) : []),
-    [data, showHidden, sortField, sortDir]
+    () => (data ? sortEntries(data.entries, false, sortField, sortDir) : []),
+    [data, sortField, sortDir]
   )
   const ids = useMemo(() => sorted.map((e) => e.path), [sorted])
   const sel = useSelection(ids, cwd)
@@ -273,14 +272,6 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
           }}
         />
         <ViewToggle mode={viewMode} onChange={setViewMode} />
-        <IconPill
-          onClick={() => setShowHidden((v) => !v)}
-          title="Versteckte Dateien"
-          aria-label="Versteckte Dateien umschalten"
-          className={showHidden ? 'bg-ink text-ink-leaf' : ''}
-        >
-          <EyeClosed />
-        </IconPill>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto" onClick={() => sel.clear()}>
@@ -362,12 +353,12 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
                     onRowClick(ev, e)
                   }}
                   onDoubleClick={() => onEntryDoubleClick(e)}
-                  className={`text-body group relative overflow-hidden flex cursor-pointer items-center gap-3 rounded-input px-4 py-2.5 font-medium select-none transition-colors duration-1000 ${
+                  className={`text-body group relative overflow-hidden flex cursor-pointer items-center gap-3 rounded-input px-4 py-2.5 font-medium select-none ${
                     transfers[e.name]?.status === 'done'
                       ? 'bg-green-500/40 text-ink'
                       : isSel
                         ? 'bg-ink text-ink-leaf'
-                        : 'bg-bg-surface text-ink hover:bg-ink hover:text-bg-page even:bg-bg-page-tint'
+                        : 'bg-bg-surface-hover text-ink hover:bg-ink hover:text-bg-page'
                   }`}
                 >
                   {transfers[e.name]?.status === 'active' && (
@@ -380,7 +371,7 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
                     <Folder className={`size-4 shrink-0 ${isSel ? 'text-ink-leaf' : 'text-ink group-hover:text-bg-page'}`} />
                   )}
                   <Filename name={e.name} isDirectory={e.isDirectory} className="flex-1" />
-                  <span className={`shrink-0 text-right ${isSel ? 'text-ink-leaf' : 'text-ink'}`}>
+                  <span className={`shrink-0 text-right ${isSel ? 'text-ink-leaf' : 'text-ink group-hover:text-bg-page'}`}>
                     {e.isDirectory ? '' : formatSize(e.size)}
                   </span>
                 </li>
@@ -401,7 +392,7 @@ export function FileBrowserPane({ rootPath }: Props): React.JSX.Element {
                     onRowClick(ev, e)
                   }}
                   onDoubleClick={() => onEntryDoubleClick(e)}
-                  className={`group flex cursor-pointer flex-col items-stretch gap-2 p-2 select-none rounded-card transition-colors duration-1000 ${
+                  className={`group flex cursor-pointer flex-col items-stretch gap-2 p-2 select-none rounded-card ${
                     transfers[e.name]?.status === 'done'
                       ? 'bg-green-500/40 text-ink'
                       : isSel ? 'bg-accent text-ink-leaf' : 'hover:bg-bg-surface-hover'

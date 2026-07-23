@@ -49,12 +49,13 @@ export function FullView({
           <Button
             variant={showMeta ? 'secondary' : 'ghost'}
             size="icon"
+            className="rounded-full"
             onClick={() => setShowMeta((v) => !v)}
             aria-label="Metadaten"
           >
             <Info />
           </Button>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Schließen">
+          <Button variant="ghost" size="icon" className="rounded-full" onClick={onClose} aria-label="Schließen">
             <X />
           </Button>
         </div>

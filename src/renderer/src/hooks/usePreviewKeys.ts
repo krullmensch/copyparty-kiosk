@@ -14,7 +14,7 @@ function isEditableTarget(el: Element | null): boolean {
  * Escape = schließen. Muss innerhalb eines PreviewProvider gemountet sein.
  */
 export function usePreviewKeys(): void {
-  const { mode, activeSelection, openQuickLook, openFullView, close } = usePreview()
+  const { mode, activeSelection, openFullView, close } = usePreview()
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent): void => {
@@ -40,27 +40,18 @@ export function usePreviewKeys(): void {
       }
 
       if (e.key === ' ' || e.code === 'Space') {
-        if (mode === 'quicklook') {
-          // QuickLook: Space schließt (Video-Tastatursteuerung ist dort aus).
-          e.preventDefault()
-          close()
-          return
-        }
         if (mode === 'fullview') {
-          // Großer Player/Viewer: Space NICHT kapern — der fokussierte Viewer
-          // (Video Play/Pause, Text-Editor Leerzeichen) bekommt es.
           return
         }
-        // mode === null: QuickLook öffnen, nur bei genau einem Datei-Eintrag
         if (activeSelection && !activeSelection.isDirectory) {
           if (activeSelection.source.kind === 'local') return
-          e.preventDefault() // Guard 3: Scroll nur unterdrücken, wenn konsumiert
-          openQuickLook(activeSelection.name, activeSelection.size, activeSelection.source)
+          e.preventDefault()
+          openFullView(activeSelection.name, activeSelection.size, activeSelection.source)
         }
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [mode, activeSelection, openQuickLook, openFullView, close])
+  }, [mode, activeSelection, openFullView, close])
 }

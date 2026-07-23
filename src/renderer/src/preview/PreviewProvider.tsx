@@ -1,11 +1,10 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import { capabilitiesFor, categorize } from '../../../shared/filetypes'
 import type { PreviewSource } from '../../../shared/types'
-import { QuickLookOverlay } from './QuickLookOverlay'
 import { FullView } from './FullView'
 import { useSuppressScreensaver } from '../screensaver/suppress'
 
-export type PreviewMode = 'quicklook' | 'fullview'
+export type PreviewMode = 'fullview'
 
 export interface PreviewEntry {
   name: string
@@ -25,7 +24,6 @@ interface PreviewContextValue {
   entry: PreviewEntry | null
   source: PreviewSource | null
   activeSelection: ActiveSelection | null
-  openQuickLook: (name: string, size: number, source: PreviewSource) => void
   openFullView: (name: string, size: number, source: PreviewSource) => void
   close: () => void
   setActiveSelection: (sel: ActiveSelection | null) => void
@@ -54,32 +52,16 @@ export function PreviewProvider({ children }: { children: React.ReactNode }): Re
     setSource(null)
   }, [])
 
-  const openQuickLook = useCallback(
-    (name: string, size: number, src: PreviewSource): void => {
-      if (src.kind === 'local') return
-      if (!capabilitiesFor(categorize(name)).quickLook) return
-      setEntry({ name, size })
-      setSource(src)
-      setMode('quicklook')
-    },
-    []
-  )
+
 
   const openFullView = useCallback(
     (name: string, size: number, src: PreviewSource): void => {
       if (src.kind === 'local') return
       const caps = capabilitiesFor(categorize(name))
-      if (caps.fullOpen) {
+      if (caps.fullOpen || caps.quickLook) {
         setEntry({ name, size })
         setSource(src)
         setMode('fullview')
-        return
-      }
-      // Kategorien ohne fullOpen (program, unknown): QuickLook falls möglich, sonst no-op
-      if (caps.quickLook) {
-        setEntry({ name, size })
-        setSource(src)
-        setMode('quicklook')
       }
     },
     []
@@ -95,20 +77,16 @@ export function PreviewProvider({ children }: { children: React.ReactNode }): Re
       entry,
       source,
       activeSelection,
-      openQuickLook,
       openFullView,
       close,
       setActiveSelection
     }),
-    [mode, entry, source, activeSelection, openQuickLook, openFullView, close, setActiveSelection]
+    [mode, entry, source, activeSelection, openFullView, close, setActiveSelection]
   )
 
   return (
     <PreviewContext.Provider value={value}>
       {children}
-      {mode === 'quicklook' && entry && source && (
-        <QuickLookOverlay entry={entry} source={source} onClose={close} />
-      )}
       {mode === 'fullview' && entry && source && (
         <FullView entry={entry} source={source} onClose={close} />
       )}

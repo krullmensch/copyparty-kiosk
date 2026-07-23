@@ -14,7 +14,8 @@ import {
   ReadTextResult
 } from '../../shared/types'
 import { fetchRemoteText, fetchRemoteBytes, putRemoteFile } from './copyparty'
-import { convertForPreview } from '../preview-convert'
+import { convertForPreview, convertForPreviewInto } from '../preview-convert'
+import { getPreviewCacheDir } from '../stream-protocol'
 
 // Whole-file byte reads (audio decode, 3D models) are capped to keep them off
 // the streaming path and out of unbounded memory.
@@ -254,11 +255,29 @@ export function registerMetadataIpc(): void {
   ipcMain.handle(
     IpcChannels.PreviewConvert,
     async (_, source: PreviewSource): Promise<PreviewConvertResult> => {
-      // Conversion (TIFF/RAW → PNG/JPG) only for local files; remote non-native
-      // images are not supported in v1 (would need download-first).
-      if (source.kind !== 'local') return { ok: false, error: 'remote conversion unsupported' }
-      const res = await convertForPreview(source.path)
-      return res.ok ? { ok: true, cacheKey: res.cacheKey } : { ok: false, error: res.error }
+      if (source.kind === 'local') {
+        const res = await convertForPreview(source.path)
+        return res.ok ? { ok: true, cacheKey: res.cacheKey } : { ok: false, error: res.error }
+      }
+      
+      const ext = source.vpath.toLowerCase().endsWith('.tif') || source.vpath.toLowerCase().endsWith('.tiff') ? '.png' : '.jpg'
+      const cacheKey = require('crypto').createHash('sha1').update(`remote|${source.server}|${source.vpath}`).digest('hex') + ext
+      const cacheDir = getPreviewCacheDir()
+      const finalPath = join(cacheDir, cacheKey)
+      
+      try {
+        await fs.stat(finalPath)
+        return { ok: true, cacheKey }
+      } catch {
+        // proceed to generate
+      }
+      
+      const bytes = await fetchRemoteBytes(source.server, source.vpath, META_MAX)
+      if (!bytes) return { ok: false, error: 'remote file too large or unreadable' }
+      return await withTempCopy(source.vpath, bytes, async (tmp) => {
+        const res = await convertForPreviewInto(cacheDir, tmp, cacheKey)
+        return res.ok ? { ok: true, cacheKey: res.cacheKey } : { ok: false, error: res.error }
+      })
     }
   )
 

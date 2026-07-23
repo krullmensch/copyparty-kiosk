@@ -1,5 +1,5 @@
 import { List, ViewGrid } from 'iconoir-react'
-import { Button } from '@/components/ui/button'
+import { IconPill } from '@/components/ui/chip'
 
 export type ViewMode = 'list' | 'grid'
 
@@ -10,25 +10,23 @@ interface Props {
 
 export function ViewToggle({ mode, onChange }: Props): React.JSX.Element {
   return (
-    <div className="bg-bg-page-tint rounded-pill inline-flex p-0.5">
-      <Button
-        variant="ghost"
-        size="sm"
+    <div className="flex items-center gap-1.5">
+      <IconPill
         onClick={() => onChange('list')}
-        className={`rounded-pill ${mode === 'list' ? 'bg-bg-surface' : 'opacity-60'}`}
-        title="list view"
+        title="Listenansicht"
+        aria-label="Listenansicht"
+        className={mode === 'list' ? 'bg-ink text-ink-leaf' : ''}
       >
-        <List className="size-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
+        <List />
+      </IconPill>
+      <IconPill
         onClick={() => onChange('grid')}
-        className={`rounded-pill ${mode === 'grid' ? 'bg-bg-surface' : 'opacity-60'}`}
-        title="grid view"
+        title="Gitteransicht"
+        aria-label="Gitteransicht"
+        className={mode === 'grid' ? 'bg-ink text-ink-leaf' : ''}
       >
-        <ViewGrid className="size-4" />
-      </Button>
+        <ViewGrid />
+      </IconPill>
     </div>
   )
 }

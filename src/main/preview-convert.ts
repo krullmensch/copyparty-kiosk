@@ -120,7 +120,8 @@ async function extractRawPreview(absPath: string, destPath: string): Promise<voi
  */
 export async function convertForPreviewInto(
   cacheDir: string,
-  absPath: string
+  absPath: string,
+  explicitCacheKey?: string
 ): Promise<ConvertResult> {
   const ext = extname(absPath).toLowerCase()
   const isTiff = TIFF_EXTS.has(ext)
@@ -142,7 +143,7 @@ export async function convertForPreviewInto(
   }
 
   const targetExt = isTiff ? '.png' : '.jpg'
-  const cacheKey = cacheKeyFor(absPath, mtimeMs, size, targetExt)
+  const cacheKey = explicitCacheKey || cacheKeyFor(absPath, mtimeMs, size, targetExt)
   const finalPath = join(cacheDir, cacheKey)
 
   if (await fileExists(finalPath)) {
@@ -158,6 +159,7 @@ export async function convertForPreviewInto(
       await writeAtomically(cacheDir, finalPath, (tmp) => extractRawPreview(absPath, tmp))
     }
   } catch (err) {
+    console.error('[preview-convert] failed:', absPath, err)
     return {
       ok: false,
       error: isRaw ? 'no embedded preview' : err instanceof Error ? err.message : String(err)

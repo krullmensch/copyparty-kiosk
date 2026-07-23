@@ -120,14 +120,34 @@ async function resolveAgoraIp(): Promise<string> {
   
   if (addr.startsWith('127.')) {
     const interfaces = networkInterfaces()
-    for (const name of Object.keys(interfaces)) {
-      for (const net of interfaces[name] || []) {
-        if (net.family === 'IPv4' && !net.internal) {
+    
+    // First try: look for physical interfaces (eth, en, wl, wlan)
+    let found = false
+    for (const [name, nets] of Object.entries(interfaces)) {
+      if (!name.match(/^(en|eth|wl|wlan)/)) continue
+      for (const net of nets || []) {
+        if (net.family === 'IPv4' && !net.internal && !net.address.startsWith('169.254.')) {
           addr = net.address
+          found = true
           break
         }
       }
-      if (!addr.startsWith('127.')) break
+      if (found) break
+    }
+    
+    // Fallback: any non-internal IPv4 that isn't docker/veth/lo
+    if (!found) {
+      for (const [name, nets] of Object.entries(interfaces)) {
+        if (name.startsWith('docker') || name.startsWith('veth') || name === 'lo') continue
+        for (const net of nets || []) {
+          if (net.family === 'IPv4' && !net.internal && !net.address.startsWith('169.254.')) {
+            addr = net.address
+            found = true
+            break
+          }
+        }
+        if (found) break
+      }
     }
   }
 

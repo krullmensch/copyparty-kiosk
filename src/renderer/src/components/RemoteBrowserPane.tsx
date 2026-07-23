@@ -455,12 +455,12 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
                       }}
                       onDoubleClick={() => onEntryDoubleClick(e)}
                       onContextMenu={() => onEntryContextMenu(e)}
-                      className={`text-body group relative overflow-hidden flex cursor-pointer items-center gap-3 rounded-input px-4 py-2.5 font-medium select-none transition-colors duration-1000 ${
+                      className={`text-body group relative overflow-hidden flex cursor-pointer items-center gap-3 rounded-input px-4 py-2.5 font-medium select-none ${
                         transfers[e.name]?.status === 'done'
                           ? 'bg-green-500/40 text-ink'
                           : isSel
                             ? 'bg-ink text-ink-leaf'
-                            : 'bg-bg-surface text-ink hover:bg-ink hover:text-bg-page even:bg-bg-page-tint'
+                            : 'bg-bg-surface-hover text-ink hover:bg-ink hover:text-bg-page'
                       }`}
                     >
                       {transfers[e.name]?.status === 'active' && (
@@ -475,7 +475,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
                         />
                       )}
                       <Filename name={e.name} isDirectory={e.isDirectory} className="flex-1" />
-                      <span className={`shrink-0 text-right ${isSel ? 'text-ink-leaf' : 'text-ink'}`}>
+                      <span className={`shrink-0 text-right ${isSel ? 'text-ink-leaf' : 'text-ink group-hover:text-bg-page'}`}>
                         {e.isDirectory ? '' : formatSize(e.size)}
                       </span>
                     </li>
@@ -511,7 +511,7 @@ export function RemoteBrowserPane({ server, onDisconnect }: Props): React.JSX.El
                       }}
                       onDoubleClick={() => onEntryDoubleClick(e)}
                       onContextMenu={() => onEntryContextMenu(e)}
-                      className={`group flex cursor-pointer flex-col items-stretch gap-2 p-2 select-none rounded-card transition-colors duration-1000 ${
+                      className={`group flex cursor-pointer flex-col items-stretch gap-2 p-2 select-none rounded-card ${
                         transfers[e.name]?.status === 'done'
                           ? 'bg-green-500/40 text-ink'
                           : isSel ? 'bg-accent text-ink-leaf' : 'hover:bg-bg-surface-hover'
