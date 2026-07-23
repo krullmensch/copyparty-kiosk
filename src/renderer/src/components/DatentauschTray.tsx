@@ -18,6 +18,10 @@ interface Props {
   /** Mount-Pfad des USB-Sticks; null = kein Stick → Smartphone/Share-Modus. */
   usbPath: string | null
   usbLabel: string | null
+  /** Alle gemounteten Partitionen des aktiven Laufwerks (>1 → Drop-up). */
+  mountpoints?: { path: string; label?: string | null }[]
+  activeMountPath?: string | null
+  onSelectMount?: (path: string) => void
   /** Optional blank optical drive available for burning. */
   burnDrive?: DriveInfo | null
   isVideoDvd?: boolean
@@ -41,7 +45,7 @@ interface StagedItem {
  *  - kein USB → „Smartphone"-Modus: Tray per Datentausch-Button auf/zu,
  *    Dateien reinziehen staged sie, „Senden" teilt sie per QR aufs Handy.
  */
-export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoDvd, dataDrive, audioCdDrive, children }: Props): React.JSX.Element {
+export function DatentauschTray({ server, usbPath, usbLabel, mountpoints = [], activeMountPath, onSelectMount, burnDrive, isVideoDvd, dataDrive, audioCdDrive, children }: Props): React.JSX.Element {
   const usbMode = usbPath !== null || audioCdDrive !== undefined && audioCdDrive !== null
   const [open, setOpen] = useState(false)
   const [staged, setStaged] = useState<StagedItem[]>([])
@@ -50,6 +54,16 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
   const [ripOpen, setRipOpen] = useState(false)
   const [dropActive, setDropActive] = useState(false)
   const [ejecting, setEjecting] = useState(false)
+  const [mountMenuOpen, setMountMenuOpen] = useState(false)
+
+  const multiPartition = mountpoints.length > 1
+  // Menü schließen, sobald das Laufwerk verschwindet oder Partitionen wegfallen.
+  useEffect(() => {
+    if (!multiPartition) setMountMenuOpen(false)
+  }, [multiPartition])
+
+  const partitionName = (m: { path: string; label?: string | null }): string =>
+    m.label ?? m.path.split('/').filter(Boolean).pop() ?? m.path
 
   // USB steckt → Tray automatisch öffnen; abgezogen → schließen + Staging leeren.
   useEffect(() => {
@@ -234,9 +248,62 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
               >
                 <Eject className="size-4" />
               </IconPill>
-              <span className="text-label bg-ink-leaf text-ink inline-flex items-center rounded-pill px-5 py-2 font-medium uppercase tracking-wide">
-                {audioCdDrive ? 'Audio-CD' : isVideoDvd ? (usbLabel ?? 'Video-DVD') : (usbLabel ?? 'USB Stick')}
-              </span>
+              {(() => {
+                const name = audioCdDrive
+                  ? 'Audio-CD'
+                  : isVideoDvd
+                    ? (usbLabel ?? 'Video-DVD')
+                    : (usbLabel ?? 'USB Stick')
+                const pill =
+                  'text-label bg-ink-leaf text-ink inline-flex items-center rounded-pill px-5 py-2 font-medium uppercase tracking-wide'
+                if (!multiPartition) return <span className={pill}>{name}</span>
+                return (
+                  <div className="relative">
+                    {mountMenuOpen && (
+                      <>
+                        {/* Klick daneben schließt das Drop-up */}
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setMountMenuOpen(false)}
+                        />
+                        <ul className="bg-bg-surface border-ink absolute bottom-full left-0 z-20 mb-2 min-w-full overflow-hidden rounded-container border-2">
+                          {mountpoints.map((m) => (
+                            <li key={m.path}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onSelectMount?.(m.path)
+                                  setMountMenuOpen(false)
+                                }}
+                                className={`text-body text-ink hover:bg-bg-page-tint block w-full whitespace-nowrap px-5 py-2.5 text-left ${
+                                  m.path === activeMountPath ? 'font-bold' : ''
+                                }`}
+                              >
+                                {partitionName(m)}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setMountMenuOpen((o) => !o)}
+                      aria-haspopup="menu"
+                      aria-expanded={mountMenuOpen}
+                      title="Partition wählen"
+                      className={`${pill} gap-2 outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/40`}
+                    >
+                      {name}
+                      {mountMenuOpen ? (
+                        <NavArrowDown className="size-4" />
+                      ) : (
+                        <NavArrowUp className="size-4" />
+                      )}
+                    </button>
+                  </div>
+                )
+              })()}
             </>
           )}
           {!usbMode && staged.length > 0 && (

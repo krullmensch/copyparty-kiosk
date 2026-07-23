@@ -3,6 +3,7 @@ import { StatsUpSquare, HalfMoon, SunLight } from 'iconoir-react'
 import { IconoirProvider } from 'iconoir-react'
 import { Button } from '@/components/ui/button'
 import { GoeyToaster } from 'goey-toast'
+import { IconPill } from '@/components/ui/chip'
 import { RemoteBrowserPane } from './components/RemoteBrowserPane'
 import { DatentauschTray } from './components/DatentauschTray'
 import { AgoraStatsPanel } from './components/AgoraStatsPanel'
@@ -118,9 +119,19 @@ function App(): React.JSX.Element {
     drives.find((d) => !d.isOptical && d.mountpoints[0]) ??
     drives.find((d) => d.isOptical && d.mountpoints[0]) ??
     null
-  const usbPath = dataDrive?.mountpoints[0]?.path ?? null
+  // A disk with several partitions surfaces as one drive with several
+  // mountpoints. The user picks which one is browsed; default is the first.
+  // Reset on drive change so a newly plugged stick never inherits a stale pick.
+  const [selectedMountPath, setSelectedMountPath] = useState<string | null>(null)
+  useEffect(() => {
+    setSelectedMountPath(null)
+  }, [dataDrive?.id])
+  const mountpoints = dataDrive?.mountpoints ?? []
+  const activeMount =
+    mountpoints.find((m) => m.path === selectedMountPath) ?? mountpoints[0] ?? null
+  const usbPath = activeMount?.path ?? null
   const usbLabel = dataDrive
-    ? (dataDrive.mountpoints[0]?.label ?? dataDrive.description ?? 'USB Stick')
+    ? (activeMount?.label ?? dataDrive.description ?? 'USB Stick')
     : null
   // Burn target: an optical drive without a mounted data disc (i.e. blank/empty,
   // ready to write). A data disc is a browse source instead, not a burn target.
@@ -174,33 +185,27 @@ function App(): React.JSX.Element {
           <h1 className="text-display-l cursor-default select-none" onClick={onLogoClick}>
             Agora
           </h1>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             {caps.trackingEnabled && (
-              <Button
-                variant="ghost"
-                size="icon"
+              <IconPill
                 onClick={() => setStatsOpen(true)}
                 title="Netz-Statistik"
                 aria-label="Netz-Statistik"
-                className="rounded-full"
               >
                 <StatsUpSquare className="size-5" />
-              </Button>
+              </IconPill>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
+            <IconPill
               onClick={toggleTheme}
               title={isDark ? 'Tag' : 'Nacht'}
               aria-label={isDark ? 'Tag' : 'Nacht'}
-              className="rounded-full"
             >
               {isDark ? (
                 <SunLight className="size-5" />
               ) : (
                 <HalfMoon className="size-5" />
               )}
-            </Button>
+            </IconPill>
           </div>
         </header>
 
@@ -209,6 +214,9 @@ function App(): React.JSX.Element {
             server={copypartyUrl}
             usbPath={usbPath}
             usbLabel={usbLabel}
+            mountpoints={mountpoints}
+            activeMountPath={usbPath}
+            onSelectMount={setSelectedMountPath}
             burnDrive={burnDrive}
             isVideoDvd={isVideoDvd}
             dataDrive={dataDrive}
