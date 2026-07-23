@@ -139,6 +139,9 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
             open ? 'translate-y-0' : 'translate-y-[105%]'
           } ${dropActive ? 'ring-ink/40 ring-2' : ''}`}
         >
+          {/* Inhaltsfläche: endet über der Hinweiszeile, damit inset-0-Kinder
+              (FileBrowserPane) sie nicht überdecken. */}
+          <div className="absolute inset-x-0 top-0 bottom-7">
           {isVideoDvd && dataDrive ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-6">
               <CompactDisc className="size-16 text-ink-muted" strokeWidth={2} />
@@ -196,11 +199,19 @@ export function DatentauschTray({ server, usbPath, usbLabel, burnDrive, isVideoD
                       </button>
                     </li>
                   ))}
+                  <li className="px-4 py-3 text-center text-ink-muted text-sm border-t border-dashed border-ink/20">
+                    + Weitere Dateien hierher ziehen
+                  </li>
                 </ul>
               )}
 
             </div>
           )}
+          </div>
+
+          <p className="text-meta text-ink-muted absolute inset-x-0 bottom-0 h-7 px-4 text-center leading-7">
+            Das Kopieren von Daten liegt in der Verantwortung der Nutzer:innen. Wenn nötig können Daten gelöscht werden.
+          </p>
         </section>
       </div>
 
