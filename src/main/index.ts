@@ -1,3 +1,4 @@
+import './setup-tmp'
 import { app, shell, BrowserWindow, ipcMain, globalShortcut } from 'electron'
 
 app.commandLine.appendSwitch('force-device-scale-factor', '1.4')
